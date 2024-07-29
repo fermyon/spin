@@ -97,11 +97,11 @@ impl StoreBuilder {
     ///
     /// The `T` parameter must provide access to a [`State`] via `impl
     /// AsMut<State>`.
-    pub fn build<T: AsMut<State>>(self, mut data: T) -> Result<Store<T>> {
-        data.as_mut().store_limits = self.store_limits;
+    pub fn build<T: AsState>(self, mut data: T) -> Result<Store<T>> {
+        data.as_state().store_limits = self.store_limits;
 
         let mut inner = wasmtime::Store::new(&self.engine, data);
-        inner.limiter_async(|data| &mut data.as_mut().store_limits);
+        inner.limiter_async(|data| &mut data.as_state().store_limits);
 
         // With epoch interruption enabled, there must be _some_ deadline set
         // or execution will trap immediately. Since this is a delta, we need
@@ -113,5 +113,18 @@ impl StoreBuilder {
             inner,
             epoch_tick_interval: self.epoch_tick_interval,
         })
+    }
+}
+
+/// For consumers that need to use a type other than [`State`] as the [`Store`]
+/// `data`, this trait must be implemented for that type.
+pub trait AsState {
+    /// Gives access to the inner [`State`].
+    fn as_state(&mut self) -> &mut State;
+}
+
+impl AsState for State {
+    fn as_state(&mut self) -> &mut State {
+        self
     }
 }

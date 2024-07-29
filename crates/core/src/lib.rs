@@ -26,7 +26,7 @@ pub use wasmtime::{
     Instance as ModuleInstance, Module, Trap,
 };
 
-pub use store::{Store, StoreBuilder};
+pub use store::{AsState, Store, StoreBuilder};
 
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);

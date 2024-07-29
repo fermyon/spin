@@ -10,6 +10,20 @@ use statik::StaticVariablesProvider;
 
 use crate::runtime_config::RuntimeConfig;
 
+/// Resolves a runtime configuration for the variables factor from a TOML table.
+pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<Option<RuntimeConfig>> {
+    let Some(array) = table.get("variable_provider") else {
+        return Ok(None);
+    };
+
+    let provider_configs: Vec<VariableProviderConfiguration> = array.clone().try_into()?;
+    let providers = provider_configs
+        .into_iter()
+        .map(VariableProviderConfiguration::into_provider)
+        .collect();
+    Ok(Some(RuntimeConfig { providers }))
+}
+
 /// A runtime configuration used in the Spin CLI for one type of variable provider.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
@@ -32,18 +46,4 @@ impl VariableProviderConfiguration {
             )),
         }
     }
-}
-
-/// Resolves a runtime configuration for the variables factor from a TOML table.
-pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<Option<RuntimeConfig>> {
-    let Some(array) = table.get("variable_provider") else {
-        return Ok(None);
-    };
-
-    let provider_configs: Vec<VariableProviderConfiguration> = array.clone().try_into()?;
-    let providers = provider_configs
-        .into_iter()
-        .map(VariableProviderConfiguration::into_provider)
-        .collect();
-    Ok(Some(RuntimeConfig { providers }))
 }

@@ -13,6 +13,7 @@ spin-world = { path = "../world" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 toml = "0.8"
 tracing = { workspace = true }
+vaultrs = "0.6.2"
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

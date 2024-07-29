@@ -11,31 +11,6 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::async_trait;
 use tracing::{instrument, Level};
 
-use crate::ProviderResolver;
-
-use super::VariableProviderConfiguration;
-
-/// Creator of a environment variables provider.
-pub struct EnvVariables;
-
-impl ProviderResolver for EnvVariables {
-    type RuntimeConfig = VariableProviderConfiguration;
-
-    fn resolve_provider(
-        &self,
-        runtime_config: &Self::RuntimeConfig,
-    ) -> anyhow::Result<Option<Box<dyn Provider>>> {
-        let VariableProviderConfiguration::Env(runtime_config) = runtime_config else {
-            return Ok(None);
-        };
-        Ok(Some(Box::new(EnvVariablesProvider::new(
-            runtime_config.prefix.clone(),
-            |key| std::env::var(key),
-            runtime_config.dotenv_path.clone(),
-        ))))
-    }
-}
-
 /// Configuration for the environment variables provider.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,7 +63,7 @@ impl EnvVariablesProvider {
         let prefix = self
             .prefix
             .clone()
-            .unwrap_or(DEFAULT_ENV_PREFIX.to_string());
+            .unwrap_or_else(|| DEFAULT_ENV_PREFIX.to_string());
 
         let upper_key = key.as_ref().to_ascii_uppercase();
         let env_key = format!("{prefix}_{upper_key}");

@@ -1,9 +1,9 @@
-pub mod provider;
+pub mod runtime_config;
 pub mod spin_cli;
 
 use std::sync::Arc;
 
-use serde::{de::DeserializeOwned, Deserialize};
+use runtime_config::RuntimeConfig;
 use spin_expressions::ProviderResolver as ExpressionResolver;
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InitContext, InstanceBuilders, PrepareContext,
@@ -11,39 +11,19 @@ use spin_factors::{
 };
 use spin_world::{async_trait, v1, v2::variables};
 
-pub use provider::ProviderResolver;
-
 /// A factor for providing variables to components.
-///
-/// The factor is generic over the type of runtime configuration used to configure the providers.
-pub struct VariablesFactor<C> {
-    provider_resolvers: Vec<Box<dyn ProviderResolver<RuntimeConfig = C>>>,
+pub struct VariablesFactor {
+    _priv: (),
 }
 
-impl<C> Default for VariablesFactor<C> {
+impl Default for VariablesFactor {
     fn default() -> Self {
-        Self {
-            provider_resolvers: Default::default(),
-        }
+        Self { _priv: () }
     }
 }
 
-impl<C> VariablesFactor<C> {
-    /// Adds a provider resolver to the factor.
-    ///
-    /// Each added provider will be called in order with the runtime configuration. This order
-    /// will be the order in which the providers are called to resolve variables.
-    pub fn add_provider_resolver<T: ProviderResolver<RuntimeConfig = C>>(
-        &mut self,
-        provider_type: T,
-    ) -> anyhow::Result<()> {
-        self.provider_resolvers.push(Box::new(provider_type));
-        Ok(())
-    }
-}
-
-impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
-    type RuntimeConfig = RuntimeConfig<C>;
+impl Factor for VariablesFactor {
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -68,14 +48,8 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
             )?;
         }
 
-        if let Some(runtime_config) = ctx.take_runtime_config() {
-            for config in runtime_config.provider_configs {
-                for provider_resolver in self.provider_resolvers.iter() {
-                    if let Some(provider) = provider_resolver.resolve_provider(&config)? {
-                        expression_resolver.add_provider(provider);
-                    }
-                }
-            }
+        for provider in ctx.take_runtime_config().unwrap_or_default() {
+            expression_resolver.add_provider(provider);
         }
 
         Ok(AppState {
@@ -95,13 +69,6 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
             expression_resolver,
         })
     }
-}
-
-/// The runtime configuration for the variables factor.
-#[derive(Deserialize)]
-#[serde(transparent)]
-pub struct RuntimeConfig<C> {
-    provider_configs: Vec<C>,
 }
 
 pub struct AppState {

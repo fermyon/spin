@@ -60,7 +60,7 @@ impl Factor for OutboundNetworkingFactor {
             .cloned()
             .context("missing component allowed hosts")?;
         let resolver = builders
-            .get_mut::<VariablesFactor<()>>()?
+            .get_mut::<VariablesFactor>()?
             .expression_resolver()
             .clone();
         let allowed_hosts_future = async move {

@@ -4,7 +4,7 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 use spin_key_value::StoreManager;
 
-/// Defines the construction of a key value store.
+/// Defines the construction of a key value store from a serializable runtime config.
 pub trait MakeKeyValueStore: 'static + Send + Sync {
     /// Unique type identifier for the store.
     const RUNTIME_CONFIG_TYPE: &'static str;

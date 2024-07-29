@@ -1,16 +1,20 @@
-use crate::runtime_config::RuntimeConfigResolver;
-use crate::store::{store_from_toml_fn, MakeKeyValueStore, StoreFromToml};
+use crate::{
+    store::{store_from_toml_fn, MakeKeyValueStore, StoreFromToml},
+    DefaultLabelResolver, RuntimeConfig,
+};
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use spin_key_value::StoreManager;
 use std::{collections::HashMap, sync::Arc};
 
-/// A RuntimeConfigResolver that delegates to the appropriate key-value store
-/// for a given label.
+/// Converts from toml based runtime configuration into a [`RuntimeConfig`].
 ///
-/// The store types are registered with the resolver using `add_store_type`. The
-/// default store for a label is registered using `add_default_store`.
+/// Also acts as [`DefaultLabelResolver`].
+///
+/// The various store types (i.e., the "type" field in the toml field) are registered with the
+/// resolver using `add_store_type`. The default store for a label is registered using `add_default_store`.
 #[derive(Default)]
-pub struct DelegatingRuntimeConfigResolver {
+pub struct RuntimeConfigResolver {
     /// A map of store types to a function that returns the appropriate store
     /// manager from runtime config TOML.
     store_types: HashMap<&'static str, StoreFromToml>,
@@ -18,18 +22,25 @@ pub struct DelegatingRuntimeConfigResolver {
     defaults: HashMap<&'static str, StoreConfig>,
 }
 
-impl DelegatingRuntimeConfigResolver {
-    /// Create a new DelegatingRuntimeConfigResolver.
+impl RuntimeConfigResolver {
+    /// Create a new RuntimeConfigResolver.
     pub fn new() -> Self {
-        Self::default()
+        <Self as Default>::default()
     }
 
+    /// Adds a default store configuration for a label.
+    ///
+    /// Users must ensure that the store type for `config` has been registered with
+    /// the resolver using [`Self::register_store_type`].
     pub fn add_default_store(&mut self, label: &'static str, config: StoreConfig) {
         self.defaults.insert(label, config);
     }
 
-    /// Adds a store type to the resolver.
-    pub fn add_store_type<T: MakeKeyValueStore>(&mut self, store_type: T) -> anyhow::Result<()> {
+    /// Registers a store type to the resolver.
+    pub fn register_store_type<T: MakeKeyValueStore>(
+        &mut self,
+        store_type: T,
+    ) -> anyhow::Result<()> {
         if self
             .store_types
             .insert(T::RUNTIME_CONFIG_TYPE, store_from_toml_fn(store_type))
@@ -42,26 +53,49 @@ impl DelegatingRuntimeConfigResolver {
         }
         Ok(())
     }
-}
 
-impl RuntimeConfigResolver for DelegatingRuntimeConfigResolver {
-    type Config = StoreConfig;
-
-    fn get_store(&self, config: StoreConfig) -> anyhow::Result<Arc<dyn StoreManager>> {
-        let store_kind = config.type_.as_str();
-        let store_from_toml = self
-            .store_types
-            .get(store_kind)
-            .ok_or_else(|| anyhow::anyhow!("unknown store kind: {}", store_kind))?;
-        store_from_toml(config.config)
+    /// Resolves a toml table into a runtime config.
+    pub fn resolve_from_toml(
+        &self,
+        table: &Option<toml::Table>,
+    ) -> anyhow::Result<Option<RuntimeConfig>> {
+        let Some(table) = table.as_ref().and_then(|t| t.get("key_value_store")) else {
+            return Ok(None);
+        };
+        let mut store_configs = HashMap::new();
+        for (label, config) in table
+            .as_table()
+            .context("expected a 'key_value_store' to contain toml table")?
+        {
+            let config: StoreConfig = config.clone().try_into()?;
+            let store_manager = self.store_manager_from_config(config)?;
+            store_configs.insert(label.clone(), store_manager);
+        }
+        Ok(Some(RuntimeConfig {
+            store_managers: store_configs,
+        }))
     }
 
-    /// Get the default store manager for the given label.
+    /// Given a [`StoreConfig`], returns a store manager.
     ///
-    /// Returns None if no default store is registered for the label.
-    fn default_store(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
+    /// Errors if there is no [`MakeKeyValueStore`] registered for the store config's type
+    /// or if the store manager cannot be created from the config.
+    fn store_manager_from_config(
+        &self,
+        config: StoreConfig,
+    ) -> anyhow::Result<Arc<dyn StoreManager>> {
+        let config_type = config.type_.as_str();
+        let maker = self.store_types.get(config_type).with_context(|| {
+            format!("the store type '{config_type}' was not registered with the config resolver")
+        })?;
+        maker(config.config)
+    }
+}
+
+impl DefaultLabelResolver for RuntimeConfigResolver {
+    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
         let config = self.defaults.get(label)?;
-        self.get_store(config.clone()).ok()
+        Some(self.store_manager_from_config(config.clone()).unwrap())
     }
 }
 

@@ -44,7 +44,7 @@ pub trait RuntimeFactors: Sized + 'static {
     ///
     /// Each factor's `init` is called in turn. Must be called once before
     /// [`RuntimeFactors::prepare`].
-    fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
+    fn init<T: AsInstanceState<Self::InstanceState> + Send + 'static>(
         &mut self,
         linker: &mut Linker<T>,
     ) -> crate::Result<()>;
@@ -84,7 +84,7 @@ pub trait RuntimeFactors: Sized + 'static {
 /// Get the state of a particular Factor from the overall InstanceState
 ///
 /// Implemented by `#[derive(RuntimeFactors)]`
-pub trait RuntimeFactorsInstanceState: AsMut<Self> + Send + 'static {
+pub trait RuntimeFactorsInstanceState: AsInstanceState<Self> + Send + 'static {
     fn get_with_table<F: Factor>(
         &mut self,
     ) -> Option<(&mut FactorInstanceState<F>, &mut ResourceTable)>;
@@ -96,4 +96,8 @@ pub trait RuntimeFactorsInstanceState: AsMut<Self> + Send + 'static {
     fn table(&self) -> &ResourceTable;
 
     fn table_mut(&mut self) -> &mut ResourceTable;
+}
+
+pub trait AsInstanceState<T: RuntimeFactorsInstanceState + ?Sized> {
+    fn as_instance_state(&mut self) -> &mut T;
 }

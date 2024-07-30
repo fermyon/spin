@@ -11,10 +11,7 @@ use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::{
-    spin_cli::{StaticVariables, VariableProviderConfiguration},
-    VariablesFactor,
-};
+use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{
     Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
@@ -24,7 +21,7 @@ use wasmtime_wasi_http::WasiHttpView;
 #[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
-    variables: VariablesFactor<VariableProviderConfiguration>,
+    variables: VariablesFactor,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
     key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
@@ -65,8 +62,6 @@ async fn smoke_test_works() -> anyhow::Result<()> {
         outbound_http: OutboundHttpFactor,
         key_value: KeyValueFactor::new(key_value_resolver),
     };
-
-    factors.variables.add_provider_resolver(StaticVariables)?;
 
     let locked = spin_loader::from_file(
         "tests/smoke-app/spin.toml",
@@ -169,21 +164,17 @@ impl FactorRuntimeConfigSource<KeyValueFactor<DelegatingRuntimeConfigResolver>> 
     }
 }
 
-impl FactorRuntimeConfigSource<VariablesFactor<VariableProviderConfiguration>> for TestSource {
+impl FactorRuntimeConfigSource<VariablesFactor> for TestSource {
     fn get_runtime_config(
         &mut self,
-    ) -> anyhow::Result<
-        Option<<VariablesFactor<VariableProviderConfiguration> as Factor>::RuntimeConfig>,
-    > {
-        let config = toml::toml! {
+    ) -> anyhow::Result<Option<<VariablesFactor as Factor>::RuntimeConfig>> {
+        spin_factor_variables::spin_cli::runtime_config_from_toml(&toml::toml! {
             [[variable_provider]]
             type = "static"
             [variable_provider.values]
             foo = "bar"
-        }
-        .remove("variable_provider")
-        .unwrap();
-        Ok(Some(config.try_into()?))
+        })
+        .map(Some)
     }
 }
 

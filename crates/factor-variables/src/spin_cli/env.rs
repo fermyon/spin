@@ -11,31 +11,6 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::async_trait;
 use tracing::{instrument, Level};
 
-use crate::ProviderResolver;
-
-use super::VariableProviderConfiguration;
-
-/// Creator of a environment variables provider.
-pub struct EnvVariables;
-
-impl ProviderResolver for EnvVariables {
-    type RuntimeConfig = VariableProviderConfiguration;
-
-    fn resolve_provider(
-        &self,
-        runtime_config: &Self::RuntimeConfig,
-    ) -> anyhow::Result<Option<Box<dyn Provider>>> {
-        let VariableProviderConfiguration::Env(runtime_config) = runtime_config else {
-            return Ok(None);
-        };
-        Ok(Some(Box::new(EnvVariablesProvider::new(
-            runtime_config.prefix.clone(),
-            |key| std::env::var(key),
-            runtime_config.dotenv_path.clone(),
-        ))))
-    }
-}
-
 /// Configuration for the environment variables provider.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -54,7 +29,7 @@ const DEFAULT_ENV_PREFIX: &str = "SPIN_VARIABLE";
 
 type EnvFetcherFn = Box<dyn Fn(&str) -> Result<String, VarError> + Send + Sync>;
 
-/// A config Provider that uses environment variables.
+/// A [`Provider`] that uses environment variables.
 pub struct EnvVariablesProvider {
     prefix: Option<String>,
     env_fetcher: EnvFetcherFn,
@@ -62,14 +37,25 @@ pub struct EnvVariablesProvider {
     dotenv_cache: OnceLock<HashMap<String, String>>,
 }
 
+impl Default for EnvVariablesProvider {
+    fn default() -> Self {
+        Self {
+            prefix: None,
+            env_fetcher: Box::new(|s| std::env::var(s)),
+            dotenv_path: Some(".env".into()),
+            dotenv_cache: Default::default(),
+        }
+    }
+}
+
 impl EnvVariablesProvider {
     /// Creates a new EnvProvider.
     ///
     /// * `prefix` - The string prefix to use to distinguish an environment variable that should be used.
-    /// If not set, the default prefix is used.
+    ///    If not set, the default prefix is used.
     /// * `env_fetcher` - The function to use to fetch an environment variable.
     /// * `dotenv_path` - The path to the .env file to load environment variables from. If not set,
-    /// no .env file is loaded.
+    ///    no .env file is loaded.
     pub fn new(
         prefix: Option<impl Into<String>>,
         env_fetcher: impl Fn(&str) -> Result<String, VarError> + Send + Sync + 'static,
@@ -88,7 +74,7 @@ impl EnvVariablesProvider {
         let prefix = self
             .prefix
             .clone()
-            .unwrap_or(DEFAULT_ENV_PREFIX.to_string());
+            .unwrap_or_else(|| DEFAULT_ENV_PREFIX.to_string());
 
         let upper_key = key.as_ref().to_ascii_uppercase();
         let env_key = format!("{prefix}_{upper_key}");

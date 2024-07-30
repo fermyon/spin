@@ -1,7 +1,4 @@
-use spin_factor_variables::spin_cli::{
-    EnvVariables, StaticVariables, VariableProviderConfiguration,
-};
-use spin_factor_variables::VariablesFactor;
+use spin_factor_variables::{spin_cli, VariablesFactor};
 use spin_factors::{
     anyhow, Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
 };
@@ -10,18 +7,14 @@ use spin_world::v2::variables::Host;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    variables: VariablesFactor<VariableProviderConfiguration>,
+    variables: VariablesFactor,
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn static_provider_works() -> anyhow::Result<()> {
-    let mut factors = TestFactors {
+    let factors = TestFactors {
         variables: VariablesFactor::default(),
     };
-    factors.variables.add_provider_resolver(StaticVariables)?;
-    // The env provider will be ignored since there's no configuration for it.
-    factors.variables.add_provider_resolver(EnvVariables)?;
-
     let env = TestEnvironment::new(factors)
         .extend_manifest(toml! {
             [variables]
@@ -31,7 +24,7 @@ async fn static_provider_works() -> anyhow::Result<()> {
             source = "does-not-exist.wasm"
             variables = { baz = "<{{ foo }}>" }
         })
-        .runtime_config(TomlConfig(toml! {
+        .runtime_config(TomlConfig::new(toml! {
             [[variable_provider]]
             type = "static"
             values = { foo = "bar" }
@@ -43,7 +36,15 @@ async fn static_provider_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-struct TomlConfig(toml::Table);
+struct TomlConfig {
+    table: toml::Table,
+}
+
+impl TomlConfig {
+    fn new(table: toml::Table) -> Self {
+        Self { table }
+    }
+}
 
 impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
     type Error = anyhow::Error;
@@ -53,16 +54,11 @@ impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
     }
 }
 
-impl FactorRuntimeConfigSource<VariablesFactor<VariableProviderConfiguration>> for TomlConfig {
+impl FactorRuntimeConfigSource<VariablesFactor> for TomlConfig {
     fn get_runtime_config(
         &mut self,
-    ) -> anyhow::Result<
-        Option<<VariablesFactor<VariableProviderConfiguration> as Factor>::RuntimeConfig>,
-    > {
-        let Some(table) = self.0.get("variable_provider") else {
-            return Ok(None);
-        };
-        Ok(Some(table.clone().try_into()?))
+    ) -> anyhow::Result<Option<<VariablesFactor as Factor>::RuntimeConfig>> {
+        spin_cli::runtime_config_from_toml(&self.table).map(Some)
     }
 }
 

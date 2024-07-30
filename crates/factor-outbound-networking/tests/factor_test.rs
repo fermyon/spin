@@ -1,5 +1,5 @@
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::spin_cli::VariablesFactor;
+use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};

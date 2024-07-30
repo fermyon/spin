@@ -8,7 +8,14 @@ use spin_key_value::StoreManager;
 #[derive(Default)]
 pub struct RuntimeConfig {
     /// Map of store names to store managers.
-    pub store_managers: HashMap<String, Arc<dyn StoreManager>>,
+    store_managers: HashMap<String, Arc<dyn StoreManager>>,
+}
+
+impl RuntimeConfig {
+    /// Adds a store manager for the store with the given label to the runtime configuration.
+    pub fn add_store_manager(&mut self, label: String, store_manager: Arc<dyn StoreManager>) {
+        self.store_managers.insert(label, store_manager);
+    }
 }
 
 impl IntoIterator for RuntimeConfig {

@@ -25,7 +25,7 @@ pub struct KeyValueFactor {
 impl KeyValueFactor {
     /// Create a new KeyValueFactor.  
     ///  
-    /// The `default_label_resolver` is used to resolver store managers for labels that
+    /// The `default_label_resolver` is used to resolve store managers for labels that
     /// are not defined in the runtime configuration.
     pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
         Self {

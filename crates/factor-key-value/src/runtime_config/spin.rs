@@ -92,18 +92,14 @@ impl RuntimeConfigResolver {
         let Some(table) = table.as_ref().and_then(|t| t.get("key_value_store")) else {
             return Ok(None);
         };
-        let mut store_configs = HashMap::new();
-        for (label, config) in table
-            .as_table()
-            .context("expected a 'key_value_store' to contain toml table")?
-        {
-            let config: StoreConfig = config.clone().try_into()?;
+        let table: HashMap<String, StoreConfig> = table.clone().try_into()?;
+
+        let mut runtime_config = RuntimeConfig::default();
+        for (label, config) in table {
             let store_manager = self.store_manager_from_config(config)?;
-            store_configs.insert(label.clone(), store_manager);
+            runtime_config.add_store_manager(label.clone(), store_manager);
         }
-        Ok(Some(RuntimeConfig {
-            store_managers: store_configs,
-        }))
+        Ok(Some(runtime_config))
     }
 
     /// Given a [`StoreConfig`], returns a store manager.

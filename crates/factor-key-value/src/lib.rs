@@ -1,7 +1,4 @@
-pub mod delegating_resolver;
-mod runtime_config;
-mod store;
-pub use delegating_resolver::{DelegatingRuntimeConfigResolver, StoreConfig};
+pub mod runtime_config;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -9,7 +6,6 @@ use std::{
 };
 
 use anyhow::ensure;
-use runtime_config::{RuntimeConfig, RuntimeConfigResolver};
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
@@ -18,27 +14,28 @@ use spin_key_value::{
     CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch,
     StoreManager, KEY_VALUE_STORES_KEY,
 };
-pub use store::MakeKeyValueStore;
+
+pub use runtime_config::RuntimeConfig;
 
 /// A factor that provides key-value storage.
-pub struct KeyValueFactor<R> {
-    /// Resolves runtime configuration into store managers.
-    runtime_config_resolver: Arc<R>,
+pub struct KeyValueFactor {
+    default_label_resolver: Arc<dyn DefaultLabelResolver>,
 }
 
-impl<R> KeyValueFactor<R> {
+impl KeyValueFactor {
     /// Create a new KeyValueFactor.  
     ///  
-    /// The `runtime_config_resolver` is used to resolve runtime configuration into store managers.
-    pub fn new(runtime_config_resolver: R) -> Self {
+    /// The `default_label_resolver` is used to resolve store managers for labels that
+    /// are not defined in the runtime configuration.
+    pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
         Self {
-            runtime_config_resolver: Arc::new(runtime_config_resolver),
+            default_label_resolver: Arc::new(default_label_resolver),
         }
     }
 }
 
-impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
-    type RuntimeConfig = RuntimeConfig<R::Config>;
+impl Factor for KeyValueFactor {
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceBuilder;
 
@@ -52,23 +49,10 @@ impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
         &self,
         mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
-        // Build store manager from runtime config
-        let mut store_managers: HashMap<String, Arc<dyn StoreManager>> = HashMap::new();
-        if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (store_label, config) in runtime_config.store_configs {
-                if let std::collections::hash_map::Entry::Vacant(e) =
-                    store_managers.entry(store_label)
-                {
-                    // Only add manager for labels that are not already configured. Runtime config
-                    // takes top-down precedence.
-                    let store = self.runtime_config_resolver.get_store(config)?;
-                    e.insert(store);
-                }
-            }
-        }
-        let resolver_clone = self.runtime_config_resolver.clone();
+        let store_managers = ctx.take_runtime_config().unwrap_or_default();
+        let default_label_resolver = self.default_label_resolver.clone();
         let default_fn: DefaultManagerGetter =
-            Arc::new(move |label| resolver_clone.default_store(label));
+            Arc::new(move |label| default_label_resolver.default(label));
 
         let delegating_manager = DelegatingStoreManager::new(store_managers, default_fn);
         let caching_manager = CachingStoreManager::new(delegating_manager);
@@ -87,7 +71,7 @@ impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
                 // TODO: port nicer errors from KeyValueComponent (via error type?)
                 ensure!(
                     store_manager_manager.is_defined(label)
-                        || self.runtime_config_resolver.default_store(label).is_some(),
+                        || self.default_label_resolver.default(label).is_some(),
                     "unknown key_value_stores label {label:?} for component {component_id:?}"
                 );
             }
@@ -157,5 +141,19 @@ impl FactorInstanceBuilder for InstanceBuilder {
         let mut dispatch = KeyValueDispatch::new_with_capacity(u32::MAX);
         dispatch.init(allowed_stores, store_manager);
         Ok(dispatch)
+    }
+}
+
+/// Resolves a label to a default [`StoreManager`].
+pub trait DefaultLabelResolver: Send + Sync {
+    /// If there is no runtime configuration for a given store label, return a default store manager.
+    ///
+    /// If `Option::None` is returned, the store is not allowed.
+    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>>;
+}
+
+impl<T: DefaultLabelResolver> DefaultLabelResolver for Arc<T> {
+    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
+        self.as_ref().default(label)
     }
 }

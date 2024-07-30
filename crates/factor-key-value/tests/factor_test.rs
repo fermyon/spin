@@ -1,24 +1,22 @@
 use anyhow::Context;
 use spin_factor_key_value::{
-    DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore, StoreConfig,
+    runtime_config::spin::{MakeKeyValueStore, RuntimeConfigResolver, StoreConfig},
+    KeyValueFactor, RuntimeConfig,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
-use spin_factors::{
-    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
-};
+use spin_factors::{FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
+    key_value: KeyValueFactor,
 }
 
-fn default_key_value_resolver(
-) -> anyhow::Result<(DelegatingRuntimeConfigResolver, tempdir::TempDir)> {
-    let mut test_resolver = DelegatingRuntimeConfigResolver::new();
-    test_resolver.add_store_type(SpinKeyValueStore::new(
+fn default_key_value_resolver() -> anyhow::Result<(RuntimeConfigResolver, tempdir::TempDir)> {
+    let mut test_resolver = RuntimeConfigResolver::new();
+    test_resolver.register_store_type(SpinKeyValueStore::new(
         std::env::current_dir().context("failed to get current directory")?,
     ))?;
     let tmp_dir = tempdir::TempDir::new("example")?;
@@ -59,12 +57,13 @@ async fn run_test_with_config_and_stores_for_label(
     store_types: Vec<impl MakeKeyValueStore>,
     labels: Vec<&str>,
 ) -> anyhow::Result<()> {
-    let mut test_resolver = DelegatingRuntimeConfigResolver::new();
+    let mut test_resolver = RuntimeConfigResolver::new();
     for store_type in store_types {
-        test_resolver.add_store_type(store_type)?;
+        test_resolver.register_store_type(store_type)?;
     }
+    let test_resolver = Arc::new(test_resolver);
     let factors = TestFactors {
-        key_value: KeyValueFactor::new(test_resolver),
+        key_value: KeyValueFactor::new(test_resolver.clone()),
     };
     let labels_clone = labels.clone();
     let env = TestEnvironment::new(factors)
@@ -73,7 +72,7 @@ async fn run_test_with_config_and_stores_for_label(
             source = "does-not-exist.wasm"
             key_value_stores = labels_clone
         })
-        .runtime_config(TomlConfig(runtime_config))?;
+        .runtime_config(TomlConfig::new(test_resolver, runtime_config))?;
     let state = env.build_instance_state().await?;
     assert_eq!(
         labels,
@@ -192,11 +191,12 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
 #[tokio::test]
 async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     let tmp_dir = tempdir::TempDir::new("example")?;
-    let mut test_resolver = DelegatingRuntimeConfigResolver::new();
-    test_resolver.add_store_type(RedisKeyValueStore)?;
-    test_resolver.add_store_type(SpinKeyValueStore::new(tmp_dir.path().to_owned()))?;
+    let mut test_resolver = RuntimeConfigResolver::new();
+    test_resolver.register_store_type(RedisKeyValueStore)?;
+    test_resolver.register_store_type(SpinKeyValueStore::new(tmp_dir.path().to_owned()))?;
+    let test_resolver = Arc::new(test_resolver);
     let factors = TestFactors {
-        key_value: KeyValueFactor::new(test_resolver),
+        key_value: KeyValueFactor::new(test_resolver.clone()),
     };
     let env = TestEnvironment::new(factors)
         .extend_manifest(toml! {
@@ -204,15 +204,18 @@ async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
             source = "does-not-exist.wasm"
             key_value_stores = ["custom"]
         })
-        .runtime_config(TomlConfig(Some(toml::toml! {
-            [key_value_store.custom]
-            type = "spin"
-            path = "custom.db"
+        .runtime_config(TomlConfig::new(
+            test_resolver,
+            Some(toml::toml! {
+                [key_value_store.custom]
+                type = "spin"
+                path = "custom.db"
 
-            [key_value_store.custom]
-            type = "redis"
-            url = "redis://localhost:6379"
-        })))?;
+                [key_value_store.custom]
+                type = "redis"
+                url = "redis://localhost:6379"
+            }),
+        ))?;
     let state = env.build_instance_state().await?;
 
     assert_eq!(
@@ -224,7 +227,16 @@ async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     Ok(())
 }
 
-struct TomlConfig(Option<toml::Table>);
+struct TomlConfig {
+    resolver: Arc<RuntimeConfigResolver>,
+    toml: Option<toml::Table>,
+}
+
+impl TomlConfig {
+    fn new(resolver: Arc<RuntimeConfigResolver>, toml: Option<toml::Table>) -> Self {
+        Self { resolver, toml }
+    }
+}
 
 impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
     type Error = anyhow::Error;
@@ -234,16 +246,9 @@ impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
     }
 }
 
-impl FactorRuntimeConfigSource<KeyValueFactor<DelegatingRuntimeConfigResolver>> for TomlConfig {
-    fn get_runtime_config(
-        &mut self,
-    ) -> anyhow::Result<
-        Option<<KeyValueFactor<DelegatingRuntimeConfigResolver> as Factor>::RuntimeConfig>,
-    > {
-        let Some(table) = self.0.as_ref().and_then(|t| t.get("key_value_store")) else {
-            return Ok(None);
-        };
-        Ok(Some(table.clone().try_into()?))
+impl FactorRuntimeConfigSource<KeyValueFactor> for TomlConfig {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<RuntimeConfig>> {
+        self.resolver.resolve_from_toml(&self.toml)
     }
 }
 

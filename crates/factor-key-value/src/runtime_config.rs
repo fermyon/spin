@@ -1,28 +1,28 @@
+pub mod spin;
+
 use std::{collections::HashMap, sync::Arc};
 
-use serde::{de::DeserializeOwned, Deserialize};
-use spin_factors::anyhow;
 use spin_key_value::StoreManager;
 
 /// Runtime configuration for all key value stores.
-#[derive(Deserialize)]
-#[serde(transparent)]
-pub struct RuntimeConfig<C> {
-    /// Map of store names to store configurations.
-    pub store_configs: HashMap<String, C>,
+#[derive(Default)]
+pub struct RuntimeConfig {
+    /// Map of store names to store managers.
+    store_managers: HashMap<String, Arc<dyn StoreManager>>,
 }
 
-/// Resolves some piece of runtime configuration to a key value store manager.
-pub trait RuntimeConfigResolver: Send + Sync {
-    /// The type of configuration that this resolver can handle.
-    type Config: DeserializeOwned;
+impl RuntimeConfig {
+    /// Adds a store manager for the store with the given label to the runtime configuration.
+    pub fn add_store_manager(&mut self, label: String, store_manager: Arc<dyn StoreManager>) {
+        self.store_managers.insert(label, store_manager);
+    }
+}
 
-    /// Get a store manager for a given config.
-    fn get_store(&self, config: Self::Config) -> anyhow::Result<Arc<dyn StoreManager>>;
+impl IntoIterator for RuntimeConfig {
+    type Item = (String, Arc<dyn StoreManager>);
+    type IntoIter = std::collections::hash_map::IntoIter<String, Arc<dyn StoreManager>>;
 
-    /// Returns a default store manager for a given label. Should only be called
-    /// if there is no runtime configuration for the label.
-    ///
-    /// If `Option::None` is returned, the database is not allowed.
-    fn default_store(&self, label: &str) -> Option<Arc<dyn StoreManager>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.store_managers.into_iter()
+    }
 }

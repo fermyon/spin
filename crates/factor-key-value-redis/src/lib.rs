@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use spin_factor_key_value::MakeKeyValueStore;
+use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
 use spin_key_value_redis::KeyValueRedis;
 
 /// A key-value store that uses Redis as the backend.

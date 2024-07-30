@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use http_body_util::BodyExt;
 use spin_app::App;
 use spin_factor_key_value::{
-    delegating_resolver::{DelegatingRuntimeConfigResolver, StoreConfig},
-    KeyValueFactor, MakeKeyValueStore,
+    runtime_config::spin::{MakeKeyValueStore, RuntimeConfigResolver, StoreConfig},
+    KeyValueFactor,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
@@ -24,7 +24,7 @@ struct Factors {
     variables: VariablesFactor,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
-    key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
+    key_value: KeyValueFactor,
 }
 
 struct Data {
@@ -40,7 +40,7 @@ impl AsMut<FactorsInstanceState> for Data {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
-    let mut key_value_resolver = DelegatingRuntimeConfigResolver::default();
+    let mut key_value_resolver = RuntimeConfigResolver::default();
     let default_config =
         SpinKeyValueRuntimeConfig::default(Some(PathBuf::from("tests/smoke-app/.spin")));
     key_value_resolver.add_default_store(
@@ -50,17 +50,18 @@ async fn smoke_test_works() -> anyhow::Result<()> {
             config: toml::value::Table::try_from(default_config)?,
         },
     );
-    key_value_resolver.add_store_type(SpinKeyValueStore::new(
+    key_value_resolver.register_store_type(SpinKeyValueStore::new(
         std::env::current_dir().context("failed to get current directory")?,
     ))?;
-    key_value_resolver.add_store_type(RedisKeyValueStore)?;
+    key_value_resolver.register_store_type(RedisKeyValueStore)?;
+    let key_value_resolver = Arc::new(key_value_resolver);
 
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
         outbound_networking: OutboundNetworkingFactor,
         outbound_http: OutboundHttpFactor,
-        key_value: KeyValueFactor::new(key_value_resolver),
+        key_value: KeyValueFactor::new(key_value_resolver.clone()),
     };
 
     let locked = spin_loader::from_file(
@@ -76,7 +77,8 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
     factors.init(&mut linker)?;
 
-    let configured_app = factors.configure_app(app, TestSource.try_into()?)?;
+    let source = TestSource { key_value_resolver };
+    let configured_app = factors.configure_app(app, source.try_into()?)?;
     let builders = factors.prepare(&configured_app, "smoke-app")?;
     let state = factors.build_instance_state(builders)?;
 
@@ -138,7 +140,9 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-struct TestSource;
+struct TestSource {
+    key_value_resolver: Arc<RuntimeConfigResolver>,
+}
 
 impl TryFrom<TestSource> for FactorsRuntimeConfig {
     type Error = anyhow::Error;
@@ -148,19 +152,16 @@ impl TryFrom<TestSource> for FactorsRuntimeConfig {
     }
 }
 
-impl FactorRuntimeConfigSource<KeyValueFactor<DelegatingRuntimeConfigResolver>> for TestSource {
+impl FactorRuntimeConfigSource<KeyValueFactor> for TestSource {
     fn get_runtime_config(
         &mut self,
-    ) -> anyhow::Result<
-        Option<<KeyValueFactor<DelegatingRuntimeConfigResolver> as Factor>::RuntimeConfig>,
-    > {
+    ) -> anyhow::Result<Option<<KeyValueFactor as Factor>::RuntimeConfig>> {
         let config = toml::toml! {
             [other]
             type = "redis"
             url = "redis://localhost:6379"
         };
-
-        Ok(Some(config.try_into()?))
+        self.key_value_resolver.resolve_from_toml(&Some(config))
     }
 }
 

@@ -16,13 +16,12 @@ use std::{path::PathBuf, time::Duration};
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::instrument;
-use wasmtime::component::{InstancePre, Linker};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 
 pub use async_trait::async_trait;
 pub use wasmtime::{
     self,
-    component::{Component, Instance},
+    component::{Component, Instance, InstancePre, Linker},
     Instance as ModuleInstance, Module, Trap,
 };
 

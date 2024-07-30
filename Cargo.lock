@@ -7777,6 +7777,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factors-executor"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "spin-app",
+ "spin-core",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-factors-test",
+ "tokio",
+]
+
+[[package]]
 name = "spin-factors-test"
 version = "2.7.0-pre0"
 dependencies = [

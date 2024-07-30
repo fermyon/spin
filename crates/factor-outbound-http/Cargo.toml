@@ -7,12 +7,19 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 http = "1.1.0"
+hyper = { workspace = true }
+hyper-util = { version = "0.1.2", features = ["tokio"] }
+rustls = { version = "0.22.4" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
+spin-http = { path = "../http" }
 spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
+tokio = { version = "1.23", features = ["full"] }
+tokio-rustls = { version = "0.25.0" }
 tracing = { workspace = true }
 wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
 
 [dev-dependencies]

@@ -51,6 +51,14 @@ impl Factor for OutboundHttpFactor {
 pub struct InstanceState {
     allowed_hosts: OutboundAllowedHosts,
     wasi_http_ctx: WasiHttpCtx,
+    data: Data,
+}
+
+struct Data {
+    allowed_hosts: spin_factor_outbound_networking::OutboundAllowedHosts,
+    origin: Option<String>,
+    client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
+    // chained_handler: Option<ChainedHandler>,
 }
 
 impl SelfInstanceBuilder for InstanceState {}

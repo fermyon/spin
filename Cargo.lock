@@ -7646,15 +7646,21 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
+ "hyper 1.2.0",
+ "hyper-util",
+ "rustls 0.22.4",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-http",
  "spin-telemetry",
  "spin-world",
  "tokio",
+ "tokio-rustls 0.25.0",
  "tracing",
  "wasmtime",
+ "wasmtime-wasi",
  "wasmtime-wasi-http",
 ]
 

@@ -7650,6 +7650,7 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-telemetry",
  "spin-world",
  "tokio",
  "tracing",

@@ -9,6 +9,7 @@ anyhow = "1.0"
 http = "1.1.0"
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
+spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }
 wasmtime = { workspace = true }

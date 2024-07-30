@@ -61,9 +61,10 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
 
     fn send_request(
         &mut self,
-        _request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
+        mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
         _config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
+        spin_telemetry::inject_trace_context(&mut request);
         // TODO: port implementation from spin-trigger-http
         Err(ErrorCode::HttpRequestDenied.into())
     }

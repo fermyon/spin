@@ -1,0 +1,23 @@
+[package]
+name = "spin-factors-executor"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
+spin-factors = { path = "../factors" }
+
+[dev-dependencies]
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints]
+workspace = true

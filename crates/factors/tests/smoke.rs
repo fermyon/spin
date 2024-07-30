@@ -14,7 +14,8 @@ use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{
-    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
+    AsInstanceState, Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
+    RuntimeFactors,
 };
 use wasmtime_wasi_http::WasiHttpView;
 
@@ -32,8 +33,8 @@ struct Data {
     _other_data: usize,
 }
 
-impl AsMut<FactorsInstanceState> for Data {
-    fn as_mut(&mut self) -> &mut FactorsInstanceState {
+impl AsInstanceState<FactorsInstanceState> for Data {
+    fn as_instance_state(&mut self) -> &mut FactorsInstanceState {
         &mut self.factors_instance_state
     }
 }
@@ -116,7 +117,8 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();
-    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(store.data_mut().as_mut()).unwrap();
+    let mut wasi_http =
+        OutboundHttpFactor::get_wasi_http_impl(store.data_mut().as_instance_state()).unwrap();
     let request = wasi_http.new_incoming_request(req)?;
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
     let response = wasi_http.new_response_outparam(response_tx)?;

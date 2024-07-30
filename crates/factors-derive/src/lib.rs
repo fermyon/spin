@@ -78,7 +78,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             type InstanceState = #state_name;
             type RuntimeConfig = #runtime_config_name;
 
-            fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
+            fn init<T: #factors_path::AsInstanceState<Self::InstanceState> + Send + 'static>(
                 &mut self,
                 linker: &mut #wasmtime::component::Linker<T>,
             ) -> #Result<()> {
@@ -98,9 +98,9 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         &mut self.#factor_names,
                         #factors_path::InitContext::<T, #factor_types>::new(
                             linker,
-                            |data| &mut data.as_mut().#factor_names,
+                            |data| &mut data.as_instance_state().#factor_names,
                             |data| {
-                                let state = data.as_mut();
+                                let state = data.as_instance_state();
                                 (&mut state.#factor_names, &mut state.__table)
                             },
                         )
@@ -239,8 +239,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        impl AsMut<#state_name> for #state_name {
-            fn as_mut(&mut self) -> &mut Self {
+        impl #factors_path::AsInstanceState<#state_name> for #state_name {
+            fn as_instance_state(&mut self) -> &mut Self {
                 self
             }
         }

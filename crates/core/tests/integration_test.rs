@@ -5,9 +5,9 @@ use std::{
 
 use anyhow::Context;
 use serde_json::json;
-use spin_core::{Component, Config, Engine, State, Store, StoreBuilder, Trap};
+use spin_core::{AsState, Component, Config, Engine, State, Store, StoreBuilder, Trap};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
-use spin_factors::{App, RuntimeFactors};
+use spin_factors::{App, AsInstanceState, RuntimeFactors};
 use spin_locked_app::locked::LockedApp;
 use tokio::{fs, io::AsyncWrite};
 use wasmtime_wasi::I32Exit;
@@ -93,14 +93,14 @@ struct TestState {
     factors: TestFactorsInstanceState,
 }
 
-impl AsMut<State> for TestState {
-    fn as_mut(&mut self) -> &mut State {
+impl AsState for TestState {
+    fn as_state(&mut self) -> &mut State {
         &mut self.core
     }
 }
 
-impl AsMut<TestFactorsInstanceState> for TestState {
-    fn as_mut(&mut self) -> &mut TestFactorsInstanceState {
+impl AsInstanceState<TestFactorsInstanceState> for TestState {
+    fn as_instance_state(&mut self) -> &mut TestFactorsInstanceState {
         &mut self.factors
     }
 }

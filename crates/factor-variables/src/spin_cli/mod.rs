@@ -2,9 +2,11 @@
 
 mod env;
 mod statik;
+mod vault;
 
 pub use env::*;
 pub use statik::*;
+pub use vault::*;
 
 use serde::Deserialize;
 use spin_expressions::Provider;
@@ -35,6 +37,8 @@ pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeCo
 pub enum VariableProviderConfiguration {
     /// A static provider of variables.
     Static(StaticVariablesProvider),
+    /// A provider that uses HashiCorp Vault.
+    Vault(VaultVariablesProvider),
     /// An environment variable provider.
     Env(EnvVariablesConfig),
 }
@@ -49,6 +53,7 @@ impl VariableProviderConfiguration {
                 |s| std::env::var(s),
                 config.dotenv_path,
             )),
+            VariableProviderConfiguration::Vault(provider) => Box::new(provider),
         }
     }
 }

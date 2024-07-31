@@ -1,6 +1,6 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use spin_serde::{DependencyName, FixedVersion, LowerSnakeId};
+use spin_serde::{DependencyName, DependencyPackageName, FixedVersion, LowerSnakeId};
 pub use spin_serde::{KebabId, SnakeId};
 use std::path::PathBuf;
 
@@ -216,8 +216,27 @@ impl ComponentDependencies {
     /// component section of the manifest. See the documentation on the methods
     /// called for more information on the specific checks.
     fn validate(&self) -> anyhow::Result<()> {
+        self.ensure_plain_names_have_package()?;
         self.ensure_package_names_no_export()?;
         self.ensure_disjoint()?;
+        Ok(())
+    }
+
+    /// This method ensures that all dependency names in plain form (e.g.
+    /// "foo-bar") do not map to a `ComponentDependency::Version`, or a
+    /// `ComponentDependency::Package` where the `package` is `None`.
+    fn ensure_plain_names_have_package(&self) -> anyhow::Result<()> {
+        for (dependency_name, dependency) in self.inner.iter() {
+            let DependencyName::Plain(plain) = dependency_name else {
+                continue;
+            };
+            match dependency {
+                ComponentDependency::Package { package, .. } if package.is_none() => {}
+                ComponentDependency::Version(_) => {}
+                _ => continue,
+            }
+            anyhow::bail!("dependency `{plain}` must specify a package name");
+        }
         Ok(())
     }
 
@@ -226,17 +245,19 @@ impl ComponentDependencies {
     /// interfaces, e.g. `"foo:bar = { ..., export = "my-export" }"` is invalid.
     fn ensure_package_names_no_export(&self) -> anyhow::Result<()> {
         for (dependency_name, dependency) in self.inner.iter() {
-            if dependency_name.interface.is_none() {
-                let export = match dependency {
-                    ComponentDependency::Package { export, .. } => export,
-                    ComponentDependency::Local { export, .. } => export,
-                    _ => continue,
-                };
+            if let DependencyName::Package(name) = dependency_name {
+                if name.interface.is_none() {
+                    let export = match dependency {
+                        ComponentDependency::Package { export, .. } => export,
+                        ComponentDependency::Local { export, .. } => export,
+                        _ => continue,
+                    };
 
-                anyhow::ensure!(
-                    export.is_none(),
-                    "using an export to satisfy the package dependency `{dependency_name}` is not currently permitted",
-                );
+                    anyhow::ensure!(
+                        export.is_none(),
+                        "using an export to satisfy the package dependency `{dependency_name}` is not currently permitted",
+                    );
+                }
             }
         }
         Ok(())
@@ -246,6 +267,13 @@ impl ComponentDependencies {
     fn ensure_disjoint(&self) -> anyhow::Result<()> {
         for (idx, this) in self.inner.keys().enumerate() {
             for other in self.inner.keys().skip(idx + 1) {
+                let DependencyName::Package(other) = other else {
+                    continue;
+                };
+                let DependencyName::Package(this) = this else {
+                    continue;
+                };
+
                 if this.package == other.package {
                     Self::check_disjoint(this, other)?;
                 }
@@ -254,7 +282,10 @@ impl ComponentDependencies {
         Ok(())
     }
 
-    fn check_disjoint(this: &DependencyName, other: &DependencyName) -> anyhow::Result<()> {
+    fn check_disjoint(
+        this: &DependencyPackageName,
+        other: &DependencyPackageName,
+    ) -> anyhow::Result<()> {
         assert_eq!(this.package, other.package);
 
         if let (Some(this), Some(other)) = (this.version.clone(), other.version.clone()) {
@@ -569,8 +600,8 @@ mod tests {
             ("foo:bar/baz", "foo:bar/bub"),
             ("foo:bar/baz@0.1.0-alpha", "foo:bar/baz@0.1.0-beta"),
         ] {
-            let a: DependencyName = a.parse().unwrap();
-            let b: DependencyName = b.parse().unwrap();
+            let a: DependencyPackageName = a.parse().unwrap();
+            let b: DependencyPackageName = b.parse().unwrap();
             ComponentDependencies::check_disjoint(&a, &b).unwrap(); // TODO: should method on depednecny name
         }
 
@@ -581,8 +612,8 @@ mod tests {
             ("foo:bar", "foo:bar@0.1.0"),
             ("foo:bar@0.1.0-pre", "foo:bar@0.1.0-pre"),
         ] {
-            let a: DependencyName = a.parse().unwrap();
-            let b: DependencyName = b.parse().unwrap();
+            let a: DependencyPackageName = a.parse().unwrap();
+            let b: DependencyPackageName = b.parse().unwrap();
             assert!(
                 ComponentDependencies::check_disjoint(&a, &b).is_err(),
                 "{a} should conflict with {b}",
@@ -592,6 +623,22 @@ mod tests {
 
     #[test]
     fn test_validate_dependencies() {
+        // Specifying a dependency name as a plain-name without a package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo-bar" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Specifying a dependency name as a plain-name without a package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo-bar" = { version = "0.1.0" }
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
         // Specifying an export to satisfy a package dependency name is an error
         assert!(ComponentDependencies::deserialize(toml! {
             "foo:baz@0.1.0" = { path = "foo.wasm", export = "foo"}

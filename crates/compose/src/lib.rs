@@ -2,7 +2,7 @@ use anyhow::Context;
 use indexmap::IndexMap;
 use semver::Version;
 use spin_app::locked::{self, InheritConfiguration, LockedComponent, LockedComponentDependency};
-use spin_serde::DependencyName;
+use spin_serde::{DependencyName, KebabId};
 use std::collections::BTreeMap;
 use thiserror::Error;
 use wac_graph::types::{Package, SubtypeChecker, WorldId};
@@ -305,7 +305,10 @@ impl<'a, L: ComponentLoader> Composer<'a, L> {
     ) -> anyhow::Result<DependencyInfo> {
         let mut dependency_source = self.loader.load_component(&dependency.source).await?;
 
-        let package_name = dependency_name.package.to_string();
+        let package_name = match &dependency_name {
+            DependencyName::Package(name) => name.package.to_string(),
+            DependencyName::Plain(name) => name.to_string(),
+        };
 
         match &dependency.inherit {
             InheritConfiguration::Some(configurations) => {
@@ -423,35 +426,46 @@ fn apply_deny_all_adapter(
     Ok(bytes)
 }
 
-struct ImportName {
-    package: String,
-    interface: String,
-    version: Option<Version>,
+enum ImportName {
+    Plain(KebabId),
+    Package {
+        package: String,
+        interface: String,
+        version: Option<Version>,
+    },
 }
 
 impl std::str::FromStr for ImportName {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (package, rest) = s
-            .split_once('/')
-            .with_context(|| format!("invalid import name: {}", s))?;
+        if s.contains([':', '/']) {
+            let (package, rest) = s
+                .split_once('/')
+                .with_context(|| format!("invalid import name: {}", s))?;
 
-        let (interface, version) = match rest.split_once('@') {
-            Some((interface, version)) => {
-                let version = Version::parse(version)
-                    .with_context(|| format!("invalid version in import name: {}", s))?;
+            let (interface, version) = match rest.split_once('@') {
+                Some((interface, version)) => {
+                    let version = Version::parse(version)
+                        .with_context(|| format!("invalid version in import name: {}", s))?;
 
-                (interface, Some(version))
-            }
-            None => (rest, None),
-        };
+                    (interface, Some(version))
+                }
+                None => (rest, None),
+            };
 
-        Ok(Self {
-            package: package.to_string(),
-            interface: interface.to_string(),
-            version,
-        })
+            Ok(Self::Package {
+                package: package.to_string(),
+                interface: interface.to_string(),
+                version,
+            })
+        } else {
+            Ok(Self::Plain(
+                s.to_string()
+                    .try_into()
+                    .map_err(|e| anyhow::anyhow!("{e}"))?,
+            ))
+        }
     }
 }
 
@@ -459,23 +473,42 @@ impl std::str::FromStr for ImportName {
 fn matches_import(dependency_name: &DependencyName, import_name: &str) -> anyhow::Result<bool> {
     let import_name = import_name.parse::<ImportName>()?;
 
-    if import_name.package != dependency_name.package.to_string() {
-        return Ok(false);
-    }
+    match (dependency_name, import_name) {
+        (DependencyName::Plain(dependency_name), ImportName::Plain(import_name)) => {
+            // Plain names only match if they are equal.
+            Ok(dependency_name == &import_name)
+        }
+        (
+            DependencyName::Package(dependency_name),
+            ImportName::Package {
+                package: import_package,
+                interface: import_interface,
+                version: import_version,
+            },
+        ) => {
+            if import_package != dependency_name.package.to_string() {
+                return Ok(false);
+            }
 
-    if let Some(interface) = dependency_name.interface.as_ref() {
-        if import_name.interface != interface.as_ref() {
-            return Ok(false);
+            if let Some(interface) = dependency_name.interface.as_ref() {
+                if import_interface != interface.as_ref() {
+                    return Ok(false);
+                }
+            }
+
+            if let Some(version) = dependency_name.version.as_ref() {
+                if import_version != Some(version.clone()) {
+                    return Ok(false);
+                }
+            }
+
+            Ok(true)
+        }
+        (_, _) => {
+            // All other combinations of dependency and import names cannot match.
+            Ok(false)
         }
     }
-
-    if let Some(version) = dependency_name.version.as_ref() {
-        if import_name.version != Some(version.clone()) {
-            return Ok(false);
-        }
-    }
-
-    Ok(true)
 }
 
 #[cfg(test)]
@@ -489,6 +522,7 @@ mod test {
             ("foo:bar/baz", vec!["foo:bar/baz@0.1.0", "foo:bar/baz"]),
             ("foo:bar", vec!["foo:bar/baz@0.1.0", "foo:bar/baz"]),
             ("foo:bar@0.1.0", vec!["foo:bar/baz@0.1.0"]),
+            ("foo-bar", vec!["foo-bar"]),
         ] {
             let dep_name: DependencyName = dep_name.parse().unwrap();
             for import_name in import_names {
@@ -501,7 +535,7 @@ mod test {
             ("foo:bar/baz", vec!["foo:bar/bub", "foo:bar/bub@0.1.0"]),
             ("foo:bar", vec!["foo:bub/bib"]),
             ("foo:bar@0.1.0", vec!["foo:bar/baz"]),
-            ("foo:bar/baz", vec!["foo:bar/baz-bub"]),
+            ("foo:bar/baz", vec!["foo:bar/baz-bub", "foo-bar"]),
         ] {
             let dep_name: DependencyName = dep_name.parse().unwrap();
             for import_name in import_names {

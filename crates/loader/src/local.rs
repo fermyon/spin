@@ -263,9 +263,12 @@ impl LocalLoader {
             v2::ComponentDependency::Version(version) => {
                 let version = semver::VersionReq::parse(&version).with_context(|| format!("Component dependency {dependency_name:?} specifies an invalid semantic version requirement ({version:?}) for its package version"))?;
 
-                let content = self
-                    .load_registry_source(None, &dependency_name.package, &version)
-                    .await?;
+                // This `unwrap()` should be OK because we've already validated
+                // this form of dependency requires a package name, i.e. the
+                // dependency name is not a kebab id.
+                let package = dependency_name.package().unwrap();
+
+                let content = self.load_registry_source(None, package, &version).await?;
                 (content, None)
             }
             v2::ComponentDependency::Package {
@@ -281,7 +284,13 @@ impl LocalLoader {
                         package.parse().with_context(|| format!("Component dependency {dependency_name:?} specifies an invalid package name ({package:?})"))?
                     }
                     None => {
-                        dependency_name.package.clone()
+                        // This `unwrap()` should be OK because we've already validated
+                        // this form of dependency requires a package name, i.e. the
+                        // dependency name is not a kebab id.
+                        dependency_name
+                            .package()
+                            .cloned()
+                            .unwrap()
                     }
                 };
 

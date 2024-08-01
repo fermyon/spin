@@ -597,10 +597,10 @@ Caused by:
             "http-js",
             Some("https://github.com/fermyon/spin-js-sdk"),
             None,
-            &["js2wasm"],
+            &[],
             prebuild,
             HashMap::default(),
-            "Hello from JS-SDK",
+            "hello universe",
         )
     }
 
@@ -617,10 +617,10 @@ Caused by:
             "http-ts",
             Some("https://github.com/fermyon/spin-js-sdk"),
             None,
-            &["js2wasm"],
+            &[],
             prebuild,
             HashMap::default(),
-            "Hello from TS-SDK",
+            "hello universe",
         )
     }
 

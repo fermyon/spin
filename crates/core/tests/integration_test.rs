@@ -140,8 +140,7 @@ async fn run_test(
     let app = App::new("test-app", locked);
     let configured_app = factors.configure_app(app, Default::default())?;
     let mut builders = factors.prepare(&configured_app, "test-component")?;
-    // FIXME: it is unfortunate that we have to unwrap here...
-    builders.wasi.as_mut().unwrap().args(args);
+    builders.wasi().args(args);
     let instance_state = factors.build_instance_state(builders)?;
     let state = TestState {
         core: State::default(),

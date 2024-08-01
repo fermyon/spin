@@ -6837,6 +6837,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sanitize-filename"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ed72fbaf78e6f2d41744923916966c4fbe3d7c74e3037a8ee482f1115572603"
+dependencies = [
+ "lazy_static 1.4.0",
+ "regex",
+]
+
+[[package]]
 name = "saturating"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7731,6 +7741,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "async-trait",
  "cap-primitives 3.0.0",
+ "spin-common",
  "spin-factors",
  "spin-factors-test",
  "tokio",
@@ -8217,7 +8228,7 @@ dependencies = [
  "outbound-redis",
  "rustls-pemfile 2.1.2",
  "rustls-pki-types",
- "sanitize-filename",
+ "sanitize-filename 0.4.0",
  "serde 1.0.197",
  "serde_json",
  "spin-app",
@@ -8298,6 +8309,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-trigger-http2"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap 3.2.25",
+ "futures",
+ "futures-util",
+ "http 1.1.0",
+ "http-body-util",
+ "hyper 1.2.0",
+ "hyper-util",
+ "indexmap 1.9.3",
+ "percent-encoding",
+ "rustls 0.22.4",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
+ "serde 1.0.197",
+ "serde_json",
+ "spin-app",
+ "spin-core",
+ "spin-factor-outbound-http",
+ "spin-factor-wasi",
+ "spin-http",
+ "spin-outbound-networking",
+ "spin-telemetry",
+ "spin-trigger2",
+ "spin-world",
+ "terminal",
+ "tls-listener",
+ "tokio",
+ "tokio-rustls 0.25.0",
+ "tracing",
+ "url",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wasmtime-wasi-http",
+ "webpki-roots 0.26.1",
+]
+
+[[package]]
 name = "spin-trigger-redis"
 version = "2.7.0-pre0"
 dependencies = [
@@ -8314,6 +8366,28 @@ dependencies = [
  "spin-testing",
  "spin-trigger",
  "spin-world",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "spin-trigger2"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "clap 3.2.25",
+ "ctrlc",
+ "futures",
+ "sanitize-filename 0.5.0",
+ "serde 1.0.197",
+ "serde_json",
+ "spin-app",
+ "spin-common",
+ "spin-core",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-factors-executor",
+ "spin-telemetry",
  "tokio",
  "tracing",
 ]

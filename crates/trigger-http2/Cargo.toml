@@ -1,0 +1,48 @@
+[package]
+name = "spin-trigger-http2"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+clap = "3"
+futures = "0.3"
+futures-util = "0.3.8"
+http = "1.0.0"
+hyper = { workspace = true }
+hyper-util = { version = "0.1.2", features = ["tokio"] }
+http-body-util = { workspace = true }
+indexmap = "1"
+percent-encoding = "2"
+rustls = { version = "0.22.4" }
+rustls-pemfile = "2.1.2"
+rustls-pki-types = "1.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
+spin-factor-outbound-http = { path = "../factor-outbound-http" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-http = { path = "../http" }
+spin-outbound-networking = { path = "../outbound-networking" }
+spin-telemetry = { path = "../telemetry" }
+spin-trigger2 = { path = "../trigger2" }
+spin-world = { path = "../world" }
+terminal = { path = "../terminal" }
+tls-listener = { version = "0.10.0", features = ["rustls"] }
+tokio = { version = "1.23", features = ["full"] }
+tokio-rustls = { version = "0.25.0" }
+url = "2.4.1"
+tracing = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
+webpki-roots = { version = "0.26.0" }
+
+[lints]
+workspace = true

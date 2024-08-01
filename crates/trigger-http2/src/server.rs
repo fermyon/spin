@@ -15,20 +15,22 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RouteMatch, Router},
 };
-use spin_outbound_networking::is_service_chaining_host;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
     task,
 };
 use tracing::Instrument;
-use wasmtime_wasi_http::body::{HyperIncomingBody as Body, HyperOutgoingBody};
+use wasmtime::component::Component;
+use wasmtime_wasi_http::body::HyperOutgoingBody;
 
 use crate::{
-    handler::{HandlerType, HttpHandlerExecutor},
+    headers::strip_forbidden_headers,
     instrument::{finalize_http_span, http_span, instrument_error, MatchedRoute},
+    spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
-    NotFoundRouteKind, TlsConfig, TriggerApp, TriggerInstanceBuilder,
+    wasi::WasiHttpExecutor,
+    Body, NotFoundRouteKind, TlsConfig, TriggerApp, TriggerInstanceBuilder,
 };
 
 pub struct HttpServer {
@@ -144,13 +146,22 @@ impl HttpServer {
                     .unwrap_or(&HttpExecutorType::Http);
 
                 let res = match executor {
-                    HttpExecutorType::Http => {
-                        HttpHandlerExecutor {
-                            handler_type: *handler_type,
+                    HttpExecutorType::Http => match handler_type {
+                        HandlerType::Spin => {
+                            SpinHttpExecutor
+                                .execute(instance_builder, &route_match, req, client_addr)
+                                .await
                         }
-                        .execute(instance_builder, &route_match, req, client_addr)
-                        .await
-                    }
+                        HandlerType::Wasi0_2
+                        | HandlerType::Wasi2023_11_10
+                        | HandlerType::Wasi2023_10_18 => {
+                            WasiHttpExecutor {
+                                handler_type: *handler_type,
+                            }
+                            .execute(instance_builder, &route_match, req, client_addr)
+                            .await
+                        }
+                    },
                     HttpExecutorType::Wagi(wagi_config) => {
                         let executor = WagiHttpExecutor {
                             wagi_config: wagi_config.clone(),
@@ -299,81 +310,6 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme, addr: SocketAddr) -> any
     Ok(())
 }
 
-pub fn strip_forbidden_headers(req: &mut Request<Body>) {
-    let headers = req.headers_mut();
-    if let Some(host_header) = headers.get("Host") {
-        if let Ok(host) = host_header.to_str() {
-            if is_service_chaining_host(host) {
-                headers.remove("Host");
-            }
-        }
-    }
-}
-
-// We need to make the following pieces of information available to both executors.
-// While the values we set are identical, the way they are passed to the
-// modules is going to be different, so each executor must must use the info
-// in its standardized way (environment variables for the Wagi executor, and custom headers
-// for the Spin HTTP executor).
-pub const FULL_URL: [&str; 2] = ["SPIN_FULL_URL", "X_FULL_URL"];
-pub const PATH_INFO: [&str; 2] = ["SPIN_PATH_INFO", "PATH_INFO"];
-pub const MATCHED_ROUTE: [&str; 2] = ["SPIN_MATCHED_ROUTE", "X_MATCHED_ROUTE"];
-pub const COMPONENT_ROUTE: [&str; 2] = ["SPIN_COMPONENT_ROUTE", "X_COMPONENT_ROUTE"];
-pub const RAW_COMPONENT_ROUTE: [&str; 2] = ["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_COMPONENT_ROUTE"];
-pub const BASE_PATH: [&str; 2] = ["SPIN_BASE_PATH", "X_BASE_PATH"];
-pub const CLIENT_ADDR: [&str; 2] = ["SPIN_CLIENT_ADDR", "X_CLIENT_ADDR"];
-
-pub(crate) fn compute_default_headers(
-    uri: &Uri,
-    host: &str,
-    route_match: &RouteMatch,
-    client_addr: SocketAddr,
-) -> anyhow::Result<Vec<([String; 2], String)>> {
-    fn owned(strs: &[&'static str; 2]) -> [String; 2] {
-        [strs[0].to_owned(), strs[1].to_owned()]
-    }
-
-    let owned_full_url: [String; 2] = owned(&FULL_URL);
-    let owned_path_info: [String; 2] = owned(&PATH_INFO);
-    let owned_matched_route: [String; 2] = owned(&MATCHED_ROUTE);
-    let owned_component_route: [String; 2] = owned(&COMPONENT_ROUTE);
-    let owned_raw_component_route: [String; 2] = owned(&RAW_COMPONENT_ROUTE);
-    let owned_base_path: [String; 2] = owned(&BASE_PATH);
-    let owned_client_addr: [String; 2] = owned(&CLIENT_ADDR);
-
-    let mut res = vec![];
-    let abs_path = uri
-        .path_and_query()
-        .expect("cannot get path and query")
-        .as_str();
-
-    let path_info = route_match.trailing_wildcard();
-
-    let scheme = uri.scheme_str().unwrap_or("http");
-
-    let full_url = format!("{}://{}{}", scheme, host, abs_path);
-
-    res.push((owned_path_info, path_info));
-    res.push((owned_full_url, full_url));
-    res.push((owned_matched_route, route_match.based_route().to_string()));
-
-    res.push((owned_base_path, "/".to_string()));
-    res.push((
-        owned_raw_component_route,
-        route_match.raw_route().to_string(),
-    ));
-    res.push((owned_component_route, route_match.raw_route_or_prefix()));
-    res.push((owned_client_addr, client_addr.to_string()));
-
-    for (wild_name, wild_value) in route_match.named_wildcards() {
-        let wild_header = format!("SPIN_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
-        let wild_wagi_header = format!("X_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
-        res.push(([wild_header, wild_wagi_header], wild_value.clone()));
-    }
-
-    Ok(res)
-}
-
 /// An HTTP executor.
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     fn execute(
@@ -383,4 +319,57 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> impl Future<Output = anyhow::Result<Response<Body>>>;
+}
+
+/// Whether this handler uses the custom Spin http handler interface for wasi-http
+#[derive(Copy, Clone)]
+pub enum HandlerType {
+    Spin,
+    Wasi0_2,
+    Wasi2023_11_10,
+    Wasi2023_10_18,
+}
+
+pub const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
+pub const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-11-10";
+pub const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
+
+impl HandlerType {
+    /// Determine the handler type from the exports of a component
+    pub fn from_component(
+        engine: impl AsRef<wasmtime::Engine>,
+        component: &Component,
+    ) -> anyhow::Result<HandlerType> {
+        let mut handler_ty = None;
+
+        let mut set = |ty: HandlerType| {
+            if handler_ty.is_none() {
+                handler_ty = Some(ty);
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!(
+                    "component exports multiple different handlers but \
+                     it's expected to export only one"
+                ))
+            }
+        };
+        let ty = component.component_type();
+        for (name, _) in ty.exports(engine.as_ref()) {
+            match name {
+                WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
+                WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
+                WASI_HTTP_EXPORT_0_2_0 => set(HandlerType::Wasi0_2)?,
+                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
+                _ => {}
+            }
+        }
+
+        handler_ty.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
+                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
+                 or `fermyon:spin/inbound-http` but it exported none of those"
+            )
+        })
+    }
 }

@@ -1,10 +1,12 @@
 //! Implementation for the Spin HTTP engine.
 
-mod handler;
+mod headers;
 mod instrument;
 mod server;
+mod spin;
 mod tls;
 mod wagi;
+mod wasi;
 
 use std::{
     collections::HashMap,
@@ -27,9 +29,10 @@ use server::HttpServer;
 
 pub use tls::TlsConfig;
 
+pub(crate) use wasmtime_wasi_http::body::HyperIncomingBody as Body;
+
 pub(crate) type TriggerApp = spin_trigger2::TriggerApp<HttpTrigger>;
 pub(crate) type TriggerInstanceBuilder<'a> = spin_trigger2::TriggerInstanceBuilder<'a, HttpTrigger>;
-pub(crate) type Store = spin_trigger2::Store<HttpTrigger>;
 
 #[derive(Args)]
 pub struct CliArgs {
@@ -211,7 +214,7 @@ mod tests {
     use anyhow::Result;
     use http::Request;
 
-    use super::{server::*, *};
+    use super::{headers::*, *};
 
     #[test]
     fn test_default_headers() -> Result<()> {

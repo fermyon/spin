@@ -38,6 +38,16 @@ impl<T> Store<T> {
         };
         self.inner.set_epoch_deadline(ticks);
     }
+
+    /// Provides access to the inner [`wasmtime::Store`]'s data.
+    pub fn data(&self) -> &T {
+        self.inner.data()
+    }
+
+    /// Provides access to the inner [`wasmtime::Store`]'s data.
+    pub fn data_mut(&mut self) -> &mut T {
+        self.inner.data_mut()
+    }
 }
 
 impl<T> AsRef<wasmtime::Store<T>> for Store<T> {

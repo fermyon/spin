@@ -1,0 +1,30 @@
+[package]
+name = "spin-trigger2"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1"
+clap = { version = "3.1.18", features = ["derive", "env"] }
+ctrlc = { version = "3.2", features = ["termination"] }
+futures = "0.3"
+sanitize-filename = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+spin-app = { path = "../app" }
+spin-common = { path = "../common" }
+spin-core = { path = "../core" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-factors-executor = { path = "../factors-executor" }
+spin-telemetry = { path = "../telemetry" }
+tokio = { version = "1.23", features = ["fs"] }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

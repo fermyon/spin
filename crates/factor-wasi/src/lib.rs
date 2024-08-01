@@ -1,3 +1,4 @@
+pub mod spin;
 mod wasi_2023_10_18;
 mod wasi_2023_11_10;
 
@@ -122,7 +123,7 @@ impl Factor for WasiFactor {
     }
 }
 
-pub trait FilesMounter {
+pub trait FilesMounter: Send + Sync {
     fn mount_files(
         &self,
         app_component: &AppComponent,

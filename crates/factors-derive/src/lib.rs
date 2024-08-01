@@ -207,7 +207,16 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         #vis struct #builders_name {
             #(
-                pub #factor_names: Option<<#factor_types as #Factor>::InstanceBuilder>,
+                #factor_names: Option<<#factor_types as #Factor>::InstanceBuilder>,
+            )*
+        }
+
+        #[allow(dead_code)]
+        impl #builders_name {
+            #(
+                pub fn #factor_names(&mut self) -> &mut <#factor_types as #Factor>::InstanceBuilder {
+                    self.#factor_names.as_mut().unwrap()
+                }
             )*
         }
 

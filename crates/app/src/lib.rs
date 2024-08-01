@@ -101,7 +101,7 @@ impl App {
     }
 
     /// Returns the trigger metadata for a specific trigger type.
-    pub fn get_trigger_metadata<'this, T: Deserialize<'this> + Default>(
+    pub fn get_trigger_metadata<'this, T: Deserialize<'this>>(
         &'this self,
         trigger_type: &str,
     ) -> Result<Option<T>> {
@@ -138,6 +138,20 @@ impl App {
     ) -> impl Iterator<Item = AppTrigger> {
         self.triggers()
             .filter(move |trigger| trigger.locked.trigger_type == trigger_type)
+    }
+
+    /// Returns an iterator of trigger IDs and deserialized trigger configs for
+    /// the given `trigger_type`.
+    pub fn trigger_configs<'a, T: Deserialize<'a>>(
+        &'a self,
+        trigger_type: &'a str,
+    ) -> Result<impl IntoIterator<Item = (&'a str, T)>> {
+        self.triggers_with_type(trigger_type)
+            .map(|trigger| {
+                let config = trigger.typed_config::<T>()?;
+                Ok((trigger.id(), config))
+            })
+            .collect::<Result<Vec<_>>>()
     }
 
     /// Checks that the application does not have any host requirements
@@ -215,12 +229,12 @@ pub struct AppTrigger<'a> {
 
 impl<'a> AppTrigger<'a> {
     /// Returns this trigger's app-unique ID.
-    pub fn id(&self) -> &str {
+    pub fn id(&self) -> &'a str {
         &self.locked.id
     }
 
     /// Returns the Trigger's type.
-    pub fn trigger_type(&self) -> &str {
+    pub fn trigger_type(&self) -> &'a str {
         &self.locked.trigger_type
     }
 

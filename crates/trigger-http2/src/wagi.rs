@@ -8,7 +8,7 @@ use tracing::{instrument, Level};
 use wasmtime_wasi::pipe::MemoryOutputPipe;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-use crate::{server::HttpExecutor, TriggerInstanceBuilder};
+use crate::{headers::compute_default_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {
@@ -67,9 +67,7 @@ impl HttpExecutor for WagiHttpExecutor {
         // This sets the current environment variables Wagi expects (such as
         // `PATH_INFO`, or `X_FULL_URL`).
         // Note that this overrides any existing headers previously set by Wagi.
-        for (keys, val) in
-            crate::server::compute_default_headers(&parts.uri, host, route_match, client_addr)?
-        {
+        for (keys, val) in compute_default_headers(&parts.uri, host, route_match, client_addr)? {
             headers.insert(keys[1].to_string(), val);
         }
 

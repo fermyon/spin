@@ -1,7 +1,8 @@
 use anyhow::Result;
 use http::Response;
 use tracing::Level;
-use wasmtime_wasi_http::body::HyperIncomingBody;
+
+use crate::Body;
 
 /// Create a span for an HTTP request.
 macro_rules! http_span {
@@ -30,12 +31,17 @@ pub(crate) use http_span;
 
 /// Finish setting attributes on the HTTP span.
 pub(crate) fn finalize_http_span(
-    response: Result<Response<HyperIncomingBody>>,
+    response: Result<Response<Body>>,
     method: String,
-) -> Result<Response<HyperIncomingBody>> {
+) -> Result<Response<Body>> {
     let span = tracing::Span::current();
     match response {
         Ok(response) => {
+            tracing::info!(
+                "Request finished, sending response with status code {}",
+                response.status()
+            );
+
             let matched_route = response.extensions().get::<MatchedRoute>();
             // Set otel.name and http.route
             if let Some(MatchedRoute { route }) = matched_route {
@@ -74,19 +80,16 @@ pub struct MatchedRoute {
 }
 
 impl MatchedRoute {
-    pub fn set_response_extension(
-        resp: &mut Response<HyperIncomingBody>,
-        route: impl Into<String>,
-    ) {
+    pub fn set_response_extension(resp: &mut Response<Body>, route: impl Into<String>) {
         resp.extensions_mut().insert(MatchedRoute {
             route: route.into(),
         });
     }
 
     pub fn with_response_extension(
-        mut resp: Response<HyperIncomingBody>,
+        mut resp: Response<Body>,
         route: impl Into<String>,
-    ) -> Response<HyperIncomingBody> {
+    ) -> Response<Body> {
         Self::set_response_extension(&mut resp, route);
         resp
     }

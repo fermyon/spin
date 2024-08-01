@@ -17,7 +17,7 @@ use crate::runtime_config::RuntimeConfig;
 /// Resolves a runtime configuration for the variables factor from a TOML table.
 pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeConfig> {
     // Always include the environment variable provider.
-    let mut providers = vec![Box::new(EnvVariablesProvider::default()) as _];
+    let mut providers = vec![Box::<EnvVariablesProvider>::default() as _];
     let Some(array) = table.get("variable_provider") else {
         return Ok(RuntimeConfig { providers });
     };

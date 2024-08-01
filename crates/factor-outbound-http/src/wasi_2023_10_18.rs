@@ -17,6 +17,10 @@ mod bindings {
         interfaces: r#"
             include wasi:http/proxy@0.2.0-rc-2023-10-18;
         "#,
+        async: {
+            // Only need async exports
+            only_imports: [],
+        },
         with: {
             "wasi:io/poll/pollable": latest::io::poll::Pollable,
             "wasi:io/streams/input-stream": latest::io::streams::InputStream,
@@ -41,6 +45,12 @@ mod wasi {
     pub use super::bindings::wasi::{http0_2_0_rc_2023_10_18 as http, io0_2_0_rc_2023_10_18 as io};
 }
 
+pub mod exports {
+    pub mod wasi {
+        pub use super::super::bindings::exports::wasi::http0_2_0_rc_2023_10_18 as http;
+    }
+}
+
 use wasi::http::types::{
     Error as HttpError, Fields, FutureIncomingResponse, FutureTrailers, Headers, IncomingBody,
     IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
@@ -51,8 +61,9 @@ use wasi::io::streams::{InputStream, OutputStream};
 
 use crate::wasi::WasiHttpImplInner;
 
-pub fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
+pub(crate) fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
 where
+    T: Send,
     F: Fn(&mut T) -> WasiHttpImpl<WasiHttpImplInner> + Send + Sync + Copy + 'static,
 {
     wasi::http::types::add_to_linker_get_host(linker, closure)?;

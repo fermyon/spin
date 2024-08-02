@@ -6,6 +6,8 @@ use std::{
 };
 use tokio_rustls::{rustls, TlsAcceptor};
 
+// TODO: dedupe with spin-factor-outbound-networking (spin-tls crate?)
+
 /// TLS configuration for the server.
 #[derive(Clone)]
 pub struct TlsConfig {

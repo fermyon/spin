@@ -6,6 +6,8 @@ use std::{
 };
 use tokio_rustls::{rustls, TlsAcceptor};
 
+// TODO: dedupe with spin-factor-outbound-networking (spin-tls crate?)
+
 /// TLS configuration for the server.
 #[derive(Clone)]
 pub struct TlsConfig {
@@ -69,13 +71,11 @@ fn load_key(path: impl AsRef<Path>) -> io::Result<rustls_pki_types::PrivateKeyDe
 mod tests {
     use super::*;
 
-    fn test_datadir() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata")
-    }
+    const TESTDATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata");
 
     #[test]
     fn test_read_non_existing_cert() {
-        let path = test_datadir().join("non-existing-file.pem");
+        let path = Path::new(TESTDATA_DIR).join("non-existing-file.pem");
 
         let certs = load_certs(path);
         assert!(certs.is_err());
@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_read_invalid_cert() {
-        let path = test_datadir().join("invalid-cert.pem");
+        let path = Path::new(TESTDATA_DIR).join("invalid-cert.pem");
 
         let certs = load_certs(path);
         assert!(certs.is_err());
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_read_valid_cert() {
-        let path = test_datadir().join("valid-cert.pem");
+        let path = Path::new(TESTDATA_DIR).join("valid-cert.pem");
 
         let certs = load_certs(path);
         assert!(certs.is_ok());
@@ -105,8 +105,7 @@ mod tests {
 
     #[test]
     fn test_read_non_existing_private_key() {
-        let mut path = test_datadir();
-        path.push("non-existing-file.pem");
+        let path = Path::new(TESTDATA_DIR).join("non-existing-file.pem");
 
         let keys = load_key(path);
         assert!(keys.is_err());
@@ -115,8 +114,7 @@ mod tests {
 
     #[test]
     fn test_read_invalid_private_key() {
-        let mut path = test_datadir();
-        path.push("invalid-private-key.pem");
+        let path = Path::new(TESTDATA_DIR).join("invalid-private-key.pem");
 
         let keys = load_key(path);
         assert!(keys.is_err());
@@ -125,8 +123,7 @@ mod tests {
 
     #[test]
     fn test_read_valid_private_key() {
-        let mut path = test_datadir();
-        path.push("valid-private-key.pem");
+        let path = Path::new(TESTDATA_DIR).join("valid-private-key.pem");
 
         let keys = load_key(path);
         assert!(keys.is_ok());

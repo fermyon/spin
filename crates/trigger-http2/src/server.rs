@@ -1,5 +1,6 @@
 use std::{collections::HashMap, future::Future, io::IsTerminal, net::SocketAddr, sync::Arc};
 
+use anyhow::Context;
 use http::{uri::Scheme, Request, Response, StatusCode, Uri};
 use http_body_util::BodyExt;
 use hyper::{
@@ -9,6 +10,7 @@ use hyper::{
 };
 use hyper_util::rt::TokioIo;
 use spin_app::{APP_DESCRIPTION_KEY, APP_NAME_KEY};
+use spin_factor_outbound_http::SelfRequestOrigin;
 use spin_http::{
     app_info::AppInfo,
     body,
@@ -27,6 +29,7 @@ use wasmtime_wasi_http::body::HyperOutgoingBody;
 use crate::{
     headers::strip_forbidden_headers,
     instrument::{finalize_http_span, http_span, instrument_error, MatchedRoute},
+    outbound_http::OutboundHttpInterceptor,
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
     wasi::WasiHttpExecutor,
@@ -92,8 +95,8 @@ impl HttpServer {
     }
 
     /// Handles incoming requests using an HTTP executor.
-    pub async fn handle(
-        &self,
+    async fn handle(
+        self: &Arc<Self>,
         mut req: Request<Body>,
         scheme: Scheme,
         client_addr: SocketAddr,
@@ -119,71 +122,91 @@ impl HttpServer {
             };
         }
 
+        match self.router.route(&path) {
+            Ok(route_match) => {
+                self.handle_trigger_route(req, route_match, client_addr)
+                    .await
+            }
+            Err(_) => Self::not_found(NotFoundRouteKind::Normal(path.to_string())),
+        }
+    }
+
+    pub async fn handle_trigger_route(
+        self: &Arc<Self>,
+        req: Request<Body>,
+        route_match: RouteMatch,
+        client_addr: SocketAddr,
+    ) -> anyhow::Result<Response<Body>> {
         let app_id = self
             .trigger_app
             .app()
             .get_metadata(APP_NAME_KEY)?
             .unwrap_or_else(|| "<unnamed>".into());
 
-        // Route to app component
-        match self.router.route(&path) {
-            Ok(route_match) => {
-                let component_id = route_match.component_id();
+        let component_id = route_match.component_id();
 
-                spin_telemetry::metrics::monotonic_counter!(
-                    spin.request_count = 1,
-                    trigger_type = "http",
-                    app_id = app_id,
-                    component_id = component_id
-                );
+        spin_telemetry::metrics::monotonic_counter!(
+            spin.request_count = 1,
+            trigger_type = "http",
+            app_id = app_id,
+            component_id = component_id
+        );
 
-                let instance_builder = self.trigger_app.prepare(component_id)?;
-                let trigger_config = self.component_trigger_configs.get(component_id).unwrap();
-                let handler_type = self.component_handler_types.get(component_id).unwrap();
-                let executor = trigger_config
-                    .executor
-                    .as_ref()
-                    .unwrap_or(&HttpExecutorType::Http);
+        let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
-                let res = match executor {
-                    HttpExecutorType::Http => match handler_type {
-                        HandlerType::Spin => {
-                            SpinHttpExecutor
-                                .execute(instance_builder, &route_match, req, client_addr)
-                                .await
-                        }
-                        HandlerType::Wasi0_2
-                        | HandlerType::Wasi2023_11_10
-                        | HandlerType::Wasi2023_10_18 => {
-                            WasiHttpExecutor {
-                                handler_type: *handler_type,
-                            }
-                            .execute(instance_builder, &route_match, req, client_addr)
-                            .await
-                        }
-                    },
-                    HttpExecutorType::Wagi(wagi_config) => {
-                        let executor = WagiHttpExecutor {
-                            wagi_config: wagi_config.clone(),
-                        };
-                        executor
-                            .execute(instance_builder, &route_match, req, client_addr)
-                            .await
-                    }
-                };
-                match res {
-                    Ok(res) => Ok(MatchedRoute::with_response_extension(
-                        res,
-                        route_match.raw_route(),
-                    )),
-                    Err(err) => {
-                        tracing::error!("Error processing request: {err:?}");
-                        instrument_error(&err);
-                        Self::internal_error(None, route_match.raw_route())
-                    }
+        // Set up outbound HTTP request origin and service chaining
+        let uri = req.uri();
+        let origin = SelfRequestOrigin::from_uri(uri)
+            .with_context(|| format!("invalid request URI {uri:?}"))?;
+        instance_builder
+            .factor_builders()
+            .outbound_http()
+            .set_request_interceptor(OutboundHttpInterceptor::new(self.clone(), origin))?;
+
+        // Prepare HTTP executor
+        let trigger_config = self.component_trigger_configs.get(component_id).unwrap();
+        let handler_type = self.component_handler_types.get(component_id).unwrap();
+        let executor = trigger_config
+            .executor
+            .as_ref()
+            .unwrap_or(&HttpExecutorType::Http);
+
+        let res = match executor {
+            HttpExecutorType::Http => match handler_type {
+                HandlerType::Spin => {
+                    SpinHttpExecutor
+                        .execute(instance_builder, &route_match, req, client_addr)
+                        .await
                 }
+                HandlerType::Wasi0_2
+                | HandlerType::Wasi2023_11_10
+                | HandlerType::Wasi2023_10_18 => {
+                    WasiHttpExecutor {
+                        handler_type: *handler_type,
+                    }
+                    .execute(instance_builder, &route_match, req, client_addr)
+                    .await
+                }
+            },
+            HttpExecutorType::Wagi(wagi_config) => {
+                let executor = WagiHttpExecutor {
+                    wagi_config: wagi_config.clone(),
+                };
+                executor
+                    .execute(instance_builder, &route_match, req, client_addr)
+                    .await
             }
-            Err(_) => Self::not_found(NotFoundRouteKind::Normal(path.to_string())),
+        };
+        match res {
+            Ok(res) => Ok(MatchedRoute::with_response_extension(
+                res,
+                route_match.raw_route(),
+            )),
+            Err(err) => {
+                tracing::error!("Error processing request: {err:?}");
+                instrument_error(&err);
+                Self::internal_error(None, route_match.raw_route())
+            }
         }
     }
 

@@ -518,6 +518,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1fdabc7756949593fe60f30ec81974b613357de856987752631dea1e3394c80"
 
 [[package]]
+name = "aws-lc-rs"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ae74d9bd0a7530e8afd1770739ad34b36838829d6ad61818f9230f683f5ad77"
+dependencies = [
+ "aws-lc-sys",
+ "mirai-annotations",
+ "paste",
+ "zeroize",
+]
+
+[[package]]
+name = "aws-lc-sys"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f0e249228c6ad2d240c2dc94b714d711629d52bad946075d8e9b2f5391f0703"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cmake",
+ "dunce",
+ "fs_extra",
+ "libc",
+ "paste",
+]
+
+[[package]]
 name = "axum"
 version = "0.6.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -753,12 +780,15 @@ dependencies = [
  "itertools 0.12.1",
  "lazy_static 1.4.0",
  "lazycell",
+ "log",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
  "shlex",
  "syn 2.0.58",
+ "which",
 ]
 
 [[package]]
@@ -3458,9 +3488,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.2.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186548d73ac615b32a73aafe38fb4f56c0d340e110e5a200bcadbaf2e199263a"
+checksum = "50dfd22e0e76d0f662d429a5f80fcaf3855009297eab6a0a9f8543834744ba05"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3542,7 +3572,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -3561,7 +3591,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "pin-project-lite",
  "socket2 0.5.6",
  "tokio",
@@ -4660,6 +4690,12 @@ dependencies = [
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "mirai-annotations"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9be0862c1b3f26a88803c4a49de6889c10e608b3ee9344e6ef5b45fb37ad3d1"
 
 [[package]]
 name = "monostate"
@@ -6483,7 +6519,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-tls 0.6.0",
  "hyper-util",
  "ipnet",
@@ -6737,6 +6773,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls"
+version = "0.23.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebbbdb961df0ad3f2652da8f3fdc4b36122f568f968f45ad3316f26c025c677b"
+dependencies = [
+ "aws-lc-rs",
+ "log",
+ "once_cell",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.2",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
 name = "rustls-native-certs"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6790,6 +6841,7 @@ version = "0.102.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faaa0a62740bedb9b2ef5afa303da42764c012f743917351dc9a237ea1663610"
 dependencies = [
+ "aws-lc-rs",
  "ring",
  "rustls-pki-types",
  "untrusted",
@@ -7448,7 +7500,7 @@ dependencies = [
  "glob",
  "hex",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indicatif 0.17.8",
  "is-terminal",
@@ -7656,14 +7708,20 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
+ "http-body-util",
+ "hyper 1.4.1",
+ "rustls 0.23.7",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
  "spin-world",
+ "terminal",
  "tokio",
+ "tokio-rustls 0.26.0",
  "tracing",
  "wasmtime",
+ "wasmtime-wasi",
  "wasmtime-wasi-http",
 ]
 
@@ -7671,16 +7729,26 @@ dependencies = [
 name = "spin-factor-outbound-networking"
 version = "2.7.0-pre0"
 dependencies = [
+ "anyhow",
  "futures-util",
+ "http 1.1.0",
  "ipnet",
+ "rustls 0.23.7",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
+ "serde 1.0.197",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-test",
  "spin-outbound-networking",
+ "spin-serde",
+ "tempfile",
  "tokio",
+ "toml 0.8.14",
  "tracing",
  "wasmtime-wasi",
+ "webpki-roots 0.26.1",
 ]
 
 [[package]]
@@ -7821,7 +7889,7 @@ dependencies = [
  "anyhow",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "indexmap 1.9.3",
  "percent-encoding",
  "routefinder",
@@ -8196,7 +8264,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "serde 1.0.197",
  "serde_json",
  "spin-app",
@@ -8276,7 +8344,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indexmap 1.9.3",
  "num_cpus",
@@ -8319,7 +8387,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indexmap 1.9.3",
  "percent-encoding",
@@ -8384,6 +8452,8 @@ dependencies = [
  "spin-app",
  "spin-common",
  "spin-core",
+ "spin-factor-outbound-http",
+ "spin-factor-outbound-networking",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-executor",
@@ -9004,6 +9074,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
 dependencies = [
  "rustls 0.22.4",
+ "rustls-pki-types",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-rustls"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
+dependencies = [
+ "rustls 0.23.7",
  "rustls-pki-types",
  "tokio",
 ]
@@ -10344,7 +10425,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "rustls 0.22.4",
  "tokio",
  "tokio-rustls 0.25.0",
@@ -11153,6 +11234,20 @@ name = "zeroize"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
 
 [[package]]
 name = "zip"

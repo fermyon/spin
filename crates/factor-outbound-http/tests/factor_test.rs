@@ -7,6 +7,7 @@ use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
+use wasmtime_wasi::Subscribe;
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode, types::OutgoingRequestConfig, WasiHttpView,
 };
@@ -34,11 +35,12 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
     let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     let req = Request::get("https://denied.test").body(Default::default())?;
-    let res = wasi_http.send_request(req, test_request_config());
-    let Err(err) = res else {
-        bail!("expected Err, got Ok");
+    let mut future_resp = wasi_http.send_request(req, test_request_config())?;
+    future_resp.ready().await;
+    match future_resp.unwrap_ready() {
+        Ok(_) => bail!("expected Err, got Ok"),
+        Err(err) => assert!(matches!(err.downcast()?, ErrorCode::HttpRequestDenied)),
     };
-    assert!(matches!(err.downcast()?, ErrorCode::HttpRequestDenied));
     Ok(())
 }
 

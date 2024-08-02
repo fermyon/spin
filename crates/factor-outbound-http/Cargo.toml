@@ -7,17 +7,23 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 http = "1.1.0"
+http-body-util = "0.1"
+hyper = "1.4.1"
+rustls = "0.23"
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
+terminal = { path = "../terminal" }
+tokio = { version = "1", features = ["macros", "rt"] }
+tokio-rustls = "0.26"
 tracing = { workspace = true }
 wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
 
 [dev-dependencies]
 spin-factor-variables = { path = "../factor-variables" }
 spin-factors-test = { path = "../factors-test" }
-tokio = { version = "1", features = ["macros", "rt"] }
 
 [lints]
 workspace = true

@@ -157,11 +157,19 @@ impl FactorInstanceBuilder for InstanceBuilder {
 }
 
 // TODO: Refactor w/ spin-outbound-networking crate to simplify
+#[derive(Clone)]
 pub struct OutboundAllowedHosts {
     allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
 }
 
 impl OutboundAllowedHosts {
+    pub async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
+        self.allowed_hosts_future.clone().await.map_err(|err| {
+            // TODO: better way to handle this?
+            anyhow::Error::msg(err)
+        })
+    }
+
     pub async fn allows(&self, url: &OutboundUrl) -> anyhow::Result<bool> {
         Ok(self.resolve().await?.allows(url))
     }
@@ -173,12 +181,5 @@ impl OutboundAllowedHosts {
             scheme,
             &allowed_hosts,
         ))
-    }
-
-    async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
-        self.allowed_hosts_future.clone().await.map_err(|err| {
-            // TODO: better way to handle this?
-            anyhow::Error::msg(err)
-        })
     }
 }

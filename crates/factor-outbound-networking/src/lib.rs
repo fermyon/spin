@@ -1,9 +1,12 @@
+pub mod runtime_config;
+
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
 };
+use runtime_config::RuntimeConfig;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{SocketAddrUse, WasiFactor};
 use spin_factors::{
@@ -15,18 +18,20 @@ use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
 pub use spin_outbound_networking::OutboundUrl;
 
+pub use runtime_config::ComponentTlsConfigs;
+
 pub type SharedFutureResult<T> = Shared<BoxFuture<'static, Result<Arc<T>, Arc<anyhow::Error>>>>;
 
 pub struct OutboundNetworkingFactor;
 
 impl Factor for OutboundNetworkingFactor {
-    type RuntimeConfig = ();
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceBuilder;
 
     fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<T, Self>,
+        mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         // Extract allowed_outbound_hosts for all components
         let component_allowed_hosts = ctx
@@ -43,8 +48,16 @@ impl Factor for OutboundNetworkingFactor {
                 ))
             })
             .collect::<anyhow::Result<_>>()?;
+
+        let runtime_config = match ctx.take_runtime_config() {
+            Some(cfg) => cfg,
+            // The default RuntimeConfig provides default TLS client configs
+            None => RuntimeConfig::new([])?,
+        };
+
         Ok(AppState {
             component_allowed_hosts,
+            runtime_config,
         })
     }
 
@@ -100,18 +113,27 @@ impl Factor for OutboundNetworkingFactor {
             Err(Error::NoSuchFactor(_)) => (), // no WasiFactor to configure; that's OK
             Err(err) => return Err(err.into()),
         }
+
+        let component_tls_configs = ctx
+            .app_state()
+            .runtime_config
+            .get_component_tls_configs(ctx.app_component().id());
+
         Ok(InstanceBuilder {
             allowed_hosts_future,
+            component_tls_configs,
         })
     }
 }
 
 pub struct AppState {
     component_allowed_hosts: HashMap<String, Arc<[String]>>,
+    runtime_config: RuntimeConfig,
 }
 
 pub struct InstanceBuilder {
     allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
+    component_tls_configs: ComponentTlsConfigs,
 }
 
 impl InstanceBuilder {
@@ -119,6 +141,10 @@ impl InstanceBuilder {
         OutboundAllowedHosts {
             allowed_hosts_future: self.allowed_hosts_future.clone(),
         }
+    }
+
+    pub fn component_tls_configs(&self) -> &ComponentTlsConfigs {
+        &self.component_tls_configs
     }
 }
 

@@ -28,13 +28,14 @@ impl SpinSqliteRuntimeConfig {
     /// Create a new `SpinSqliteRuntimeConfig`
     ///
     /// This takes as arguments:
-    /// * the directory to use as the default location for SQLite databases. Usually this
-    /// will be the path to the `.spin` state directory.
-    /// * the *absolute* path to the directory from which relative paths to local SQLite
-    /// databases are resolved.  (this should most likely be the path to the runtime-config
-    /// file or the current working dir).
+    /// * the directory to use as the default location for SQLite databases.
+    ///   Usually this will be the path to the `.spin` state directory.
+    /// * the *absolute* path to the directory from which relative paths to
+    ///   local SQLite databases are resolved.  (this should most likely be the
+    ///   path to the runtime-config file or the current working dir).
     ///
-    /// Panics if either `default_database_dir` or `local_database_dir` are not absolute paths.
+    /// Panics if either `default_database_dir` or `local_database_dir` are not
+    /// absolute paths.
     pub fn new(default_database_dir: PathBuf, local_database_dir: PathBuf) -> Self {
         assert!(
             default_database_dir.is_absolute(),
@@ -58,7 +59,7 @@ impl SpinSqliteRuntimeConfig {
     /// type = "$database-type"
     /// ... extra type specific configuration ...
     /// ```
-    pub fn config_from_table<T: GetTomlValue + AsRef<toml::Table>>(
+    pub fn config_from_table<T: GetTomlValue>(
         &self,
         table: &T,
     ) -> anyhow::Result<Option<super::RuntimeConfig>> {

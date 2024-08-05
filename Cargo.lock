@@ -7716,6 +7716,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-outbound-mqtt"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "rumqttc",
+ "spin-core",
+ "spin-factor-outbound-networking",
+ "spin-factor-variables",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-world",
+ "table",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "spin-factor-outbound-mysql"
 version = "2.7.0-pre0"
 dependencies = [

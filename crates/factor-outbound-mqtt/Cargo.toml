@@ -1,0 +1,24 @@
+[package]
+name = "spin-factor-outbound-mqtt"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+rumqttc = { version = "0.24", features = ["url"] }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factors = { path = "../factors" }
+spin-core = { path = "../core" }
+spin-world = { path = "../world" }
+tracing = { workspace = true }
+table = { path = "../table" }
+tokio = { version = "1.0", features = ["sync"] }
+
+[dev-dependencies]
+spin-factor-variables = { path = "../factor-variables" }
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints]
+workspace = true

@@ -374,7 +374,7 @@ mod tests {
 
         let component = Component::new(&engine, crate::componentize_command(module)?)?;
 
-        let (wasi, _) = Command::instantiate_async(&mut store, &component, &linker).await?;
+        let wasi = Command::instantiate_async(&mut store, &component, &linker).await?;
 
         wasi.wasi_cli_run()
             .call_run(&mut store)

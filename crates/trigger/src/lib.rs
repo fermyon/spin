@@ -144,7 +144,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 // Wasmtime 17: WASI@0.2.0
                 builder.link_import(|l, _| {
                     wasmtime_wasi::add_to_linker_async(l)?;
-                    wasmtime_wasi_http::proxy::add_only_http_to_linker(l)
+                    wasmtime_wasi_http::add_only_http_to_linker_async(l)
                 })?;
 
                 // Wasmtime 15: WASI@0.2.0-rc-2023-11-10

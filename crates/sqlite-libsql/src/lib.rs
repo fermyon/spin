@@ -1,16 +1,15 @@
 use spin_world::v2::sqlite::{self, RowResult};
 use tracing::{instrument, Level};
 
-#[derive(Clone)]
 pub struct LibsqlClient {
-    inner: libsql::Connection,
+    inner: libsql::Database,
 }
 
 impl LibsqlClient {
     #[instrument(name = "spin_sqlite_libsql.create_connection", skip(token), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite"))]
     pub async fn create(url: String, token: String) -> anyhow::Result<Self> {
         let db = libsql::Builder::new_remote(url, token).build().await?;
-        let inner = db.connect()?;
+        let inner = db;
         Ok(Self { inner })
     }
 }
@@ -25,6 +24,8 @@ impl spin_sqlite::Connection for LibsqlClient {
     ) -> Result<sqlite::QueryResult, sqlite::Error> {
         let result = self
             .inner
+            .connect()
+            .map_err(|e| sqlite::Error::Io(e.to_string()))?
             .query(query, convert_parameters(&parameters))
             .await
             .map_err(|e| sqlite::Error::Io(e.to_string()))?;
@@ -39,7 +40,7 @@ impl spin_sqlite::Connection for LibsqlClient {
 
     #[instrument(name = "spin_sqlite_libsql.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        self.inner.execute_batch(statements).await?;
+        self.inner.connect()?.execute_batch(statements).await?;
 
         Ok(())
     }

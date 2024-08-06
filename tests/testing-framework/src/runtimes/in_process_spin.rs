@@ -40,12 +40,16 @@ impl InProcessSpin {
     pub fn make_http_request(&self, req: Request<'_, &[u8]>) -> anyhow::Result<Response> {
         tokio::runtime::Runtime::new()?.block_on(async {
             let method: reqwest::Method = req.method.into();
-            let req = http::request::Request::builder()
+            let mut builder = http::request::Request::builder()
                 .method(method)
-                .uri(req.path)
-                // TODO(rylev): convert headers and body as well
-                .body(spin_http::body::empty())
-                .unwrap();
+                .uri(req.path);
+
+            for (key, value) in req.headers {
+                builder = builder.header(*key, *value);
+            }
+
+            // TODO(rylev): convert body as well
+            let req = builder.body(spin_http::body::empty()).unwrap();
             let response = self
                 .trigger
                 .handle(

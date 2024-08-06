@@ -355,7 +355,7 @@ Caused by:
     }
 
     #[test]
-    fn outbound_http_works() -> anyhow::Result<()> {
+    fn outbound_http_to_same_app_works() -> anyhow::Result<()> {
         run_test(
             "outbound-http-to-same-app",
             SpinConfig {

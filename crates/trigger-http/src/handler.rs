@@ -1,6 +1,8 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, Store};
+use crate::{
+    Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, SelfRequestOrigin, Store,
+};
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
@@ -33,6 +35,7 @@ impl HttpExecutor for HttpHandlerExecutor {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
+        self_origin: SelfRequestOrigin,
     ) -> Result<Response<Body>> {
         let component_id = route_match.component_id();
 
@@ -46,7 +49,7 @@ impl HttpExecutor for HttpHandlerExecutor {
             unreachable!()
         };
 
-        set_http_origin_from_request(&mut store, engine.clone(), self, &req);
+        set_http_origin(&mut store, engine.clone(), self, self_origin);
 
         // set the client tls options for the current component_id.
         // The OutboundWasiHttpHandler in this file is only used
@@ -390,36 +393,32 @@ impl HandlerType {
     }
 }
 
-fn set_http_origin_from_request(
+fn set_http_origin(
     store: &mut Store,
     engine: Arc<TriggerAppEngine<HttpTrigger>>,
     handler: &HttpHandlerExecutor,
-    req: &Request<Body>,
+    self_origin: SelfRequestOrigin,
 ) {
-    if let Some(authority) = req.uri().authority() {
-        if let Some(scheme) = req.uri().scheme_str() {
-            let origin = format!("{}://{}", scheme, authority);
-            if let Some(outbound_http_handle) = engine
-                .engine
-                .find_host_component_handle::<Arc<OutboundHttpComponent>>()
-            {
-                let outbound_http_data = store
-                    .host_components_data()
-                    .get_or_insert(outbound_http_handle);
+    let origin = format!("{}://{}", self_origin.scheme, self_origin.authority);
+    if let Some(outbound_http_handle) = engine
+        .engine
+        .find_host_component_handle::<Arc<OutboundHttpComponent>>()
+    {
+        let outbound_http_data = store
+            .host_components_data()
+            .get_or_insert(outbound_http_handle);
 
-                outbound_http_data.origin.clone_from(&origin);
-                store.as_mut().data_mut().as_mut().allowed_hosts =
-                    outbound_http_data.allowed_hosts.clone();
-            }
-
-            let chained_request_handler = ChainedRequestHandler {
-                engine: engine.clone(),
-                executor: handler.clone(),
-            };
-            store.as_mut().data_mut().as_mut().origin = Some(origin);
-            store.as_mut().data_mut().as_mut().chained_handler = Some(chained_request_handler);
-        }
+        outbound_http_data.origin.clone_from(&origin);
+        store.as_mut().data_mut().as_mut().allowed_hosts = outbound_http_data.allowed_hosts.clone();
     }
+
+    let chained_request_handler = ChainedRequestHandler {
+        engine: engine.clone(),
+        executor: handler.clone(),
+        self_origin,
+    };
+    store.as_mut().data_mut().as_mut().origin = Some(origin);
+    store.as_mut().data_mut().as_mut().chained_handler = Some(chained_request_handler);
 }
 
 fn contextualise_err(e: anyhow::Error) -> anyhow::Error {

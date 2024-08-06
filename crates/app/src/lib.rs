@@ -41,12 +41,13 @@ pub trait Loader {
     /// representation of a [`LockedApp`], which will be loaded.
     async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp>;
 
-    /// Called with a [`LockedComponentSource`] pointing to a Wasm component
-    /// binary, which will be loaded.
+    /// Called with a [`LockedComponent`]; the Wasm component binary specified
+    /// by source will be componentized and composed with each of its
+    /// dependencies.
     async fn load_component(
         &self,
         engine: &wasmtime::Engine,
-        source: &LockedComponentSource,
+        component: &LockedComponent,
     ) -> anyhow::Result<spin_core::Component>;
 
     /// Called with a [`LockedComponentSource`] pointing to a Wasm module
@@ -282,6 +283,7 @@ impl App<'static, InertLoader> {
 pub struct AppComponent<'a, L = AppLoader> {
     /// The app this component belongs to.
     pub app: &'a App<'a, L>,
+    /// The locked component.
     locked: &'a LockedComponent,
 }
 
@@ -337,7 +339,7 @@ impl<'a> AppComponent<'a> {
         self.app
             .loader
             .inner
-            .load_component(engine.as_ref(), &self.locked.source)
+            .load_component(engine.as_ref(), self.locked)
             .await
             .map_err(Error::LoaderError)
     }

@@ -12,7 +12,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use spin_app::{
     async_trait,
-    locked::{LockedApp, LockedComponentSource},
+    locked::{LockedApp, LockedComponent, LockedComponentSource},
     AppComponent, Loader,
 };
 use spin_core::{Component, StoreBuilder};
@@ -205,9 +205,12 @@ impl Loader for TestLoader {
     async fn load_component(
         &self,
         engine: &spin_core::wasmtime::Engine,
-        source: &LockedComponentSource,
+        component: &LockedComponent,
     ) -> anyhow::Result<spin_core::Component> {
-        assert_eq!(source.content.digest.as_deref(), Some("test-source"));
+        assert_eq!(
+            component.source.content.digest.as_deref(),
+            Some("test-source")
+        );
         Component::new(
             engine,
             spin_componentize::componentize_if_necessary(&fs::read(&self.module_path).await?)?,

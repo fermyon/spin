@@ -3,10 +3,13 @@
 #![deny(missing_docs)]
 
 pub mod base64;
+pub mod dependencies;
 pub mod id;
 mod version;
 
 pub use version::{FixedStringVersion, FixedVersion, FixedVersionBackwardCompatible};
+
+pub use dependencies::{DependencyName, DependencyPackageName};
 
 /// A "kebab-case" identifier.
 pub type KebabId = id::Id<'-', false>;

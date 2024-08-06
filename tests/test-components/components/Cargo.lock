@@ -433,6 +433,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "key-value-wasi"
+version = "0.1.0"
+dependencies = [
+ "helper",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

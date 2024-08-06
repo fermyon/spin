@@ -60,15 +60,17 @@ impl RuntimeConfig {
     }
 
     /// Return a Vec of configured [`VariablesProvider`]s.
-    pub fn variables_providers(&self) -> Vec<VariablesProvider> {
-        let default_provider = VariablesProviderOpts::default_provider_opts(self).build_provider();
+    pub fn variables_providers(&self) -> Result<Vec<VariablesProvider>> {
+        let default_provider =
+            VariablesProviderOpts::default_provider_opts(self).build_provider()?;
         let mut providers: Vec<VariablesProvider> = vec![default_provider];
-        providers.extend(self.opts_layers().flat_map(|opts| {
-            opts.variables_providers
-                .iter()
-                .map(|opts| opts.build_provider())
-        }));
-        providers
+        for opts in self.opts_layers() {
+            for var_provider in &opts.variables_providers {
+                let provider = var_provider.build_provider()?;
+                providers.push(provider);
+            }
+        }
+        Ok(providers)
     }
 
     /// Return an iterator of named configured [`KeyValueStore`]s.
@@ -473,7 +475,7 @@ mod tests {
         let mut config = RuntimeConfig::new(None);
 
         // One default provider
-        assert_eq!(config.variables_providers().len(), 1);
+        assert_eq!(config.variables_providers()?.len(), 1);
 
         merge_config_toml(
             &mut config,
@@ -485,7 +487,7 @@ mod tests {
                 mount = "root"
             },
         );
-        assert_eq!(config.variables_providers().len(), 2);
+        assert_eq!(config.variables_providers()?.len(), 2);
 
         Ok(())
     }
@@ -495,7 +497,7 @@ mod tests {
         let mut config = RuntimeConfig::new(None);
 
         // One default provider
-        assert_eq!(config.variables_providers().len(), 1);
+        assert_eq!(config.variables_providers()?.len(), 1);
 
         merge_config_toml(
             &mut config,
@@ -507,7 +509,7 @@ mod tests {
                 mount = "root"
             },
         );
-        assert_eq!(config.variables_providers().len(), 2);
+        assert_eq!(config.variables_providers()?.len(), 2);
 
         Ok(())
     }

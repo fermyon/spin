@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
+use anyhow::{anyhow, Result};
 use serde::Deserialize;
+use spin_variables::provider::azure_key_vault::{
+    AzureKeyVaultAuthOptions, AzureKeyVaultRuntimeConfigOptions,
+};
 use spin_variables::provider::{
     azure_key_vault::{AzureAuthorityHost, AzureKeyVaultProvider},
     env::EnvProvider,
@@ -27,7 +31,7 @@ impl VariablesProviderOpts {
         ))
     }
 
-    pub fn build_provider(&self) -> VariablesProvider {
+    pub fn build_provider(&self) -> Result<VariablesProvider> {
         match self {
             Self::Env(opts) => opts.build_provider(),
             Self::Vault(opts) => opts.build_provider(),
@@ -60,11 +64,11 @@ impl EnvVariablesProviderOpts {
         }
     }
 
-    pub fn build_provider(&self) -> VariablesProvider {
-        Box::new(EnvProvider::new(
+    pub fn build_provider(&self) -> Result<VariablesProvider> {
+        Ok(Box::new(EnvProvider::new(
             self.prefix.clone(),
             self.dotenv_path.clone(),
-        ))
+        )))
     }
 }
 
@@ -79,35 +83,52 @@ pub struct VaultVariablesProviderOpts {
 }
 
 impl VaultVariablesProviderOpts {
-    pub fn build_provider(&self) -> VariablesProvider {
-        Box::new(VaultProvider::new(
+    pub fn build_provider(&self) -> Result<VariablesProvider> {
+        Ok(Box::new(VaultProvider::new(
             &self.url,
             &self.token,
             &self.mount,
             self.prefix.as_deref(),
-        ))
+        )))
     }
 }
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AzureKeyVaultVariablesProviderOpts {
-    pub client_id: String,
-    pub client_secret: String,
-    pub tenant_id: String,
     pub vault_url: String,
-    #[serde(default)]
-    pub authority_host: AzureAuthorityHost,
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+    pub tenant_id: Option<String>,
+    pub authority_host: Option<AzureAuthorityHost>,
 }
 
 impl AzureKeyVaultVariablesProviderOpts {
-    pub fn build_provider(&self) -> VariablesProvider {
-        Box::new(AzureKeyVaultProvider::new(
-            &self.client_id,
-            &self.client_secret,
-            &self.tenant_id,
+    pub fn build_provider(&self) -> Result<VariablesProvider> {
+        let auth_config_runtime_vars = [&self.client_id, &self.tenant_id, &self.client_secret];
+        let any_some = auth_config_runtime_vars.iter().any(|&var| var.is_some());
+        let any_none = auth_config_runtime_vars.iter().any(|&var| var.is_none());
+
+        if any_none && any_some {
+            // some of the service principal auth options were specified, but not enough to authenticate.
+            return Err(anyhow!("The current runtime config specifies some but not all of the Azure KeyVault 'client_id', 'client_secret', and 'tenant_id' values. Provide the missing values to authenticate to Azure KeyVault with the given service principal, or remove all these values to authenticate using ambient authentication (e.g. env vars, Azure CLI, Managed Identity, Workload Identity)."));
+        }
+
+        let auth_options = if any_some {
+            // all the service principal auth options were specified in the runtime config
+            AzureKeyVaultAuthOptions::RuntimeConfigValues(AzureKeyVaultRuntimeConfigOptions::new(
+                self.client_id.clone().unwrap(),
+                self.client_secret.clone().unwrap(),
+                self.tenant_id.clone().unwrap(),
+                self.authority_host,
+            ))
+        } else {
+            AzureKeyVaultAuthOptions::Environmental
+        };
+
+        Ok(Box::new(AzureKeyVaultProvider::new(
             &self.vault_url,
-            self.authority_host,
-        ))
+            auth_options,
+        )?))
     }
 }

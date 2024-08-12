@@ -7,6 +7,12 @@ pub trait GetTomlValue {
     fn get(&self, key: &str) -> Option<&toml::Value>;
 }
 
+impl GetTomlValue for toml::Table {
+    fn get(&self, key: &str) -> Option<&toml::Value> {
+        self.get(key)
+    }
+}
+
 /// A helper for tracking which keys have been used in a TOML table.
 pub struct TomlKeyTracker<'a> {
     unused_keys: RefCell<HashSet<&'a str>>,

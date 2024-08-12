@@ -9,11 +9,16 @@ use std::{
 
 use super::{validate_host, TlsConfig};
 
+/// Spin's default handling of the runtime configuration for outbound TLS.
 pub struct SpinTlsRuntimeConfig {
     runtime_config_dir: PathBuf,
 }
 
 impl SpinTlsRuntimeConfig {
+    /// Creates a new `SpinTlsRuntimeConfig`.
+    ///
+    /// The given `runtime_config_dir` will be used as the root to resolve any
+    /// relative paths.
     pub fn new(runtime_config_dir: impl Into<PathBuf>) -> Self {
         Self {
             runtime_config_dir: runtime_config_dir.into(),
@@ -55,7 +60,8 @@ impl SpinTlsRuntimeConfig {
         let tls_configs = toml_configs
             .into_iter()
             .map(|toml_config| self.load_tls_config(toml_config))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<anyhow::Result<Vec<_>>>()
+            .context("failed to parse TLS configs from TOML")?;
         Ok(Some(tls_configs))
     }
 
@@ -82,7 +88,6 @@ impl SpinTlsRuntimeConfig {
         let hosts = hosts
             .iter()
             .map(|host| {
-                let host: &str = host;
                 host.parse()
                     .map_err(|err| anyhow::anyhow!("invalid host {host:?}: {err:?}"))
             })
@@ -133,7 +138,7 @@ impl SpinTlsRuntimeConfig {
                 )
             },
         )?))
-        .collect::<io::Result<Vec<rustls_pki_types::CertificateDer<'static>>>>()
+        .collect()
     }
 
     // Parse a private key from the provided file
@@ -142,17 +147,16 @@ impl SpinTlsRuntimeConfig {
         path: impl AsRef<Path>,
     ) -> anyhow::Result<rustls_pki_types::PrivateKeyDer<'static>> {
         let path = self.runtime_config_dir.join(path);
-        rustls_pemfile::private_key(&mut io::BufReader::new(
-            fs::File::open(path).context("loading private key")?,
-        ))
-        .map_err(|_| anyhow::anyhow!("invalid input"))
-        .transpose()
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "private key file contains no private keys",
-            )
-        })?
+        let file = fs::File::open(&path)
+            .with_context(|| format!("failed to read private key from '{}'", path.display()))?;
+        Ok(rustls_pemfile::private_key(&mut io::BufReader::new(file))
+            .with_context(|| format!("failed to parse private key from '{}'", path.display()))?
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("private key file '{}' contains no private keys", path.display()),
+                )
+            })?)
     }
 }
 

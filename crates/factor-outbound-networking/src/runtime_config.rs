@@ -10,8 +10,9 @@ use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 /// Runtime configuration for outbound networking.
 #[derive(Debug)]
 pub struct RuntimeConfig {
-    // Maps component ID -> HostClientConfigs
+    /// Maps component ID -> HostClientConfigs
     component_host_client_configs: HashMap<String, HostClientConfigs>,
+    /// The default [`ClientConfig`] for a host if one is not explicitly configured for it.
     default_client_config: Arc<ClientConfig>,
 }
 
@@ -19,6 +20,9 @@ pub struct RuntimeConfig {
 type HostClientConfigs = Arc<HashMap<String, Arc<ClientConfig>>>;
 
 impl RuntimeConfig {
+    /// Returns runtime config with the given list of [`TlsConfig`]s. The first
+    /// [`TlsConfig`] to match an outgoing request (based on
+    /// [`TlsConfig::components`] and [`TlsConfig::hosts`]) will be used.
     pub fn new(tls_configs: impl IntoIterator<Item = TlsConfig>) -> anyhow::Result<Self> {
         let mut component_host_client_configs = HashMap::<String, HostClientConfigs>::new();
         for tls_config in tls_configs {
@@ -30,7 +34,11 @@ impl RuntimeConfig {
                 !tls_config.hosts.is_empty(),
                 "client TLS 'hosts' list may not be empty"
             );
-            let client_config = Arc::new(tls_config.to_client_config()?);
+            let client_config = Arc::new(
+                tls_config
+                    .to_client_config()
+                    .context("error building TLS client config")?,
+            );
             for component in &tls_config.components {
                 let host_configs = component_host_client_configs
                     .entry(component.clone())
@@ -78,13 +86,16 @@ impl RuntimeConfig {
 
 pub(crate) fn validate_host(host: &str) -> anyhow::Result<()> {
     // Validate hostname
-    http::uri::Authority::from_str(host).with_context(|| format!("invalid TLS 'host' {host:?}"))?;
-    if host.contains(':') {
-        anyhow::bail!("invalid TLS 'host' {host:?}; ports not currently supported");
-    }
+    let authority = http::uri::Authority::from_str(host)
+        .with_context(|| format!("invalid TLS 'host' {host:?}"))?;
+    ensure!(
+        authority.port().is_none(),
+        "invalid TLS 'host' {host:?}; ports not currently supported"
+    );
     Ok(())
 }
 
+/// TLS configurations for a specific component.
 #[derive(Clone)]
 pub struct ComponentTlsConfigs {
     host_client_configs: Option<HostClientConfigs>,
@@ -107,12 +118,20 @@ pub struct ClientCertConfig {
     key_der: PrivateKeyDer<'static>,
 }
 
+/// TLS configuration for one or more component(s) and host(s).
 #[derive(Debug)]
 pub struct TlsConfig {
+    /// The component(s) this configuration applies to.
     pub components: Vec<String>,
+    /// The host(s) this configuration applies to.
     pub hosts: Vec<String>,
+    /// A set of CA certs that should be considered valid roots.
     pub root_certificates: Vec<rustls_pki_types::CertificateDer<'static>>,
+    /// If true, the "standard" CA certs defined by `webpki-roots` crate will be
+    /// considered valid roots in addition to `root_certificates`.
     pub use_webpki_roots: bool,
+    /// A certificate and private key to be used as the client certificate for
+    /// "mutual TLS" (mTLS).
     pub client_cert: Option<ClientCertConfig>,
 }
 

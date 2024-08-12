@@ -13,7 +13,7 @@ use spin_factors::{
 use spin_world::v2::sqlite as v2;
 use tokio::sync::OnceCell;
 
-use crate::{Connection, ConnectionPool, DefaultLabelResolver, SimpleConnectionPool};
+use crate::{Connection, ConnectionCreator, DefaultLabelResolver, FunctionConnectionCreator};
 
 /// Spin's default handling of the runtime configuration for SQLite databases.
 ///
@@ -70,11 +70,13 @@ impl SpinSqliteRuntimeConfig {
             .into_iter()
             .map(|(k, v)| Ok((k, self.get_pool(v)?)))
             .collect::<anyhow::Result<_>>()?;
-        Ok(Some(super::RuntimeConfig { pools }))
+        Ok(Some(super::RuntimeConfig {
+            connection_creators: pools,
+        }))
     }
 
     /// Get a connection pool for a given runtime configuration.
-    pub fn get_pool(&self, config: RuntimeConfig) -> anyhow::Result<Arc<dyn ConnectionPool>> {
+    pub fn get_pool(&self, config: RuntimeConfig) -> anyhow::Result<Arc<dyn ConnectionCreator>> {
         let database_kind = config.type_.as_str();
         let pool = match database_kind {
             "spin" => {
@@ -100,7 +102,7 @@ pub struct RuntimeConfig {
 }
 
 impl DefaultLabelResolver for SpinSqliteRuntimeConfig {
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>> {
+    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>> {
         // Only default the database labeled "default".
         if label != "default" {
             return None;
@@ -110,9 +112,9 @@ impl DefaultLabelResolver for SpinSqliteRuntimeConfig {
         let factory = move || {
             let location = spin_sqlite_inproc::InProcDatabaseLocation::Path(path.clone());
             let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
-            Ok(Arc::new(connection) as _)
+            Ok(Box::new(connection) as _)
         };
-        let pool = SimpleConnectionPool::new(factory);
+        let pool = FunctionConnectionCreator::new(factory);
         Some(Arc::new(pool))
     }
 }
@@ -199,7 +201,7 @@ impl LocalDatabase {
     /// Create a new connection pool for a local database.
     ///
     /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
-    fn pool(self, base_dir: &Path) -> anyhow::Result<SimpleConnectionPool> {
+    fn pool(self, base_dir: &Path) -> anyhow::Result<FunctionConnectionCreator> {
         let location = match self.path {
             Some(path) => {
                 let path = resolve_relative_path(&path, base_dir);
@@ -213,9 +215,9 @@ impl LocalDatabase {
         };
         let factory = move || {
             let connection = spin_sqlite_inproc::InProcConnection::new(location.clone())?;
-            Ok(Arc::new(connection) as _)
+            Ok(Box::new(connection) as _)
         };
-        Ok(SimpleConnectionPool::new(factory))
+        Ok(FunctionConnectionCreator::new(factory))
     }
 }
 
@@ -239,7 +241,7 @@ pub struct LibSqlDatabase {
 
 impl LibSqlDatabase {
     /// Create a new connection pool for a libSQL database.
-    fn pool(self) -> anyhow::Result<SimpleConnectionPool> {
+    fn pool(self) -> anyhow::Result<FunctionConnectionCreator> {
         let url = check_url(&self.url)
             .with_context(|| {
                 format!(
@@ -250,9 +252,9 @@ impl LibSqlDatabase {
             .to_owned();
         let factory = move || {
             let connection = LibSqlConnection::new(url.clone(), self.token.clone());
-            Ok(Arc::new(connection) as _)
+            Ok(Box::new(connection) as _)
         };
-        Ok(SimpleConnectionPool::new(factory))
+        Ok(FunctionConnectionCreator::new(factory))
     }
 }
 

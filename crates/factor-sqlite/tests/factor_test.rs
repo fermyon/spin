@@ -130,7 +130,7 @@ impl DefaultLabelResolver {
 }
 
 impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionPool>> {
+    fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionCreator>> {
         let Some(default) = &self.default else {
             return None;
         };
@@ -142,8 +142,8 @@ impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
 struct InvalidConnectionPool;
 
 #[async_trait::async_trait]
-impl factor_sqlite::ConnectionPool for InvalidConnectionPool {
-    async fn get_connection(
+impl factor_sqlite::ConnectionCreator for InvalidConnectionPool {
+    async fn create_connection(
         &self,
     ) -> Result<Arc<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
         Err(spin_world::v2::sqlite::Error::InvalidConnection)

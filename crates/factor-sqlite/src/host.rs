@@ -8,12 +8,12 @@ use spin_factors::{anyhow, SelfInstanceBuilder};
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-use crate::{Connection, ConnectionPool};
+use crate::{Connection, ConnectionCreator};
 
 pub struct InstanceState {
     allowed_databases: Arc<HashSet<String>>,
-    connections: table::Table<Arc<dyn Connection>>,
-    get_pool: ConnectionPoolGetter,
+    connections: table::Table<Box<dyn Connection>>,
+    get_connection_creator: ConnectionCreatorGetter,
 }
 
 impl InstanceState {
@@ -22,25 +22,29 @@ impl InstanceState {
     }
 }
 
-/// A function that takes a database label and returns a connection pool, if one exists.
-pub type ConnectionPoolGetter = Arc<dyn Fn(&str) -> Option<Arc<dyn ConnectionPool>> + Send + Sync>;
+/// A function that takes a database label and returns a connection creator, if one exists.
+pub type ConnectionCreatorGetter =
+    Arc<dyn Fn(&str) -> Option<Arc<dyn ConnectionCreator>> + Send + Sync>;
 
 impl InstanceState {
     /// Create a new `InstanceState`
     ///
-    /// Takes the list of allowed databases, and a function for getting a connection pool given a database label.
-    pub fn new(allowed_databases: Arc<HashSet<String>>, get_pool: ConnectionPoolGetter) -> Self {
+    /// Takes the list of allowed databases, and a function for getting a connection creator given a database label.
+    pub fn new(
+        allowed_databases: Arc<HashSet<String>>,
+        get_connection_creator: ConnectionCreatorGetter,
+    ) -> Self {
         Self {
             allowed_databases,
             connections: table::Table::new(256),
-            get_pool,
+            get_connection_creator,
         }
     }
 
     fn get_connection(
         &self,
         connection: Resource<v2::Connection>,
-    ) -> Result<&Arc<dyn Connection>, v2::Error> {
+    ) -> Result<&Box<dyn Connection>, v2::Error> {
         self.connections
             .get(connection.rep())
             .ok_or(v2::Error::InvalidConnection)
@@ -61,9 +65,9 @@ impl v2::HostConnection for InstanceState {
         if !self.allowed_databases.contains(&database) {
             return Err(v2::Error::AccessDenied);
         }
-        (self.get_pool)(&database)
+        (self.get_connection_creator)(&database)
             .ok_or(v2::Error::NoSuchDatabase)?
-            .get_connection()
+            .create_connection()
             .await
             .and_then(|conn| {
                 self.connections

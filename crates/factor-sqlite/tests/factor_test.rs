@@ -116,7 +116,7 @@ impl TryFrom<TomlRuntimeSource<'_>> for TestFactorsRuntimeConfig {
     }
 }
 
-/// Will return an `InvalidConnectionPool` for the supplied default database.
+/// Will return an `InvalidConnectionCreator` for the supplied default database.
 struct DefaultLabelResolver {
     default: Option<String>,
 }
@@ -130,22 +130,22 @@ impl DefaultLabelResolver {
 }
 
 impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionPool>> {
+    fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionCreator>> {
         let Some(default) = &self.default else {
             return None;
         };
-        (default == label).then_some(Arc::new(InvalidConnectionPool))
+        (default == label).then_some(Arc::new(InvalidConnectionCreator))
     }
 }
 
-/// A connection pool that always returns an error.
-struct InvalidConnectionPool;
+/// A connection creator that always returns an error.
+struct InvalidConnectionCreator;
 
 #[async_trait::async_trait]
-impl factor_sqlite::ConnectionPool for InvalidConnectionPool {
-    async fn get_connection(
+impl factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
+    async fn create_connection(
         &self,
-    ) -> Result<Arc<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
+    ) -> Result<Box<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
         Err(spin_world::v2::sqlite::Error::InvalidConnection)
     }
 }

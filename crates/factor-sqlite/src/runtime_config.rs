@@ -3,11 +3,11 @@ pub mod spin;
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::ConnectionPool;
+use crate::ConnectionCreator;
 
 /// A runtime configuration for SQLite databases.
 ///
-/// Maps database labels to connection pools.
+/// Maps database labels to connection creators.
 pub struct RuntimeConfig {
-    pub pools: HashMap<String, Arc<dyn ConnectionPool>>,
+    pub connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
 }

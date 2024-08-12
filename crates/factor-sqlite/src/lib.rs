@@ -46,9 +46,9 @@ impl Factor for SqliteFactor {
         &self,
         mut ctx: spin_factors::ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
-        let connection_pools = ctx
+        let connection_creators = ctx
             .take_runtime_config()
-            .map(|r| r.pools)
+            .map(|r| r.connection_creators)
             .unwrap_or_default();
 
         let allowed_databases = ctx
@@ -68,20 +68,20 @@ impl Factor for SqliteFactor {
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
         let resolver = self.default_label_resolver.clone();
-        let get_connection_pool: host::ConnectionPoolGetter = Arc::new(move |label| {
-            connection_pools
+        let get_connection_creator: host::ConnectionCreatorGetter = Arc::new(move |label| {
+            connection_creators
                 .get(label)
                 .cloned()
                 .or_else(|| resolver.default(label))
         });
 
         ensure_allowed_databases_are_configured(&allowed_databases, |label| {
-            get_connection_pool(label).is_some()
+            get_connection_creator(label).is_some()
         })?;
 
         Ok(AppState {
             allowed_databases,
-            get_connection_pool,
+            get_connection_creator,
         })
     }
 
@@ -96,8 +96,11 @@ impl Factor for SqliteFactor {
             .get(ctx.app_component().id())
             .cloned()
             .unwrap_or_default();
-        let get_connection_pool = ctx.app_state().get_connection_pool.clone();
-        Ok(InstanceState::new(allowed_databases, get_connection_pool))
+        let get_connection_creator = ctx.app_state().get_connection_creator.clone();
+        Ok(InstanceState::new(
+            allowed_databases,
+            get_connection_creator,
+        ))
     }
 }
 
@@ -136,46 +139,37 @@ fn ensure_allowed_databases_are_configured(
 
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
 
-/// Resolves a label to a default connection pool.
+/// Resolves a label to a default connection creator.
 pub trait DefaultLabelResolver: Send + Sync {
-    /// If there is no runtime configuration for a given database label, return a default connection pool.
+    /// If there is no runtime configuration for a given database label, return a default connection creator.
     ///
     /// If `Option::None` is returned, the database is not allowed.
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>>;
+    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>>;
 }
 
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-    /// A function for mapping from database name to a connection pool
-    get_connection_pool: host::ConnectionPoolGetter,
+    /// A function for mapping from database name to a connection creator.
+    get_connection_creator: host::ConnectionCreatorGetter,
 }
 
-/// A pool of connections for a particular SQLite database
+/// A creator of a connections for a particular SQLite database.
 #[async_trait]
-pub trait ConnectionPool: Send + Sync {
-    /// Get a `Connection` from the pool
-    async fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, v2::Error>;
-}
-
-/// A simple [`ConnectionPool`] that always creates a new connection.
-pub struct SimpleConnectionPool(
-    Box<dyn Fn() -> anyhow::Result<Arc<dyn Connection + 'static>> + Send + Sync>,
-);
-
-impl SimpleConnectionPool {
-    /// Create a new `SimpleConnectionPool` with the given connection factory.
-    pub fn new(
-        factory: impl Fn() -> anyhow::Result<Arc<dyn Connection + 'static>> + Send + Sync + 'static,
-    ) -> Self {
-        Self(Box::new(factory))
-    }
+pub trait ConnectionCreator: Send + Sync {
+    /// Get a *new* [`Connection`]
+    ///
+    /// The connection should be a new connection, not a reused one.
+    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
 }
 
 #[async_trait::async_trait]
-impl ConnectionPool for SimpleConnectionPool {
-    async fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, v2::Error> {
-        (self.0)().map_err(|_| v2::Error::InvalidConnection)
+impl<F> ConnectionCreator for F
+where
+    F: Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
+{
+    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+        (self)().map_err(|_| v2::Error::InvalidConnection)
     }
 }
 

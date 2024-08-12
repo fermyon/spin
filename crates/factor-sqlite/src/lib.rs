@@ -163,24 +163,13 @@ pub trait ConnectionCreator: Send + Sync {
     async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
 }
 
-/// A simple [`ConnectionCreator`] that delegates to a function.
-pub struct FunctionConnectionCreator(
-    Box<dyn Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync>,
-);
-
-impl FunctionConnectionCreator {
-    /// Create a new [`FunctionConnectionCreator`] with the given connection factory function.
-    pub fn new(
-        factory: impl Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
-    ) -> Self {
-        Self(Box::new(factory))
-    }
-}
-
 #[async_trait::async_trait]
-impl ConnectionCreator for FunctionConnectionCreator {
+impl<F> ConnectionCreator for F
+where
+    F: Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
+{
     async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
-        (self.0)().map_err(|_| v2::Error::InvalidConnection)
+        (self)().map_err(|_| v2::Error::InvalidConnection)
     }
 }
 

@@ -3,7 +3,16 @@ use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
 use spin_key_value_redis::KeyValueRedis;
 
 /// A key-value store that uses Redis as the backend.
-pub struct RedisKeyValueStore;
+pub struct RedisKeyValueStore {
+    _priv: (),
+}
+
+impl RedisKeyValueStore {
+    /// Creates a new `RedisKeyValueStore`.
+    pub fn new() -> Self {
+        Self { _priv: () }
+    }
+}
 
 /// Runtime configuration for the Redis key-value store.
 #[derive(Deserialize)]

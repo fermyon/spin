@@ -248,7 +248,7 @@ impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
 
 impl FactorRuntimeConfigSource<KeyValueFactor> for TomlConfig {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<RuntimeConfig>> {
-        self.resolver.resolve_from_toml(&self.toml)
+        self.resolver.resolve_from_toml(self.toml.as_ref())
     }
 }
 

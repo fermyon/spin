@@ -163,7 +163,7 @@ impl FactorRuntimeConfigSource<KeyValueFactor> for TestSource {
             type = "redis"
             url = "redis://localhost:6379"
         };
-        self.key_value_resolver.resolve_from_toml(&Some(config))
+        self.key_value_resolver.resolve_from_toml(Some(&config))
     }
 }
 

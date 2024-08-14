@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use spin_key_value::StoreManager;
 
 /// Runtime configuration for all key value stores.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct RuntimeConfig {
     /// Map of store names to store managers.
     store_managers: HashMap<String, Arc<dyn StoreManager>>,

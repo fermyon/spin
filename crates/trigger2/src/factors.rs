@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use spin_factor_key_value::{DefaultLabelResolver, KeyValueFactor};
 use spin_factor_wasi::{spin::SpinFilesMounter, WasiFactor};
 use spin_factors::RuntimeFactors;
+use spin_runtime_config::TomlRuntimeConfigSource;
 
 #[derive(RuntimeFactors)]
 pub struct TriggerFactors {
@@ -21,5 +22,13 @@ impl TriggerFactors {
             wasi: WasiFactor::new(files_mounter),
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
         }
+    }
+}
+
+impl TryFrom<TomlRuntimeConfigSource<'_>> for TriggerFactorsRuntimeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TomlRuntimeConfigSource<'_>) -> Result<Self, Self::Error> {
+        Self::from_source(value)
     }
 }

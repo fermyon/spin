@@ -9,9 +9,9 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
+use spin_runtime_config::ResolvedRuntimeConfig;
 
-use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
-use crate::runtime_config::{key_value_resolver, RuntimeConfigSource};
+use crate::factors::TriggerFactors;
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::Trigger;
 pub use launch_metadata::LaunchMetadata;
@@ -21,7 +21,6 @@ pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
 pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
-pub const DEFAULT_STATE_DIR: &str = ".spin";
 
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
@@ -193,32 +192,18 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         };
         trigger.add_to_linker(core_engine_builder.linker())?;
 
-        let (runtime_config, key_value_resolver) = self
-            .runtime_config_file
-            .as_ref()
-            .map(|path| {
-                let file = std::fs::read_to_string(path).with_context(|| {
-                    format!("failed to read runtime config file {}", quoted_path(path))
-                })?;
-                let toml = toml::from_str(&file).with_context(|| {
-                    format!(
-                        "failed to parse runtime config file {} as toml",
-                        quoted_path(path)
-                    )
-                })?;
+        let runtime_config = match &self.runtime_config_file {
+            Some(runtime_config_path) => {
+                ResolvedRuntimeConfig::from_file(runtime_config_path, self.state_dir.as_deref())?
+            }
+            None => ResolvedRuntimeConfig::default(),
+        };
 
-                let key_value_resolver = key_value_resolver(PathBuf::from(
-                    self.state_dir.unwrap_or_else(|| DEFAULT_STATE_DIR.into()),
-                ));
-                let source: TriggerFactorsRuntimeConfig =
-                    RuntimeConfigSource::new(&toml, &key_value_resolver).try_into()?;
-                anyhow::Ok((source, key_value_resolver))
-            })
-            .transpose()?
-            .unwrap_or_default();
-
-        let factors =
-            TriggerFactors::new(working_dir, self.allow_transient_write, key_value_resolver);
+        let factors = TriggerFactors::new(
+            working_dir,
+            self.allow_transient_write,
+            runtime_config.key_value_resolver,
+        );
 
         // TODO: move these into Factor methods/constructors
         // let init_data = crate::HostComponentInitData::new(
@@ -250,10 +235,9 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(app, runtime_config, TodoComponentLoader)?
+            executor.load_app(app, runtime_config.runtime_config, TodoComponentLoader)?
         };
 
-        // TODO: Construct factors
         let run_fut = trigger.run(configured_app);
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);

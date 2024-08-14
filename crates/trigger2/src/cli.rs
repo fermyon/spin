@@ -11,6 +11,7 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 
 use crate::factors::TriggerFactors;
+use crate::runtime_config::RuntimeConfigSource;
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::Trigger;
 pub use launch_metadata::LaunchMetadata;
@@ -214,7 +215,6 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
 
         let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
 
-        // TODO: integrate with runtime config
         let log_dir = self.log.clone();
         executor.add_hooks(StdioLoggingExecutorHooks::new(follow_components, log_dir));
         // TODO:
@@ -222,13 +222,27 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         // builder.hooks(KeyValuePersistenceMessageHook);
         // builder.hooks(SqlitePersistenceMessageHook);
 
+        let runtime_config = match &self.runtime_config_file {
+            Some(path) => {
+                let file = std::fs::read_to_string(path).with_context(|| {
+                    format!("failed to read runtime config file {}", quoted_path(path))
+                })?;
+                let toml = toml::from_str(&file).with_context(|| {
+                    format!(
+                        "failed to parse runtime config file {} as toml",
+                        quoted_path(path)
+                    )
+                })?;
+
+                let source = RuntimeConfigSource::new(&toml);
+                source.try_into().context("error parsing runtime config")?
+            }
+            None => Default::default(),
+        };
+
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(
-                app,
-                Default::default(), // TODO runtime config
-                TodoComponentLoader,
-            )?
+            executor.load_app(app, runtime_config, TodoComponentLoader)?
         };
 
         // TODO: Construct factors

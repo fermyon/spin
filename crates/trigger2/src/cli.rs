@@ -11,7 +11,7 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::ResolvedRuntimeConfig;
 
-use crate::factors::TriggerFactors;
+use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::Trigger;
 pub use launch_metadata::LaunchMetadata;
@@ -194,10 +194,17 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
 
         let runtime_config = match &self.runtime_config_file {
             Some(runtime_config_path) => {
-                ResolvedRuntimeConfig::from_file(runtime_config_path, self.state_dir.as_deref())?
+                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
+                    runtime_config_path,
+                    self.state_dir.as_deref(),
+                )?
             }
             None => ResolvedRuntimeConfig::default(),
         };
+
+        runtime_config
+            .set_initial_key_values(&self.key_values)
+            .await?;
 
         let factors = TriggerFactors::new(
             working_dir,

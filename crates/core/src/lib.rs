@@ -19,7 +19,6 @@ use std::sync::OnceLock;
 use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
-use crossbeam_channel::Sender;
 use http::Request;
 use tracing::{field::Empty, instrument};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
@@ -406,27 +405,24 @@ impl<T: Send + Sync> EngineBuilder<T> {
         self.epoch_ticker_thread = enable;
     }
 
-    fn maybe_spawn_epoch_ticker(&self) -> Option<Sender<()>> {
+    fn maybe_spawn_epoch_ticker(&self) {
         if !self.epoch_ticker_thread {
-            return None;
+            return;
         }
-        let engine = self.engine.clone();
+        let engine_weak = self.engine.weak();
         let interval = self.epoch_tick_interval;
-        let (send, recv) = crossbeam_channel::bounded(0);
         std::thread::spawn(move || loop {
-            match recv.recv_timeout(interval) {
-                Err(crossbeam_channel::RecvTimeoutError::Timeout) => (),
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                res => panic!("unexpected epoch_ticker_signal: {res:?}"),
-            }
+            std::thread::sleep(interval);
+            let Some(engine) = engine_weak.upgrade() else {
+                break;
+            };
             engine.increment_epoch();
         });
-        Some(send)
     }
 
     /// Builds an [`Engine`] from this builder.
     pub fn build(self) -> Engine<T> {
-        let epoch_ticker_signal = self.maybe_spawn_epoch_ticker();
+        self.maybe_spawn_epoch_ticker();
 
         let host_components = self.host_components_builder.build();
 
@@ -436,7 +432,6 @@ impl<T: Send + Sync> EngineBuilder<T> {
             module_linker: self.module_linker,
             host_components,
             epoch_tick_interval: self.epoch_tick_interval,
-            _epoch_ticker_signal: epoch_ticker_signal,
         }
     }
 }
@@ -449,8 +444,6 @@ pub struct Engine<T> {
     module_linker: ModuleLinker<T>,
     host_components: HostComponents,
     epoch_tick_interval: Duration,
-    // Matching receiver closes on drop
-    _epoch_ticker_signal: Option<Sender<()>>,
 }
 
 impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {

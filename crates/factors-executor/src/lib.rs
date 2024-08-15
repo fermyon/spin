@@ -5,23 +5,23 @@ use spin_app::{App, AppComponent};
 use spin_core::Component;
 use spin_factors::{AsInstanceState, ConfiguredApp, RuntimeFactors, RuntimeFactorsInstanceState};
 
-/// A FactorsExecutor manages execution of a Spin app.
+/// A manager of the execution of a Spin app.
 ///
-/// `Factors` is the executor's [`RuntimeFactors`]. `ExecutorInstanceState`
-/// holds any other per-instance state needed by the caller.
-pub struct FactorsExecutor<T: RuntimeFactors, U = ()> {
-    core_engine: spin_core::Engine<InstanceState<T::InstanceState, U>>,
-    factors: T,
-    hooks: Vec<Box<dyn ExecutorHooks<T, U>>>,
+/// This type is generic over the type of [`RuntimeFactors`] and
+/// the per-instance state needed by the caller.
+pub struct FactorsExecutor<F: RuntimeFactors, U = ()> {
+    core_engine: spin_core::Engine<InstanceState<F::InstanceState, U>>,
+    factors: F,
+    hooks: Vec<Box<dyn ExecutorHooks<F, U>>>,
 }
 
-impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
+impl<F: RuntimeFactors, U: Send + 'static> FactorsExecutor<F, U> {
     /// Constructs a new executor.
     pub fn new(
         mut core_engine_builder: spin_core::EngineBuilder<
-            InstanceState<<T as RuntimeFactors>::InstanceState, U>,
+            InstanceState<<F as RuntimeFactors>::InstanceState, U>,
         >,
-        mut factors: T,
+        mut factors: F,
     ) -> anyhow::Result<Self> {
         factors
             .init(core_engine_builder.linker())
@@ -36,7 +36,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     /// Adds the given [`ExecutorHooks`] to this executor.
     ///
     /// Hooks are run in the order they are added.
-    pub fn add_hooks(&mut self, hooks: impl ExecutorHooks<T, U> + 'static) {
+    pub fn add_hooks(&mut self, hooks: impl ExecutorHooks<F, U> + 'static) {
         self.hooks.push(Box::new(hooks));
     }
 
@@ -44,9 +44,9 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     pub fn load_app(
         mut self,
         app: App,
-        runtime_config: T::RuntimeConfig,
+        runtime_config: F::RuntimeConfig,
         mut component_loader: impl ComponentLoader,
-    ) -> anyhow::Result<FactorsExecutorApp<T, U>> {
+    ) -> anyhow::Result<FactorsExecutorApp<F, U>> {
         let configured_app = self
             .factors
             .configure_app(app, runtime_config)
@@ -102,12 +102,14 @@ pub trait ComponentLoader {
 type InstancePre<T, U> =
     spin_core::InstancePre<InstanceState<<T as RuntimeFactors>::InstanceState, U>>;
 
-/// A FactorsExecutorApp represents a loaded Spin app, ready for instantiation.
-pub struct FactorsExecutorApp<T: RuntimeFactors, U> {
-    executor: FactorsExecutor<T, U>,
-    configured_app: ConfiguredApp<T>,
+/// A loaded Spin app, ready for instantiation.
+///
+/// Generic over the type of [`RuntimeFactors`] and the bespoke per-instance state provided by the embedder.
+pub struct FactorsExecutorApp<F: RuntimeFactors, U> {
+    executor: FactorsExecutor<F, U>,
+    configured_app: ConfiguredApp<F>,
     // Maps component IDs -> InstancePres
-    component_instance_pres: HashMap<String, InstancePre<T, U>>,
+    component_instance_pres: HashMap<String, InstancePre<F, U>>,
 }
 
 impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
@@ -208,6 +210,11 @@ impl<'a, T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'a, T, U> {
 }
 
 /// InstanceState is the [`spin_core::Store`] `data` for an instance.
+///
+/// Contains the following:
+/// * common, hardcode per-instance state encapsulated as [`spin_core::State`]
+/// * instance state managed by the [`RuntimeFactors`]
+/// * bespoke instance state managed by the embedder
 pub struct InstanceState<T, U> {
     core: spin_core::State,
     factors: T,
@@ -225,7 +232,7 @@ impl<T, U> InstanceState<T, U> {
         &mut self.factors
     }
 
-    /// Provides access to the `Self::ExecutorInstanceState`.
+    /// Provides access to the bespoke instance state provided by the embedder.
     pub fn executor_instance_state(&mut self) -> &mut U {
         &mut self.executor
     }

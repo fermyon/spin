@@ -6,10 +6,9 @@ use std::{
 
 use anyhow::{Context, Result};
 use spin_common::ui::quoted_path;
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::ExecutorHooks;
 use tokio::io::AsyncWrite;
-
-use crate::factors::TriggerFactors;
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -92,10 +91,10 @@ impl StdioLoggingExecutorHooks {
     }
 }
 
-impl<U> ExecutorHooks<TriggerFactors, U> for StdioLoggingExecutorHooks {
+impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for StdioLoggingExecutorHooks {
     fn configure_app(
         &mut self,
-        configured_app: &spin_factors::ConfiguredApp<TriggerFactors>,
+        configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         self.validate_follows(configured_app.app())?;
         if let Some(dir) = &self.log_dir {
@@ -110,7 +109,7 @@ impl<U> ExecutorHooks<TriggerFactors, U> for StdioLoggingExecutorHooks {
 
     fn prepare_instance(
         &self,
-        builder: &mut spin_factors_executor::FactorsInstanceBuilder<TriggerFactors, U>,
+        builder: &mut spin_factors_executor::FactorsInstanceBuilder<F, U>,
     ) -> anyhow::Result<()> {
         let component_id = builder.app_component().id().to_string();
         let wasi_builder = builder.factor_builders().wasi();

@@ -1,25 +1,26 @@
 use std::future::Future;
 
 use clap::Args;
-use factors::{TriggerFactors, TriggerFactorsInstanceState};
 use spin_app::App;
 use spin_core::Linker;
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
 pub mod cli;
 mod factors;
 mod stdio;
 
-/// Type alias for a [`FactorsConfiguredApp`] specialized to a [`Trigger`].
-pub type TriggerApp<T> = FactorsExecutorApp<TriggerFactors, <T as Trigger>::InstanceState>;
+/// Type alias for a [`FactorsExecutorApp`] specialized to a [`Trigger`].
+pub type TriggerApp<T> =
+    FactorsExecutorApp<<T as Trigger>::RuntimeFactors, <T as Trigger>::InstanceState>;
 
 pub type TriggerInstanceBuilder<'a, T> =
-    FactorsInstanceBuilder<'a, TriggerFactors, <T as Trigger>::InstanceState>;
+    FactorsInstanceBuilder<'a, <T as Trigger>::RuntimeFactors, <T as Trigger>::InstanceState>;
 
 pub type Store<T> = spin_core::Store<TriggerInstanceState<T>>;
 
 type TriggerInstanceState<T> = spin_factors_executor::InstanceState<
-    TriggerFactorsInstanceState,
+    <<T as Trigger>::RuntimeFactors as RuntimeFactors>::InstanceState,
     <T as Trigger>::InstanceState,
 >;
 
@@ -28,6 +29,7 @@ pub trait Trigger: Sized + Send {
 
     type CliArgs: Args;
     type InstanceState: Send + 'static;
+    type RuntimeFactors: RuntimeFactors;
 
     /// Constructs a new trigger.
     fn new(cli_args: Self::CliArgs, app: &App) -> anyhow::Result<Self>;
@@ -63,4 +65,7 @@ pub trait Trigger: Sized + Send {
     fn supported_host_requirements() -> Vec<&'static str> {
         Vec::new()
     }
+
+    /// Create factors
+    fn create_factors(&self, working_dir: &str) -> Self::RuntimeFactors;
 }

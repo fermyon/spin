@@ -69,6 +69,29 @@ pub trait Factor: Any + Sized {
     ) -> anyhow::Result<Self::InstanceBuilder>;
 }
 
+impl Factor for () {
+    type RuntimeConfig = ();
+
+    type AppState = ();
+
+    type InstanceBuilder = ();
+
+    fn configure_app<T: RuntimeFactors>(
+        &self,
+        _ctx: ConfigureAppContext<T, Self>,
+    ) -> anyhow::Result<Self::AppState> {
+        Ok(())
+    }
+
+    fn prepare<T: RuntimeFactors>(
+        &self,
+        _ctx: PrepareContext<Self>,
+        _builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<Self::InstanceBuilder> {
+        Ok(())
+    }
+}
+
 /// The instance state of the given [`Factor`] `F`.
 pub type FactorInstanceState<F> =
     <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;

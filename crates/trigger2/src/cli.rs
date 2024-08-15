@@ -8,10 +8,10 @@ use spin_app::App;
 use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::ResolvedRuntimeConfig;
 
-use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::Trigger;
 pub use launch_metadata::LaunchMetadata;
@@ -193,12 +193,11 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         trigger.add_to_linker(core_engine_builder.linker())?;
 
         let runtime_config = match &self.runtime_config_file {
-            Some(runtime_config_path) => {
-                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-                    runtime_config_path,
-                    self.state_dir.as_deref(),
-                )?
-            }
+            Some(runtime_config_path) => ResolvedRuntimeConfig::<
+                <T::RuntimeFactors as RuntimeFactors>::RuntimeConfig,
+            >::from_file(
+                runtime_config_path, self.state_dir.as_deref()
+            )?,
             None => ResolvedRuntimeConfig::default(),
         };
 
@@ -206,11 +205,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
             .set_initial_key_values(&self.key_values)
             .await?;
 
-        let factors = TriggerFactors::new(
-            working_dir,
-            self.allow_transient_write,
-            runtime_config.key_value_resolver,
-        );
+        let factors = trigger.create_factors(&working_dir);
 
         // TODO: move these into Factor methods/constructors
         // let init_data = crate::HostComponentInitData::new(
@@ -302,6 +297,8 @@ fn help_heading<T: Trigger>() -> Option<&'static str> {
 }
 
 pub mod help {
+    use spin_factors::RuntimeFactors;
+
     use super::*;
 
     /// Null object to support --help-args-only in the absence of
@@ -312,6 +309,7 @@ pub mod help {
         const TYPE: &'static str = "help-args-only";
         type CliArgs = NoArgs;
         type InstanceState = ();
+        type RuntimeFactors = NoFactors;
 
         fn new(_cli_args: Self::CliArgs, _app: &App) -> anyhow::Result<Self> {
             Ok(Self)
@@ -320,11 +318,20 @@ pub mod help {
         async fn run(
             self,
             _configured_app: spin_factors_executor::FactorsExecutorApp<
-                TriggerFactors,
+                NoFactors,
                 Self::InstanceState,
             >,
         ) -> anyhow::Result<()> {
             Ok(())
         }
+
+        fn create_factors() -> Self::RuntimeFactors {
+            Default::default()
+        }
+    }
+
+    #[derive(RuntimeFactors, Default)]
+    struct NoFactors {
+        noop: (),
     }
 }

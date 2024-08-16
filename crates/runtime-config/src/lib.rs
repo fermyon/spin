@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValueStore};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
+use spin_factor_outbound_http::OutboundHttpFactor;
+use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
+use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
@@ -29,9 +32,9 @@ where
 {
     /// Creates a new resolved runtime configuration from a runtime config source TOML file.
     pub fn from_file(runtime_config_path: &Path, state_dir: Option<&str>) -> anyhow::Result<Self> {
-        let key_value_resolver = key_value_resolver(PathBuf::from(
-            state_dir.unwrap_or_else(|| DEFAULT_STATE_DIR.into()),
-        ));
+        let key_value_resolver =
+            key_value_resolver(PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR)));
+        let tls_resolver = SpinTlsRuntimeConfig::new(runtime_config_path);
 
         let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
             format!(
@@ -45,9 +48,10 @@ where
                 runtime_config_path.display()
             )
         })?;
-        let runtime_config: T = TomlRuntimeConfigSource::new(&toml, &key_value_resolver)
-            .try_into()
-            .map_err(Into::into)?;
+        let runtime_config: T =
+            TomlRuntimeConfigSource::new(&toml, &key_value_resolver, &tls_resolver)
+                .try_into()
+                .map_err(Into::into)?;
 
         Ok(Self {
             runtime_config,
@@ -81,14 +85,37 @@ where
 pub struct TomlRuntimeConfigSource<'a> {
     table: TomlKeyTracker<'a>,
     key_value: &'a key_value::RuntimeConfigResolver,
+    tls: &'a SpinTlsRuntimeConfig,
 }
 
 impl<'a> TomlRuntimeConfigSource<'a> {
-    pub fn new(table: &'a toml::Table, key_value: &'a key_value::RuntimeConfigResolver) -> Self {
+    pub fn new(
+        table: &'a toml::Table,
+        key_value: &'a key_value::RuntimeConfigResolver,
+        tls: &'a SpinTlsRuntimeConfig,
+    ) -> Self {
         Self {
             table: TomlKeyTracker::new(table),
             key_value,
+            tls,
         }
+    }
+}
+
+impl FactorRuntimeConfigSource<KeyValueFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<spin_factor_key_value::RuntimeConfig>> {
+        self.key_value.resolve_from_toml(Some(self.table.as_ref()))
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundNetworkingFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<OutboundNetworkingFactor as spin_factors::Factor>::RuntimeConfig>>
+    {
+        self.tls.config_from_table(self.table.as_ref())
     }
 }
 
@@ -98,11 +125,9 @@ impl FactorRuntimeConfigSource<WasiFactor> for TomlRuntimeConfigSource<'_> {
     }
 }
 
-impl FactorRuntimeConfigSource<KeyValueFactor> for TomlRuntimeConfigSource<'_> {
-    fn get_runtime_config(
-        &mut self,
-    ) -> anyhow::Result<Option<spin_factor_key_value::RuntimeConfig>> {
-        self.key_value.resolve_from_toml(Some(self.table.as_ref()))
+impl FactorRuntimeConfigSource<OutboundHttpFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
     }
 }
 

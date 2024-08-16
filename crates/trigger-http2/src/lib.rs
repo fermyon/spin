@@ -2,6 +2,7 @@
 
 mod headers;
 mod instrument;
+mod outbound_http;
 mod server;
 mod spin;
 mod tls;
@@ -296,7 +297,6 @@ mod tests {
 
         let default_headers = compute_default_headers(req.uri(), host, &route_match, client_addr)?;
 
-        // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
         assert_eq!(
             search(&FULL_URL, &default_headers).unwrap(),
             "https://fermyon.dev/foo/42/bar?key1=value1&key2=value2".to_string()

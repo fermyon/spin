@@ -3488,9 +3488,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.2.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186548d73ac615b32a73aafe38fb4f56c0d340e110e5a200bcadbaf2e199263a"
+checksum = "50dfd22e0e76d0f662d429a5f80fcaf3855009297eab6a0a9f8543834744ba05"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3572,7 +3572,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -3591,7 +3591,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "pin-project-lite",
  "socket2 0.5.6",
  "tokio",
@@ -6519,7 +6519,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-tls 0.6.0",
  "hyper-util",
  "ipnet",
@@ -7500,7 +7500,7 @@ dependencies = [
  "glob",
  "hex",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indicatif 0.17.8",
  "is-terminal",
@@ -7708,14 +7708,20 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
+ "http-body-util",
+ "hyper 1.4.1",
+ "rustls 0.23.7",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
  "spin-world",
+ "terminal",
  "tokio",
+ "tokio-rustls 0.26.0",
  "tracing",
  "wasmtime",
+ "wasmtime-wasi",
  "wasmtime-wasi-http",
 ]
 
@@ -7883,7 +7889,7 @@ dependencies = [
  "anyhow",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "indexmap 1.9.3",
  "percent-encoding",
  "routefinder",
@@ -8156,6 +8162,8 @@ dependencies = [
  "spin-factor-key-value-azure",
  "spin-factor-key-value-redis",
  "spin-factor-key-value-spin",
+ "spin-factor-outbound-http",
+ "spin-factor-outbound-networking",
  "spin-factor-wasi",
  "spin-factors",
  "toml 0.8.14",
@@ -8272,7 +8280,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "serde 1.0.197",
  "serde_json",
  "spin-app",
@@ -8352,7 +8360,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indexmap 1.9.3",
  "num_cpus",
@@ -8395,7 +8403,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "hyper-util",
  "indexmap 1.9.3",
  "percent-encoding",
@@ -8461,6 +8469,8 @@ dependencies = [
  "spin-common",
  "spin-core",
  "spin-factor-key-value",
+ "spin-factor-outbound-http",
+ "spin-factor-outbound-networking",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-executor",
@@ -9082,6 +9092,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
 dependencies = [
  "rustls 0.22.4",
+ "rustls-pki-types",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-rustls"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
+dependencies = [
+ "rustls 0.23.7",
  "rustls-pki-types",
  "tokio",
 ]
@@ -10422,7 +10443,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.4.1",
  "rustls 0.22.4",
  "tokio",
  "tokio-rustls 0.25.0",

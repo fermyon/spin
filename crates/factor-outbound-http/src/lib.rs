@@ -3,12 +3,25 @@ mod wasi;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
+use anyhow::Context;
+use http::{
+    uri::{Authority, Parts, PathAndQuery, Scheme},
+    HeaderValue, Uri,
+};
+use spin_factor_outbound_networking::{
+    ComponentTlsConfigs, OutboundAllowedHosts, OutboundNetworkingFactor,
+};
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
 use wasmtime_wasi_http::WasiHttpCtx;
+
+pub use wasmtime_wasi_http::{
+    body::HyperOutgoingBody,
+    types::{HostFutureIncomingResponse, OutgoingRequestConfig},
+    HttpResult,
+};
 
 pub struct OutboundHttpFactor;
 
@@ -38,19 +51,105 @@ impl Factor for OutboundHttpFactor {
         _ctx: PrepareContext<Self>,
         builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
-        let allowed_hosts = builders
-            .get_mut::<OutboundNetworkingFactor>()?
-            .allowed_hosts();
+        let outbound_networking = builders.get_mut::<OutboundNetworkingFactor>()?;
+        let allowed_hosts = outbound_networking.allowed_hosts();
+        let component_tls_configs = outbound_networking.component_tls_configs().clone();
         Ok(InstanceState {
-            allowed_hosts,
             wasi_http_ctx: WasiHttpCtx::new(),
+            allowed_hosts,
+            component_tls_configs,
+            request_interceptor: None,
         })
     }
 }
 
 pub struct InstanceState {
-    allowed_hosts: OutboundAllowedHosts,
     wasi_http_ctx: WasiHttpCtx,
+    allowed_hosts: OutboundAllowedHosts,
+    component_tls_configs: ComponentTlsConfigs,
+    request_interceptor: Option<Box<dyn OutboundHttpInterceptor>>,
+}
+
+impl InstanceState {
+    /// Sets a [`OutboundHttpInterceptor`] for this instance.
+    ///
+    /// Returns an error if it has already been called for this instance.
+    pub fn set_request_interceptor(
+        &mut self,
+        interceptor: impl OutboundHttpInterceptor + 'static,
+    ) -> anyhow::Result<()> {
+        if self.request_interceptor.is_some() {
+            anyhow::bail!("set_request_interceptor can only be called once");
+        }
+        self.request_interceptor = Some(Box::new(interceptor));
+        Ok(())
+    }
 }
 
 impl SelfInstanceBuilder for InstanceState {}
+
+pub type Request = http::Request<wasmtime_wasi_http::body::HyperOutgoingBody>;
+
+/// SelfRequestOrigin indicates the base URI to use for "self" requests.
+///
+/// This is meant to be set on [`Request::extensions_mut`] in appropriate
+/// contexts such as an incoming request handler.
+#[derive(Clone, Debug)]
+pub struct SelfRequestOrigin {
+    pub scheme: Scheme,
+    pub authority: Authority,
+}
+
+impl SelfRequestOrigin {
+    pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
+        Ok(Self {
+            scheme: uri.scheme().context("URI missing scheme")?.clone(),
+            authority: uri.authority().context("URI missing authority")?.clone(),
+        })
+    }
+
+    fn into_uri(self, path_and_query: Option<PathAndQuery>) -> Uri {
+        let mut parts = Parts::default();
+        parts.scheme = Some(self.scheme);
+        parts.authority = Some(self.authority);
+        parts.path_and_query = path_and_query;
+        Uri::from_parts(parts).unwrap()
+    }
+
+    fn use_tls(&self) -> bool {
+        self.scheme == Scheme::HTTPS
+    }
+
+    fn host_header(&self) -> HeaderValue {
+        HeaderValue::from_str(self.authority.as_str()).unwrap()
+    }
+}
+
+/// An outbound HTTP request interceptor to be used with
+/// [`InstanceState::set_request_interceptor`].
+pub trait OutboundHttpInterceptor: Send + Sync {
+    /// Intercept an outgoing HTTP request.
+    ///
+    /// If this method returns [`InterceptedResponse::Continue`], the (possibly
+    /// updated) request and config will be passed on to the default outgoing
+    /// request handler.
+    ///
+    /// If this method returns [`InterceptedResponse::Intercepted`], the inner
+    /// result will be returned as the result of the request, bypassing the
+    /// default handler.
+    fn intercept(
+        &self,
+        request: &mut Request,
+        config: &mut OutgoingRequestConfig,
+    ) -> InterceptOutcome;
+}
+
+/// The type returned by an [`OutboundHttpInterceptor`].
+pub enum InterceptOutcome {
+    /// The intercepted request will be passed on to the default outgoing
+    /// request handler.
+    Continue,
+    /// The given result will be returned as the result of the intercepted
+    /// request, bypassing the default handler.
+    Complete(HttpResult<HostFutureIncomingResponse>),
+}

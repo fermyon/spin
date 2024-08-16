@@ -8451,6 +8451,7 @@ dependencies = [
  "spin-factors-executor",
  "spin-telemetry",
  "tokio",
+ "toml 0.8.14",
  "tracing",
 ]
 

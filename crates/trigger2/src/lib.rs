@@ -8,6 +8,7 @@ use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
 pub mod cli;
 mod factors;
+mod runtime_config;
 mod stdio;
 
 /// Type alias for a [`FactorsConfiguredApp`] specialized to a [`Trigger`].

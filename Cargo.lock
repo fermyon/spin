@@ -7466,7 +7466,6 @@ dependencies = [
  "bytes",
  "cap-primitives 3.0.0",
  "cap-std 3.0.0",
- "crossbeam-channel",
  "futures",
  "http 1.1.0",
  "io-extras",

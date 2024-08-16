@@ -5735,7 +5735,6 @@ dependencies = [
  "bytes",
  "cap-primitives",
  "cap-std",
- "crossbeam-channel",
  "http 1.1.0",
  "io-extras",
  "rustix 0.37.27",

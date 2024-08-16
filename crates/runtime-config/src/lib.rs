@@ -2,12 +2,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValueStore};
-use spin_factor_key_value::KeyValueFactor;
+use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
 
+/// The default state directory for the trigger.
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 
 /// A runtime configuration which has been resolved from a runtime config source.
@@ -53,6 +54,27 @@ where
             key_value_resolver,
         })
     }
+
+    /// Set initial key-value pairs supplied in the CLI arguments in the default store.
+    pub async fn set_initial_key_values(
+        &self,
+        initial_key_values: impl IntoIterator<Item = &(String, String)>,
+    ) -> anyhow::Result<()> {
+        let store = self
+            .key_value_resolver
+            .default(DEFAULT_KEY_VALUE_STORE_LABEL)
+            .expect("trigger was misconfigured and lacks a default store")
+            .get(DEFAULT_KEY_VALUE_STORE_LABEL)
+            .await
+            .expect("trigger was misconfigured and lacks a default store");
+        for (key, value) in initial_key_values {
+            store
+                .set(key, value.as_bytes())
+                .await
+                .context("failed to set key-value pair")?;
+        }
+        Ok(())
+    }
 }
 
 /// The TOML based runtime configuration source Spin CLI.
@@ -90,7 +112,8 @@ impl RuntimeConfigSourceFinalizer for TomlRuntimeConfigSource<'_> {
     }
 }
 
-const DEFAULT_SPIN_STORE_FILENAME: &str = "sqlite_key_value.db";
+const DEFAULT_KEY_VALUE_STORE_FILENAME: &str = "sqlite_key_value.db";
+const DEFAULT_KEY_VALUE_STORE_LABEL: &str = "default";
 
 /// The key-value runtime configuration resolver used by the trigger.
 ///
@@ -114,11 +137,11 @@ pub fn key_value_resolver(local_store_base_path: PathBuf) -> key_value::RuntimeC
 
     // Add handling of "default" store.
     key_value.add_default_store(
-        "default",
+        DEFAULT_KEY_VALUE_STORE_LABEL,
         key_value::StoreConfig {
             type_: spin_factor_key_value_spin::SpinKeyValueStore::RUNTIME_CONFIG_TYPE.to_owned(),
             config: toml::toml! {
-                path = DEFAULT_SPIN_STORE_FILENAME
+                path = DEFAULT_KEY_VALUE_STORE_FILENAME
             },
         },
     );

@@ -2,18 +2,20 @@
 
 ## Current Maintainers
 
-| GitHub Username | Name |
+_Listed in alphabetical order by first name_
+
+| Name | GitHub Username |
 | --- | --- |
-| **fibonacci1729** | Brian Hardock |
-| **itowlson** | Ivan Towlson |
-| **dicej** | Joel Dice |
-| **kate-goldenring** | Kate Goldenring |
-| **lann** | Lann Martin |
-| **michelleN** | Michelle Dhanani |
-| **radu-matei** | Radu Matei |
-| **rajatjindal** | Rajat Jindal |
-| **rylev** | Ryan Levick |
-| **vdice** | Vaughn Dice |
+| Brian Hardock | fibonacci1729 |
+| Ivan Towlson | itowlson |
+| Joel Dice | dicej |
+| Kate Goldenring | kate-goldenring |
+| Lann Martin | lann |
+| Michelle Dhanani | michelleN |
+| Radu Matei | radu-matei |
+| Rajat Jindal | rajatjindal |
+| Ryan Levick | rylev |
+| Vaughn Dice | vdice |
 
 ## Emeritus Maintainers
 

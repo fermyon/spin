@@ -71,6 +71,9 @@ pub struct InstanceState {
 }
 
 impl InstanceState {
+    /// Sets a [`OutboundHttpInterceptor`] for this instance.
+    ///
+    /// Returns an error if it has already been called for this instance.
     pub fn set_request_interceptor(
         &mut self,
         interceptor: impl OutboundHttpInterceptor + 'static,
@@ -122,19 +125,31 @@ impl SelfRequestOrigin {
     }
 }
 
+/// An outbound HTTP request interceptor to be used with
+/// [`InstanceState::set_request_interceptor`].
 pub trait OutboundHttpInterceptor: Send + Sync {
     /// Intercept an outgoing HTTP request.
     ///
-    /// If this method returns `None`, the (possibly updated) request and config
-    /// will be passed on to the default outgoing request handler.
+    /// If this method returns [`InterceptedResponse::Continue`], the (possibly
+    /// updated) request and config will be passed on to the default outgoing
+    /// request handler.
     ///
-    /// If this method returns `Some(...)`, the inner result will be returned as
-    /// the result of the request, bypassing the default handler.
-    fn intercept(&self, intercepted: Intercepted)
-        -> Option<HttpResult<HostFutureIncomingResponse>>;
+    /// If this method returns [`InterceptedResponse::Intercepted`], the inner
+    /// result will be returned as the result of the request, bypassing the
+    /// default handler.
+    fn intercept(
+        &self,
+        request: &mut Request,
+        config: &mut OutgoingRequestConfig,
+    ) -> InterceptOutcome;
 }
 
-pub struct Intercepted<'a> {
-    pub request: &'a mut Request,
-    pub config: &'a mut OutgoingRequestConfig,
+/// The type returned by an [`OutboundHttpInterceptor`].
+pub enum InterceptOutcome {
+    /// The intercepted request will be passed on to the default outgoing
+    /// request handler.
+    Continue,
+    /// The given result will be returned as the result of the intercepted
+    /// request, bypassing the default handler.
+    Complete(HttpResult<HostFutureIncomingResponse>),
 }

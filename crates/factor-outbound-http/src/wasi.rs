@@ -17,7 +17,7 @@ use wasmtime_wasi_http::{
 };
 
 use crate::{
-    wasi_2023_10_18, wasi_2023_11_10, InstanceState, Intercepted, OutboundHttpFactor,
+    wasi_2023_10_18, wasi_2023_11_10, InstanceState, InterceptOutcome, OutboundHttpFactor,
     SelfRequestOrigin,
 };
 
@@ -74,12 +74,9 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
         mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
         if let Some(interceptor) = &self.state.request_interceptor {
-            let intercepted = Intercepted {
-                request: &mut request,
-                config: &mut config,
-            };
-            if let Some(res) = interceptor.intercept(intercepted) {
-                return res;
+            match interceptor.intercept(&mut request, &mut config) {
+                InterceptOutcome::Continue => (),
+                InterceptOutcome::Complete(res) => return res,
             }
         }
 
@@ -155,9 +152,9 @@ fn handle_not_allowed(
     is_relative: bool,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
     tracing::error!("Destination not allowed: {uri}");
-    let host = if is_relative {
+    let allowed_host_example = if is_relative {
         terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
-        "self".to_string()
+        "http://self".to_string()
     } else {
         let host = format!(
             "{scheme}://{authority}",
@@ -167,7 +164,7 @@ fn handle_not_allowed(
         terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host}'.");
         host
     };
-    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{host}\"]' to the manifest component section.");
+    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{allowed_host_example}\"]' to the manifest component section.");
     Err(ErrorCode::HttpRequestDenied.into())
 }
 

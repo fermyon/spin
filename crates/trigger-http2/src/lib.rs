@@ -2,12 +2,12 @@
 
 mod headers;
 mod instrument;
+mod outbound_http;
 mod server;
 mod spin;
 mod tls;
 mod wagi;
 mod wasi;
-mod outbound_http;
 
 use std::{
     collections::HashMap,

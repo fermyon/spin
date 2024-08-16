@@ -91,7 +91,7 @@ async fn overridden_default_key_value_works() -> anyhow::Result<()> {
     };
     run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![RedisKeyValueStore],
+        vec![RedisKeyValueStore::new()],
         vec!["default"],
     )
     .await
@@ -163,7 +163,7 @@ async fn custom_redis_key_value_works() -> anyhow::Result<()> {
     };
     run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![RedisKeyValueStore],
+        vec![RedisKeyValueStore::new()],
         vec!["custom"],
     )
     .await
@@ -192,7 +192,7 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
 async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     let tmp_dir = tempdir::TempDir::new("example")?;
     let mut test_resolver = RuntimeConfigResolver::new();
-    test_resolver.register_store_type(RedisKeyValueStore)?;
+    test_resolver.register_store_type(RedisKeyValueStore::new())?;
     test_resolver.register_store_type(SpinKeyValueStore::new(tmp_dir.path().to_owned()))?;
     let test_resolver = Arc::new(test_resolver);
     let factors = TestFactors {
@@ -248,7 +248,7 @@ impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
 
 impl FactorRuntimeConfigSource<KeyValueFactor> for TomlConfig {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<RuntimeConfig>> {
-        self.resolver.resolve_from_toml(&self.toml)
+        self.resolver.resolve_from_toml(self.toml.as_ref())
     }
 }
 

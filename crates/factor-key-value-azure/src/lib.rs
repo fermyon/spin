@@ -5,7 +5,16 @@ use spin_key_value_azure::{
 };
 
 /// A key-value store that uses Azure Cosmos as the backend.
-pub struct AzureKeyValueStore;
+pub struct AzureKeyValueStore {
+    _priv: (),
+}
+
+impl AzureKeyValueStore {
+    /// Creates a new `AzureKeyValueStore`.
+    pub fn new() -> Self {
+        Self { _priv: () }
+    }
+}
 
 /// Runtime configuration for the Azure Cosmos key-value store.
 #[derive(Deserialize)]

@@ -54,7 +54,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     key_value_resolver.register_store_type(SpinKeyValueStore::new(
         std::env::current_dir().context("failed to get current directory")?,
     ))?;
-    key_value_resolver.register_store_type(RedisKeyValueStore)?;
+    key_value_resolver.register_store_type(RedisKeyValueStore::new())?;
     let key_value_resolver = Arc::new(key_value_resolver);
 
     let mut factors = Factors {
@@ -163,7 +163,7 @@ impl FactorRuntimeConfigSource<KeyValueFactor> for TestSource {
             type = "redis"
             url = "redis://localhost:6379"
         };
-        self.key_value_resolver.resolve_from_toml(&Some(config))
+        self.key_value_resolver.resolve_from_toml(Some(&config))
     }
 }
 

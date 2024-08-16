@@ -8148,6 +8148,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-runtime-config"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "spin-factor-key-value",
+ "spin-factor-key-value-azure",
+ "spin-factor-key-value-redis",
+ "spin-factor-key-value-spin",
+ "spin-factor-wasi",
+ "spin-factors",
+ "toml 0.8.14",
+]
+
+[[package]]
 name = "spin-serde"
 version = "2.7.0-pre0"
 dependencies = [
@@ -8446,12 +8460,13 @@ dependencies = [
  "spin-app",
  "spin-common",
  "spin-core",
+ "spin-factor-key-value",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-executor",
+ "spin-runtime-config",
  "spin-telemetry",
  "tokio",
- "toml 0.8.14",
  "tracing",
 ]
 

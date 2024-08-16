@@ -23,11 +23,11 @@ pub trait MakeKeyValueStore: 'static + Send + Sync {
 
 /// A function that creates a store manager from a TOML table.
 type StoreFromToml =
-    Box<dyn Fn(toml::Table) -> anyhow::Result<Arc<dyn StoreManager>> + Send + Sync>;
+    Arc<dyn Fn(toml::Table) -> anyhow::Result<Arc<dyn StoreManager>> + Send + Sync>;
 
 /// Creates a `StoreFromToml` function from a `MakeKeyValueStore` implementation.
 fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
-    Box::new(move |table| {
+    Arc::new(move |table| {
         let runtime_config: T::RuntimeConfig =
             table.try_into().context("could not parse runtime config")?;
         let provider = provider_type
@@ -43,7 +43,7 @@ fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
 ///
 /// The various store types (i.e., the "type" field in the toml field) are registered with the
 /// resolver using `add_store_type`. The default store for a label is registered using `add_default_store`.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct RuntimeConfigResolver {
     /// A map of store types to a function that returns the appropriate store
     /// manager from runtime config TOML.
@@ -87,9 +87,9 @@ impl RuntimeConfigResolver {
     /// Resolves a toml table into a runtime config.
     pub fn resolve_from_toml(
         &self,
-        table: &Option<toml::Table>,
+        table: Option<&toml::Table>,
     ) -> anyhow::Result<Option<RuntimeConfig>> {
-        let Some(table) = table.as_ref().and_then(|t| t.get("key_value_store")) else {
+        let Some(table) = table.and_then(|t| t.get("key_value_store")) else {
             return Ok(None);
         };
         let table: HashMap<String, StoreConfig> = table.clone().try_into()?;

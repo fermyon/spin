@@ -9,9 +9,9 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
+use spin_runtime_config::ResolvedRuntimeConfig;
 
 use crate::factors::TriggerFactors;
-use crate::runtime_config::RuntimeConfigSource;
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::Trigger;
 pub use launch_metadata::LaunchMetadata;
@@ -192,7 +192,18 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         };
         trigger.add_to_linker(core_engine_builder.linker())?;
 
-        let factors = TriggerFactors::new(working_dir, self.allow_transient_write);
+        let runtime_config = match &self.runtime_config_file {
+            Some(runtime_config_path) => {
+                ResolvedRuntimeConfig::from_file(runtime_config_path, self.state_dir.as_deref())?
+            }
+            None => ResolvedRuntimeConfig::default(),
+        };
+
+        let factors = TriggerFactors::new(
+            working_dir,
+            self.allow_transient_write,
+            runtime_config.key_value_resolver,
+        );
 
         // TODO: move these into Factor methods/constructors
         // let init_data = crate::HostComponentInitData::new(
@@ -222,30 +233,11 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         // builder.hooks(KeyValuePersistenceMessageHook);
         // builder.hooks(SqlitePersistenceMessageHook);
 
-        let runtime_config = match &self.runtime_config_file {
-            Some(path) => {
-                let file = std::fs::read_to_string(path).with_context(|| {
-                    format!("failed to read runtime config file {}", quoted_path(path))
-                })?;
-                let toml = toml::from_str(&file).with_context(|| {
-                    format!(
-                        "failed to parse runtime config file {} as toml",
-                        quoted_path(path)
-                    )
-                })?;
-
-                let source = RuntimeConfigSource::new(&toml);
-                source.try_into().context("error parsing runtime config")?
-            }
-            None => Default::default(),
-        };
-
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(app, runtime_config, TodoComponentLoader)?
+            executor.load_app(app, runtime_config.runtime_config, TodoComponentLoader)?
         };
 
-        // TODO: Construct factors
         let run_fut = trigger.run(configured_app);
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);

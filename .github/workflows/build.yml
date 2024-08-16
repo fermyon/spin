@@ -10,7 +10,7 @@ on:
     branches: ["main", "v*"]
     paths-ignore:
       - "docs/**"
-      - "README.md"
+      - "*.md"
       - "tests/README.md"
 
 # Serialize workflow runs per ref

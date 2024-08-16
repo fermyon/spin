@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use factor_sqlite::{runtime_config::spin::SpinSqliteRuntimeConfig, SqliteFactor};
+use spin_factor_sqlite::{runtime_config::spin::RuntimeConfigResolver, SqliteFactor};
 use spin_factors::{
     anyhow::{self, bail, Context},
     runtime_config::toml::TomlKeyTracker,
@@ -66,7 +66,7 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
         [sqlite_database.foo]
         type = "spin"
     };
-    let sqlite_config = SpinSqliteRuntimeConfig::new("/".into(), "/".into());
+    let sqlite_config = RuntimeConfigResolver::new("/".into(), "/".into());
     let env = TestEnvironment::new(factors)
         .extend_manifest(toml! {
             [component.test-component]
@@ -82,14 +82,14 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
 
 struct TomlRuntimeSource<'a> {
     table: TomlKeyTracker<'a>,
-    sqlite_config: SpinSqliteRuntimeConfig,
+    runtime_config_resolver: RuntimeConfigResolver,
 }
 
 impl<'a> TomlRuntimeSource<'a> {
-    fn new(table: &'a toml::Table, sqlite_config: SpinSqliteRuntimeConfig) -> Self {
+    fn new(table: &'a toml::Table, runtime_config_resolver: RuntimeConfigResolver) -> Self {
         Self {
             table: TomlKeyTracker::new(table),
-            sqlite_config,
+            runtime_config_resolver,
         }
     }
 }
@@ -98,7 +98,7 @@ impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeSource<'_> {
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<<SqliteFactor as Factor>::RuntimeConfig>> {
-        self.sqlite_config.config_from_table(&self.table)
+        self.runtime_config_resolver.resolve_from_toml(&self.table)
     }
 }
 
@@ -129,8 +129,8 @@ impl DefaultLabelResolver {
     }
 }
 
-impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionCreator>> {
+impl spin_factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
+    fn default(&self, label: &str) -> Option<Arc<dyn spin_factor_sqlite::ConnectionCreator>> {
         let Some(default) = &self.default else {
             return None;
         };
@@ -142,10 +142,11 @@ impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
 struct InvalidConnectionCreator;
 
 #[async_trait::async_trait]
-impl factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
+impl spin_factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
     async fn create_connection(
         &self,
-    ) -> Result<Box<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
+    ) -> Result<Box<dyn spin_factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error>
+    {
         Err(spin_world::v2::sqlite::Error::InvalidConnection)
     }
 }

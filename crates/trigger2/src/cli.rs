@@ -199,7 +199,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
                     self.state_dir.as_deref(),
                 )?
             }
-            None => ResolvedRuntimeConfig::default(),
+            None => ResolvedRuntimeConfig::default(self.state_dir.as_deref()),
         };
 
         runtime_config
@@ -210,6 +210,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
             working_dir,
             self.allow_transient_write,
             runtime_config.key_value_resolver,
+            runtime_config.sqlite_resolver,
         );
 
         // TODO: move these into Factor methods/constructors

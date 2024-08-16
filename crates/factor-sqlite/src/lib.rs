@@ -12,6 +12,8 @@ use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
+pub use runtime_config::RuntimeConfig;
+
 pub struct SqliteFactor {
     default_label_resolver: Arc<dyn DefaultLabelResolver>,
 }
@@ -29,7 +31,7 @@ impl SqliteFactor {
 }
 
 impl Factor for SqliteFactor {
-    type RuntimeConfig = runtime_config::RuntimeConfig;
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 

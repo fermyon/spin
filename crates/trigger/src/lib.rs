@@ -204,7 +204,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     spin_variables::VariablesHostComponent::new(
-                        runtime_config.variables_providers(),
+                        runtime_config.variables_providers()?,
                     ),
                 )?;
             }
@@ -225,7 +225,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         let app_name = app.borrowed().require_metadata(APP_NAME_KEY)?;
 
         let resolver =
-            spin_variables::make_resolver(app.borrowed(), runtime_config.variables_providers())?;
+            spin_variables::make_resolver(app.borrowed(), runtime_config.variables_providers()?)?;
         let prepared_resolver = std::sync::Arc::new(resolver.prepare().await?);
         resolver_cell
             .set(prepared_resolver.clone())

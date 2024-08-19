@@ -71,10 +71,20 @@ pub trait Factor: Any + Sized {
 
 impl<F: Factor> Factor for Option<F> {
     type RuntimeConfig = Option<F::RuntimeConfig>;
-
     type AppState = Option<F::AppState>;
-
     type InstanceBuilder = Option<F::InstanceBuilder>;
+
+    fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
+        let Some(inner) = self.as_ref() else {
+            return Ok(());
+        };
+        let ctx: InitContext<T, F> = InitContext::new(
+            ctx.linker,
+            |t| ctx.get_data(t),
+            |t| ctx.get_data_with_table(t),
+        );
+        inner.init(ctx)
+    }
 
     fn configure_app<T: RuntimeFactors>(
         &self,

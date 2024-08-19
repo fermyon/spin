@@ -220,15 +220,30 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         //     LLmOptions { use_gpu: true },
         // );
 
-        // TODO: component loader
-        struct TodoComponentLoader;
-        impl ComponentLoader for TodoComponentLoader {
+        // TODO: port the rest of the component loader logic
+        struct SimpleComponentLoader;
+        impl ComponentLoader for SimpleComponentLoader {
             fn load_component(
                 &mut self,
-                _engine: &spin_core::wasmtime::Engine,
-                _component: &spin_factors::AppComponent,
+                engine: &spin_core::wasmtime::Engine,
+                component: &spin_factors::AppComponent,
             ) -> anyhow::Result<spin_core::Component> {
-                todo!()
+                let source = component
+                    .source()
+                    .content
+                    .source
+                    .as_ref()
+                    .context("LockedComponentSource missing source field")?;
+                let path = parse_file_url(source)?;
+                let bytes = std::fs::read(&path).with_context(|| {
+                    format!(
+                        "failed to read component source from disk at path {}",
+                        quoted_path(&path)
+                    )
+                })?;
+                let component = spin_componentize::componentize_if_necessary(&bytes)?;
+                spin_core::Component::new(engine, component.as_ref())
+                    .with_context(|| format!("loading module {}", quoted_path(&path)))
             }
         }
 
@@ -243,7 +258,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(app, runtime_config.runtime_config, TodoComponentLoader)?
+            executor.load_app(app, runtime_config.runtime_config, SimpleComponentLoader)?
         };
 
         let run_fut = trigger.run(configured_app);

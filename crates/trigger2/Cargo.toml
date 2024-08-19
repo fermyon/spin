@@ -19,9 +19,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 spin-app = { path = "../app" }
 spin-common = { path = "../common" }
+spin-componentize = { path = "../componentize" }
 spin-core = { path = "../core" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-factor-sqlite = { path = "../factor-sqlite" }

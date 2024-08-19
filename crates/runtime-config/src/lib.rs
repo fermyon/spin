@@ -6,9 +6,10 @@ use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
+use spin_factor_outbound_redis::OutboundRedisFactor;
 use spin_factor_sqlite::runtime_config::spin as sqlite;
-use spin_factor_variables::{spin_cli as variables, VariablesFactor};
 use spin_factor_sqlite::SqliteFactor;
+use spin_factor_variables::{spin_cli as variables, VariablesFactor};
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
@@ -148,8 +149,18 @@ impl FactorRuntimeConfigSource<OutboundNetworkingFactor> for TomlRuntimeConfigSo
 }
 
 impl FactorRuntimeConfigSource<VariablesFactor> for TomlRuntimeConfigSource<'_> {
-    fn get_runtime_config(&mut self) -> anyhow::Result<Option<<VariablesFactor as spin_factors::Factor>::RuntimeConfig>> {
-        Ok(Some(variables::runtime_config_from_toml(self.table.as_ref())?))
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<VariablesFactor as spin_factors::Factor>::RuntimeConfig>> {
+        Ok(Some(variables::runtime_config_from_toml(
+            self.table.as_ref(),
+        )?))
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundRedisFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
     }
 }
 

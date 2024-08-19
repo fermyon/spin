@@ -18,7 +18,7 @@ async fn no_outbound_hosts_fails() -> anyhow::Result<()> {
     let factors = TestFactors {
         variables: VariablesFactor::default(),
         networking: OutboundNetworkingFactor,
-        redis: OutboundRedisFactor,
+        redis: OutboundRedisFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         spin_manifest_version = 2

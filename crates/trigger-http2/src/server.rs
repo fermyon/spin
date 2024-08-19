@@ -164,15 +164,7 @@ impl HttpServer {
         let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
         // Set up outbound HTTP request origin and service chaining
-        let origin = SelfRequestOrigin {
-            scheme: server_scheme,
-            authority: self.listen_addr.to_string().parse().with_context(|| {
-                format!(
-                    "server address '{}' is not a valid authority",
-                    self.listen_addr
-                )
-            })?,
-        };
+        let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
         instance_builder
             .factor_builders()
             .outbound_http()
@@ -358,6 +350,15 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> anyhow::Result<()> {
     let authority = host_header
         .parse()
         .context("'Host' header contains an invalid authority")?;
+    // Ensure that if `req.authority` is set, it matches what was in the `Host` header
+    // https://github.com/hyperium/hyper/issues/1612
+    if let Some(a) = parts.authority.as_ref() {
+        if a != &authority {
+            return Err(anyhow::anyhow!(
+                "authority in 'Host' header does not match authority in URI"
+            ));
+        }
+    }
     parts.scheme = Some(scheme);
     parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();

@@ -3,6 +3,8 @@ mod wasi;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
+use std::net::SocketAddr;
+
 use anyhow::Context;
 use http::{
     uri::{Authority, Parts, PathAndQuery, Scheme},
@@ -101,6 +103,16 @@ pub struct SelfRequestOrigin {
 }
 
 impl SelfRequestOrigin {
+    pub fn create(scheme: Scheme, addr: &SocketAddr) -> anyhow::Result<Self> {
+        Ok(SelfRequestOrigin {
+            scheme,
+            authority: addr
+                .to_string()
+                .parse()
+                .with_context(|| format!("address '{addr}' is not a valid authority"))?,
+        })
+    }
+
     pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
         Ok(Self {
             scheme: uri.scheme().context("URI missing scheme")?.clone(),

@@ -68,7 +68,10 @@ pub(crate) type InstanceState = ();
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
     /// The address the server will listen on.
-    addr_to_bind: SocketAddr,
+    ///
+    /// Note that this might not be the actual socket address that ends up being bound to.
+    /// If the port is set to 0, the actual address will be determined by the OS.
+    listen_addr: SocketAddr,
     tls_config: Option<TlsConfig>,
     router: Router,
     // Component ID -> component trigger config
@@ -113,7 +116,7 @@ impl Trigger for HttpTrigger {
         );
 
         Ok(Self {
-            addr_to_bind: cli_args.address,
+            listen_addr: cli_args.address,
             tls_config: cli_args.into_tls_config(),
             router,
             component_trigger_configs,
@@ -122,7 +125,7 @@ impl Trigger for HttpTrigger {
 
     async fn run(self, trigger_app: TriggerApp) -> anyhow::Result<()> {
         let Self {
-            addr_to_bind: listen_addr,
+            listen_addr,
             tls_config,
             router,
             component_trigger_configs,

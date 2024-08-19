@@ -1,9 +1,11 @@
 //! The runtime configuration for the variables factor used in the Spin CLI.
 
+mod azure_key_vault;
 mod env;
 mod statik;
 mod vault;
 
+pub use azure_key_vault::*;
 pub use env::*;
 pub use statik::*;
 pub use vault::*;
@@ -23,11 +25,11 @@ pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeCo
     };
 
     let provider_configs: Vec<VariableProviderConfiguration> = array.clone().try_into()?;
-    providers.extend(
-        provider_configs
-            .into_iter()
-            .map(VariableProviderConfiguration::into_provider),
-    );
+    let new_providers = provider_configs
+        .into_iter()
+        .map(VariableProviderConfiguration::into_provider)
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    providers.extend(new_providers);
     Ok(RuntimeConfig { providers })
 }
 
@@ -35,6 +37,8 @@ pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeCo
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum VariableProviderConfiguration {
+    /// A provider that uses Azure Key Vault.
+    AzureKeyVault(AzureKeyVaultVariablesConfig),
     /// A static provider of variables.
     Static(StaticVariablesProvider),
     /// A provider that uses HashiCorp Vault.
@@ -45,8 +49,8 @@ pub enum VariableProviderConfiguration {
 
 impl VariableProviderConfiguration {
     /// Returns the provider for the configuration.
-    pub fn into_provider(self) -> Box<dyn Provider> {
-        match self {
+    pub fn into_provider(self) -> anyhow::Result<Box<dyn Provider>> {
+        let provider: Box<dyn Provider> = match self {
             VariableProviderConfiguration::Static(provider) => Box::new(provider),
             VariableProviderConfiguration::Env(config) => Box::new(env::EnvVariablesProvider::new(
                 config.prefix,
@@ -54,6 +58,10 @@ impl VariableProviderConfiguration {
                 config.dotenv_path,
             )),
             VariableProviderConfiguration::Vault(provider) => Box::new(provider),
-        }
+            VariableProviderConfiguration::AzureKeyVault(config) => Box::new(
+                AzureKeyVaultProvider::create(config.vault_url.clone(), config.try_into()?)?,
+            ),
+        };
+        Ok(provider)
     }
 }

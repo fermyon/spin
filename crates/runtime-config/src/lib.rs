@@ -214,8 +214,6 @@ fn sqlite_config_resolver(
     state_dir: Option<&str>,
 ) -> anyhow::Result<sqlite::RuntimeConfigResolver> {
     let default_database_dir = PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR));
-    let default_database_dir = std::path::absolute(default_database_dir)
-        .context("failed to make default database directory absolute")?;
     let local_database_dir =
         std::env::current_dir().context("failed to get current working directory")?;
     Ok(sqlite::RuntimeConfigResolver::new(

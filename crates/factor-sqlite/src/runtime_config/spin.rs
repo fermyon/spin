@@ -30,21 +30,10 @@ impl RuntimeConfigResolver {
     /// This takes as arguments:
     /// * the directory to use as the default location for SQLite databases.
     ///   Usually this will be the path to the `.spin` state directory.
-    /// * the *absolute* path to the directory from which relative paths to
+    /// * the path to the directory from which relative paths to
     ///   local SQLite databases are resolved.  (this should most likely be the
     ///   path to the runtime-config file or the current working dir).
-    ///
-    /// Panics if either `default_database_dir` or `local_database_dir` are not
-    /// absolute paths.
     pub fn new(default_database_dir: PathBuf, local_database_dir: PathBuf) -> Self {
-        assert!(
-            default_database_dir.is_absolute(),
-            "default_database_dir must be an absolute path"
-        );
-        assert!(
-            local_database_dir.is_absolute(),
-            "local_database_dir must be an absolute path"
-        );
         Self {
             default_database_dir,
             local_database_dir,

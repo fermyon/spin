@@ -35,9 +35,6 @@ itertools = "0.11.0"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
-outbound-http = { path = "crates/outbound-http" }
-outbound-redis = { path = "crates/outbound-redis" }
-outbound-mqtt = { path = "crates/outbound-mqtt" }
 spin-key-value = { path = "crates/key-value" }
 spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 path-absolutize = "3.0.11"
@@ -65,10 +62,9 @@ spin-telemetry = { path = "crates/telemetry", features = [
   "tracing-log-compat",
 ] }
 spin-templates = { path = "crates/templates" }
-spin-trigger = { path = "crates/trigger" }
-spin-trigger-http = { path = "crates/trigger-http" }
-spin-trigger-redis = { path = "crates/trigger-redis" }
-spin-variables = { path = "crates/variables" }
+spin-trigger2 = { path = "crates/trigger2" }
+spin-trigger-http2 = { path = "crates/trigger-http2" }
+# TODO: spin-trigger-redis = { path = "crates/trigger-redis" }
 
 tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
@@ -114,12 +110,13 @@ vergen = { version = "^8.2.1", default-features = false, features = [
 wit-component = "0.19.0"
 
 [features]
-default = ["llm"]
+# TODO(factors): default = ["llm"]
 all-tests = ["extern-dependencies-tests"]
 extern-dependencies-tests = []
-llm = ["spin-trigger-http/llm"]
-llm-metal = ["llm", "spin-trigger-http/llm-metal"]
-llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
+# TODO(factors):
+# llm = ["spin-trigger-http/llm"]
+# llm-metal = ["llm", "spin-trigger-http/llm-metal"]
+# llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 
 [workspace]
 members = [

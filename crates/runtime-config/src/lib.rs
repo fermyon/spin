@@ -7,6 +7,7 @@ use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_sqlite::runtime_config::spin as sqlite;
+use spin_factor_variables::{spin_cli as variables, VariablesFactor};
 use spin_factor_sqlite::SqliteFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
@@ -97,7 +98,9 @@ impl<T: Default> ResolvedRuntimeConfig<T> {
         Self {
             sqlite_resolver: sqlite_config_resolver(state_dir)
                 .expect("failed to resolve sqlite runtime config"),
-            key_value_resolver: Default::default(),
+            key_value_resolver: key_value_config_resolver(PathBuf::from(
+                state_dir.unwrap_or(DEFAULT_STATE_DIR),
+            )),
             runtime_config: Default::default(),
         }
     }
@@ -141,6 +144,12 @@ impl FactorRuntimeConfigSource<OutboundNetworkingFactor> for TomlRuntimeConfigSo
     ) -> anyhow::Result<Option<<OutboundNetworkingFactor as spin_factors::Factor>::RuntimeConfig>>
     {
         self.tls.config_from_table(self.table.as_ref())
+    }
+}
+
+impl FactorRuntimeConfigSource<VariablesFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<<VariablesFactor as spin_factors::Factor>::RuntimeConfig>> {
+        Ok(Some(variables::runtime_config_from_toml(self.table.as_ref())?))
     }
 }
 

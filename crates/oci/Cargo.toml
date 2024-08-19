@@ -6,7 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
-async-compression = "0.4.3"
+async-compression = { version = "0.4.3", features = ["gzip", "tokio"] }
 # Fork with nested async-std dependency bumped to satisfy Windows build; branch/revision is protected
 async-tar = { git = "https://github.com/vdice/async-tar", rev = "71e037f9652971e7a55b412a8e47a37b06f9c29d" }
 base64 = "0.21"

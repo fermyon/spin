@@ -15,10 +15,10 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_trigger::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger::cli::TriggerExecutorCommand;
-use spin_trigger_http::HttpTrigger;
-use spin_trigger_redis::RedisTrigger;
+use spin_trigger2::cli::help::HelpArgsOnlyTrigger;
+use spin_trigger2::cli::FactorsTriggerCommand;
+use spin_trigger_http2::HttpTrigger;
+// TODO(factors): use spin_trigger_redis::RedisTrigger;
 
 #[tokio::main]
 async fn main() {
@@ -136,10 +136,10 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(TriggerExecutorCommand<HttpTrigger>),
-    Redis(TriggerExecutorCommand<RedisTrigger>),
+    Http(FactorsTriggerCommand<HttpTrigger>),
+    // TODO(factors): Redis(TriggerExecutorCommand<RedisTrigger>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
-    HelpArgsOnly(TriggerExecutorCommand<HelpArgsOnlyTrigger>),
+    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger>),
 }
 
 impl SpinApp {
@@ -155,7 +155,7 @@ impl SpinApp {
             Self::Registry(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
-            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
+            // TODO(factors): Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,

@@ -1,5 +1,5 @@
 [package]
-name = "factor-sqlite"
+name = "spin-factor-sqlite"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

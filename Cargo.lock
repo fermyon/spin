@@ -2499,24 +2499,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "factor-sqlite"
-version = "2.7.0-pre0"
-dependencies = [
- "async-trait",
- "serde 1.0.197",
- "spin-factors",
- "spin-factors-test",
- "spin-locked-app",
- "spin-sqlite",
- "spin-sqlite-inproc",
- "spin-sqlite-libsql",
- "spin-world",
- "table",
- "tokio",
- "toml 0.8.14",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7788,6 +7770,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-sqlite"
+version = "2.7.0-pre0"
+dependencies = [
+ "async-trait",
+ "serde 1.0.197",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-locked-app",
+ "spin-sqlite",
+ "spin-sqlite-inproc",
+ "spin-sqlite-libsql",
+ "spin-world",
+ "table",
+ "tokio",
+ "toml 0.8.14",
+]
+
+[[package]]
 name = "spin-factor-variables"
 version = "2.7.0-pre0"
 dependencies = [
@@ -8164,6 +8164,7 @@ dependencies = [
  "spin-factor-key-value-spin",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
+ "spin-factor-sqlite",
  "spin-factor-wasi",
  "spin-factors",
  "toml 0.8.14",
@@ -8471,6 +8472,7 @@ dependencies = [
  "spin-factor-key-value",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
+ "spin-factor-sqlite",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-executor",

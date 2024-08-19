@@ -15,36 +15,25 @@ use tokio::sync::OnceCell;
 
 use crate::{Connection, ConnectionCreator, DefaultLabelResolver};
 
-/// Spin's default handling of the runtime configuration for SQLite databases.
+/// Spin's default resolution of runtime configuration for SQLite databases.
 ///
-/// This type implements the [`RuntimeConfigResolver`] trait and provides a way to
-/// opt into the default behavior of Spin's SQLite database handling.
-pub struct SpinSqliteRuntimeConfig {
+/// This type implements how Spin CLI's SQLite implementation is configured
+/// through the runtime config toml as well as the behavior of the "default" label.
+pub struct RuntimeConfigResolver {
     default_database_dir: PathBuf,
     local_database_dir: PathBuf,
 }
 
-impl SpinSqliteRuntimeConfig {
+impl RuntimeConfigResolver {
     /// Create a new `SpinSqliteRuntimeConfig`
     ///
     /// This takes as arguments:
     /// * the directory to use as the default location for SQLite databases.
     ///   Usually this will be the path to the `.spin` state directory.
-    /// * the *absolute* path to the directory from which relative paths to
+    /// * the path to the directory from which relative paths to
     ///   local SQLite databases are resolved.  (this should most likely be the
     ///   path to the runtime-config file or the current working dir).
-    ///
-    /// Panics if either `default_database_dir` or `local_database_dir` are not
-    /// absolute paths.
     pub fn new(default_database_dir: PathBuf, local_database_dir: PathBuf) -> Self {
-        assert!(
-            default_database_dir.is_absolute(),
-            "default_database_dir must be an absolute path"
-        );
-        assert!(
-            local_database_dir.is_absolute(),
-            "local_database_dir must be an absolute path"
-        );
         Self {
             default_database_dir,
             local_database_dir,
@@ -59,7 +48,7 @@ impl SpinSqliteRuntimeConfig {
     /// type = "$database-type"
     /// ... extra type specific configuration ...
     /// ```
-    pub fn config_from_table<T: GetTomlValue>(
+    pub fn resolve_from_toml<T: GetTomlValue>(
         &self,
         table: &T,
     ) -> anyhow::Result<Option<super::RuntimeConfig>> {
@@ -106,7 +95,7 @@ pub struct RuntimeConfig {
     pub config: toml::Table,
 }
 
-impl DefaultLabelResolver for SpinSqliteRuntimeConfig {
+impl DefaultLabelResolver for RuntimeConfigResolver {
     fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>> {
         // Only default the database labeled "default".
         if label != "default" {

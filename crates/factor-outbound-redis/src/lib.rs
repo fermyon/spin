@@ -6,7 +6,17 @@ use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
-pub struct OutboundRedisFactor;
+
+/// The [`Factor`] for `fermyon:spin/outbound-redis`.
+pub struct OutboundRedisFactor {
+    _priv: (),
+}
+
+impl OutboundRedisFactor {
+    pub fn new() -> Self {
+        Self { _priv: () }
+    }
+}
 
 impl Factor for OutboundRedisFactor {
     type RuntimeConfig = ();

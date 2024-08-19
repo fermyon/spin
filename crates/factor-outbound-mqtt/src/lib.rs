@@ -1,9 +1,9 @@
 mod host;
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use host::other_error;
-use host::CreateClient;
 use host::InstanceState;
 use rumqttc::{AsyncClient, Event, Incoming, Outgoing, QoS};
 use spin_core::async_trait;
@@ -15,14 +15,14 @@ use spin_factors::{
 use spin_world::v2::mqtt::{self as v2, Error, Qos};
 use tokio::sync::Mutex;
 
-pub use host::MqttClient;
+pub use host::{ClientCreator, MqttClient};
 
 pub struct OutboundMqttFactor {
-    create_client: CreateClient,
+    create_client: Arc<dyn ClientCreator>,
 }
 
 impl OutboundMqttFactor {
-    pub fn new(create_client: CreateClient) -> Self {
+    pub fn new(create_client: Arc<dyn ClientCreator>) -> Self {
         Self { create_client }
     }
 }
@@ -64,6 +64,7 @@ impl Factor for OutboundMqttFactor {
 
 impl SelfInstanceBuilder for InstanceState {}
 
+// This is a concrete implementation of the MQTT client using rumqttc.
 pub struct NetworkedMqttClient {
     inner: rumqttc::AsyncClient,
     event_loop: Mutex<rumqttc::EventLoop>,

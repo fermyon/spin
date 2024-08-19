@@ -6,18 +6,25 @@ use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_world::v2::mqtt::{self as v2, Connection, Error, Qos};
 use tracing::{instrument, Level};
 
-pub type CreateClient = Arc<
-    dyn Fn(String, String, String, Duration) -> Result<Box<dyn MqttClient>, Error> + Send + Sync,
->;
+#[async_trait]
+pub trait ClientCreator: Send + Sync {
+    fn create(
+        &self,
+        address: String,
+        username: String,
+        password: String,
+        keep_alive_interval: Duration,
+    ) -> Result<Arc<dyn MqttClient>, Error>;
+}
 
 pub struct InstanceState {
-    pub allowed_hosts: OutboundAllowedHosts,
-    pub connections: table::Table<Box<dyn MqttClient>>,
-    pub create_client: CreateClient,
+    allowed_hosts: OutboundAllowedHosts,
+    connections: table::Table<Arc<dyn MqttClient>>,
+    create_client: Arc<dyn ClientCreator>,
 }
 
 impl InstanceState {
-    pub fn new(allowed_hosts: OutboundAllowedHosts, create_client: CreateClient) -> Self {
+    pub fn new(allowed_hosts: OutboundAllowedHosts, create_client: Arc<dyn ClientCreator>) -> Self {
         Self {
             allowed_hosts,
             create_client,
@@ -44,12 +51,7 @@ impl InstanceState {
         keep_alive_interval: Duration,
     ) -> Result<Resource<Connection>, Error> {
         self.connections
-            .push((self.create_client)(
-                address,
-                username,
-                password,
-                keep_alive_interval,
-            )?)
+            .push((self.create_client).create(address, username, password, keep_alive_interval)?)
             .map(Resource::new_own)
             .map_err(|_| Error::TooManyConnections)
     }

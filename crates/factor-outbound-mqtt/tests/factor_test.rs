@@ -1,8 +1,9 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use spin_core::async_trait;
-use spin_factor_outbound_mqtt::{MqttClient, OutboundMqttFactor};
+use spin_factor_outbound_mqtt::{ClientCreator, MqttClient, OutboundMqttFactor};
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
@@ -23,6 +24,18 @@ impl MqttClient for MockMqttClient {
     }
 }
 
+impl ClientCreator for MockMqttClient {
+    fn create(
+        &self,
+        _address: String,
+        _username: String,
+        _password: String,
+        _keep_alive_interval: Duration,
+    ) -> Result<Arc<dyn MqttClient>, Error> {
+        Ok(Arc::new(MockMqttClient {}))
+    }
+}
+
 #[derive(RuntimeFactors)]
 struct TestFactors {
     variables: VariablesFactor,
@@ -34,7 +47,7 @@ fn factors() -> TestFactors {
     TestFactors {
         variables: VariablesFactor::default(),
         networking: OutboundNetworkingFactor,
-        mqtt: OutboundMqttFactor::new(Arc::new(|_, _, _, _| Ok(Box::new(MockMqttClient {})))),
+        mqtt: OutboundMqttFactor::new(Arc::new(MockMqttClient {})),
     }
 }
 

@@ -37,6 +37,7 @@ use crate::{
 };
 
 pub struct HttpServer {
+    /// The address the server is listening on.
     listen_addr: SocketAddr,
     trigger_app: TriggerApp,
     router: Router,
@@ -74,7 +75,8 @@ impl HttpServer {
         self.print_startup_msgs("http", &listener)?;
         loop {
             let (stream, client_addr) = listener.accept().await?;
-            self.clone().serve_connection(stream, client_addr);
+            self.clone()
+                .serve_connection(stream, Scheme::HTTP, client_addr);
         }
     }
 
@@ -88,7 +90,9 @@ impl HttpServer {
         loop {
             let (stream, client_addr) = listener.accept().await?;
             match acceptor.accept(stream).await {
-                Ok(stream) => self.clone().serve_connection(stream, client_addr),
+                Ok(stream) => self
+                    .clone()
+                    .serve_connection(stream, Scheme::HTTPS, client_addr),
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }
         }
@@ -98,10 +102,10 @@ impl HttpServer {
     async fn handle(
         self: &Arc<Self>,
         mut req: Request<Body>,
-        scheme: Scheme,
+        server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
-        set_req_uri(&mut req, scheme, self.listen_addr)?;
+        set_req_uri(&mut req, server_scheme.clone())?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
@@ -124,7 +128,7 @@ impl HttpServer {
 
         match self.router.route(&path) {
             Ok(route_match) => {
-                self.handle_trigger_route(req, route_match, client_addr)
+                self.handle_trigger_route(req, route_match, server_scheme, client_addr)
                     .await
             }
             Err(_) => Self::not_found(NotFoundRouteKind::Normal(path.to_string())),
@@ -135,6 +139,7 @@ impl HttpServer {
         self: &Arc<Self>,
         req: Request<Body>,
         route_match: RouteMatch,
+        server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
         let app_id = self
@@ -155,9 +160,15 @@ impl HttpServer {
         let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
         // Set up outbound HTTP request origin and service chaining
-        let uri = req.uri();
-        let origin = SelfRequestOrigin::from_uri(uri)
-            .with_context(|| format!("invalid request URI {uri:?}"))?;
+        let origin = SelfRequestOrigin {
+            scheme: server_scheme,
+            authority: self.listen_addr.to_string().parse().with_context(|| {
+                format!(
+                    "server address '{}' is not a valid authority",
+                    self.listen_addr
+                )
+            })?,
+        };
         instance_builder
             .factor_builders()
             .outbound_http()
@@ -259,6 +270,7 @@ impl HttpServer {
     fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         self: Arc<Self>,
         stream: S,
+        server_scheme: Scheme,
         client_addr: SocketAddr,
     ) {
         task::spawn(async move {
@@ -267,7 +279,11 @@ impl HttpServer {
                 .serve_connection(
                     TokioIo::new(stream),
                     service_fn(move |request| {
-                        self.clone().instrumented_service_fn(client_addr, request)
+                        self.clone().instrumented_service_fn(
+                            server_scheme.clone(),
+                            client_addr,
+                            request,
+                        )
                     }),
                 )
                 .await
@@ -279,6 +295,7 @@ impl HttpServer {
 
     async fn instrumented_service_fn(
         self: Arc<Self>,
+        server_scheme: Scheme,
         client_addr: SocketAddr,
         request: Request<Incoming>,
     ) -> anyhow::Result<Response<HyperOutgoingBody>> {
@@ -291,7 +308,7 @@ impl HttpServer {
                         body.map_err(wasmtime_wasi_http::hyper_response_error)
                             .boxed()
                     }),
-                    Scheme::HTTP,
+                    server_scheme,
                     client_addr,
                 )
                 .await;
@@ -322,11 +339,21 @@ impl HttpServer {
 
 /// The incoming request's scheme and authority
 ///
-/// The incoming request's URI is relative to the server, so we need to set the scheme and authority
-fn set_req_uri(req: &mut Request<Body>, scheme: Scheme, addr: SocketAddr) -> anyhow::Result<()> {
+/// The incoming request's URI is relative to the server, so we need to set the scheme and authority.
+/// The `Host` header is used to set the authority. This function will error if no `Host` header is
+/// present or if it is not parsable as an `Authority`.
+fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> anyhow::Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
-    let authority = format!("{}:{}", addr.ip(), addr.port()).parse().unwrap();
+    let headers = req.headers();
+    let host_header = headers
+        .get(http::header::HOST)
+        .context("missing 'Host' header")?
+        .to_str()
+        .context("'Host' header is not valid UTF-8")?;
+    let authority = host_header
+        .parse()
+        .context("'Host' header contains an invalid authority")?;
     parts.scheme = Some(scheme);
     parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();

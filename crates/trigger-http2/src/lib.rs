@@ -67,7 +67,8 @@ pub(crate) type InstanceState = ();
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
-    listen_addr: SocketAddr,
+    /// The address the server will listen on.
+    addr_to_bind: SocketAddr,
     tls_config: Option<TlsConfig>,
     router: Router,
     // Component ID -> component trigger config
@@ -112,7 +113,7 @@ impl Trigger for HttpTrigger {
         );
 
         Ok(Self {
-            listen_addr: cli_args.address,
+            addr_to_bind: cli_args.address,
             tls_config: cli_args.into_tls_config(),
             router,
             component_trigger_configs,
@@ -121,7 +122,7 @@ impl Trigger for HttpTrigger {
 
     async fn run(self, trigger_app: TriggerApp) -> anyhow::Result<()> {
         let Self {
-            listen_addr,
+            addr_to_bind: listen_addr,
             tls_config,
             router,
             component_trigger_configs,
@@ -131,6 +132,12 @@ impl Trigger for HttpTrigger {
             .await
             .with_context(|| format!("Unable to listen on {listen_addr}"))?;
 
+        // Get the address the server is actually listening on
+        // We can't use `self.listen_addr` because it might not
+        // be fully resolved (e.g, port 0).
+        let listen_addr = listener
+            .local_addr()
+            .context("failed to retrieve address server is listening on")?;
         let server = Arc::new(HttpServer::new(
             listen_addr,
             trigger_app,

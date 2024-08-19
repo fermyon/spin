@@ -162,6 +162,14 @@ impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_> {
     }
 }
 
+impl FactorRuntimeConfigSource<Option<SqliteFactor>> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<Option<spin_factor_sqlite::RuntimeConfig>>> {
+        self.sqlite.resolve_from_toml(self.table.as_ref()).map(Some)
+    }
+}
+
 impl RuntimeConfigSourceFinalizer for TomlRuntimeConfigSource<'_> {
     fn finalize(&mut self) -> anyhow::Result<()> {
         Ok(self.table.validate_all_keys_used()?)

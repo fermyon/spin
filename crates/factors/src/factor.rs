@@ -69,6 +69,41 @@ pub trait Factor: Any + Sized {
     ) -> anyhow::Result<Self::InstanceBuilder>;
 }
 
+impl<F: Factor> Factor for Option<F> {
+    type RuntimeConfig = Option<F::RuntimeConfig>;
+
+    type AppState = Option<F::AppState>;
+
+    type InstanceBuilder = Option<F::InstanceBuilder>;
+
+    fn configure_app<T: RuntimeFactors>(
+        &self,
+        ctx: ConfigureAppContext<T, Self>,
+    ) -> anyhow::Result<Self::AppState> {
+        let Some(inner) = self.as_ref() else {
+            return Ok(None);
+        };
+        let ctx: ConfigureAppContext<T, F> =
+            ConfigureAppContext::new(ctx.app, ctx.app_state, ctx.runtime_config.flatten())?;
+        Ok(Some(inner.configure_app(ctx)?))
+    }
+
+    fn prepare<T: RuntimeFactors>(
+        &self,
+        ctx: PrepareContext<Self>,
+        builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<Self::InstanceBuilder> {
+        let Some(inner) = self.as_ref() else {
+            return Ok(None);
+        };
+        let Some(app_state) = ctx.app_state else {
+            return Ok(None);
+        };
+        let ctx: PrepareContext<F> = PrepareContext::new(app_state, ctx.app_component);
+        inner.prepare(ctx, builders).map(Some)
+    }
+}
+
 /// The instance state of the given [`Factor`] `F`.
 pub type FactorInstanceState<F> =
     <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;

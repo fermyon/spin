@@ -17,6 +17,14 @@ pub trait FactorInstanceBuilder: Any {
     fn build(self) -> anyhow::Result<Self::InstanceState>;
 }
 
+impl<B: FactorInstanceBuilder> FactorInstanceBuilder for Option<B> {
+    type InstanceState = Option<B::InstanceState>;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        self.map(|b| b.build()).transpose()
+    }
+}
+
 impl FactorInstanceBuilder for () {
     type InstanceState = ();
 

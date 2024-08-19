@@ -14,7 +14,7 @@ pub struct TriggerFactors {
     pub key_value: KeyValueFactor,
     pub outbound_networking: OutboundNetworkingFactor,
     pub outbound_http: OutboundHttpFactor,
-    pub sqlite: SqliteFactor,
+    pub sqlite: Option<SqliteFactor>,
 }
 
 impl TriggerFactors {
@@ -30,7 +30,7 @@ impl TriggerFactors {
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
             outbound_networking: OutboundNetworkingFactor,
             outbound_http: OutboundHttpFactor,
-            sqlite: SqliteFactor::new(default_sqlite_label_resolver),
+            sqlite: Some(SqliteFactor::new(default_sqlite_label_resolver)),
         }
     }
 }

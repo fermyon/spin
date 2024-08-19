@@ -67,6 +67,10 @@ pub(crate) type InstanceState = ();
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
+    /// The address the server will listen on.
+    ///
+    /// Note that this might not be the actual socket address that ends up being bound to.
+    /// If the port is set to 0, the actual address will be determined by the OS.
     listen_addr: SocketAddr,
     tls_config: Option<TlsConfig>,
     router: Router,
@@ -131,6 +135,12 @@ impl Trigger for HttpTrigger {
             .await
             .with_context(|| format!("Unable to listen on {listen_addr}"))?;
 
+        // Get the address the server is actually listening on
+        // We can't use `self.listen_addr` because it might not
+        // be fully resolved (e.g, port 0).
+        let listen_addr = listener
+            .local_addr()
+            .context("failed to retrieve address server is listening on")?;
         let server = Arc::new(HttpServer::new(
             listen_addr,
             trigger_app,

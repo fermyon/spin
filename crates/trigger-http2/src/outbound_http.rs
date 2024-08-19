@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use http::uri::Scheme;
 use spin_factor_outbound_http::{
     HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request, SelfRequestOrigin,
 };
@@ -42,7 +43,7 @@ impl spin_factor_outbound_http::OutboundHttpInterceptor for OutboundHttpIntercep
             let server = self.server.clone();
             let resp_fut = async move {
                 match server
-                    .handle_trigger_route(req, route_match, CHAINED_CLIENT_ADDR)
+                    .handle_trigger_route(req, route_match, Scheme::HTTP, CHAINED_CLIENT_ADDR)
                     .await
                 {
                     Ok(resp) => Ok(Ok(IncomingResponse {

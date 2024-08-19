@@ -592,33 +592,6 @@ dependencies = [
 [[package]]
 name = "azure_core"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ce3de4b65b1ee2667c81d1fc692949049502a4cf9c38118d811d6d79a7eaef"
-dependencies = [
- "async-trait",
- "base64 0.22.0",
- "bytes",
- "dyn-clone",
- "futures",
- "getrandom 0.2.12",
- "http-types",
- "once_cell",
- "paste",
- "pin-project",
- "rand 0.8.5",
- "reqwest 0.12.4",
- "rustc_version",
- "serde 1.0.197",
- "serde_json",
- "time",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "azure_core"
-version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
@@ -650,7 +623,7 @@ version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
  "bytes",
  "futures",
  "serde 1.0.197",
@@ -665,33 +638,12 @@ dependencies = [
 [[package]]
 name = "azure_identity"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72c97790480791ec1ee9b76f5c6499b1d0aac0d4cd1e62010bfc19bb545544c5"
-dependencies = [
- "async-lock 3.3.0",
- "async-process 2.2.2",
- "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures",
- "oauth2",
- "pin-project",
- "serde 1.0.197",
- "time",
- "tracing",
- "tz-rs",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "azure_identity"
-version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-lock 3.3.0",
  "async-process 2.2.2",
  "async-trait",
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
  "futures",
  "oauth2",
  "pin-project",
@@ -706,24 +658,10 @@ dependencies = [
 [[package]]
 name = "azure_security_keyvault"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "338cac645bda0555f59189873be0cccaf420c26791f009b2207b62474cebbab8"
-dependencies = [
- "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures",
- "serde 1.0.197",
- "serde_json",
- "time",
-]
-
-[[package]]
-name = "azure_security_keyvault"
-version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
  "futures",
  "serde 1.0.197",
  "serde_json",
@@ -1550,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "conformance"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "conformance-tests",
@@ -1561,7 +1499,7 @@ dependencies = [
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?rev=d2129a3fd73140a76c77f15a030a5273b37cbd11#d2129a3fd73140a76c77f15a030a5273b37cbd11"
+source = "git+https://github.com/fermyon/conformance-tests?rev=387b7f375df59e6254a7c29cf4a53507a9f46d32#387b7f375df59e6254a7c29cf4a53507a9f46d32"
 dependencies = [
  "anyhow",
  "flate2",
@@ -2499,7 +2437,7 @@ dependencies = [
 
 [[package]]
 name = "factor-llm"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5374,7 +5312,7 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
 name = "outbound-http"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.12",
@@ -5393,7 +5331,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mqtt"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "rumqttc",
@@ -5409,7 +5347,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mysql"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -5428,7 +5366,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-pg"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -5446,7 +5384,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-redis"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "redis 0.21.7",
@@ -6627,7 +6565,7 @@ dependencies = [
 
 [[package]]
 name = "runtime-tests"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -7445,7 +7383,7 @@ dependencies = [
 
 [[package]]
 name = "spin-app"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7458,7 +7396,7 @@ dependencies = [
 
 [[package]]
 name = "spin-build"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "futures",
@@ -7474,7 +7412,7 @@ dependencies = [
 
 [[package]]
 name = "spin-cli"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7554,7 +7492,7 @@ dependencies = [
 
 [[package]]
 name = "spin-common"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
@@ -7566,7 +7504,7 @@ dependencies = [
 
 [[package]]
 name = "spin-componentize"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7592,11 +7530,10 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "crossbeam-channel",
  "serde_json",
  "spin-componentize",
  "spin-factor-wasi",
@@ -7611,7 +7548,7 @@ dependencies = [
 
 [[package]]
 name = "spin-doctor"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7632,7 +7569,7 @@ dependencies = [
 
 [[package]]
 name = "spin-expressions"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7647,7 +7584,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-key-value"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "serde 1.0.197",
@@ -7664,7 +7601,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-key-value-azure"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "serde 1.0.197",
@@ -7674,7 +7611,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-key-value-redis"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "serde 1.0.197",
@@ -7684,7 +7621,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-key-value-spin"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "serde 1.0.197",
@@ -7694,7 +7631,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-http"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
@@ -7717,7 +7654,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-mqtt"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "rumqttc",
@@ -7734,7 +7671,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-mysql"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -7757,7 +7694,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-networking"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -7783,7 +7720,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-pg"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -7802,7 +7739,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-redis"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "redis 0.21.7",
@@ -7819,7 +7756,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-sqlite"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
  "serde 1.0.197",
@@ -7837,11 +7774,11 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-variables"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
- "azure_identity 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
- "azure_security_keyvault 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
+ "azure_identity",
+ "azure_security_keyvault",
  "dotenvy",
  "serde 1.0.197",
  "spin-expressions",
@@ -7856,7 +7793,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-wasi"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
  "cap-primitives 3.0.0",
@@ -7870,7 +7807,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "cargo-target-dep",
@@ -7899,7 +7836,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors-derive"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "expander",
  "proc-macro2",
@@ -7909,7 +7846,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors-executor"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "spin-app",
@@ -7922,7 +7859,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors-test"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "serde 1.0.197",
  "spin-app",
@@ -7935,7 +7872,7 @@ dependencies = [
 
 [[package]]
 name = "spin-http"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
@@ -7954,7 +7891,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "lru 0.9.0",
@@ -7968,11 +7905,11 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-azure"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "azure_data_cosmos",
- "azure_identity 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_identity",
  "futures",
  "serde 1.0.197",
  "spin-core",
@@ -7984,7 +7921,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-redis"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "redis 0.21.7",
@@ -7998,7 +7935,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-sqlite"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "once_cell",
@@ -8012,7 +7949,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -8024,7 +7961,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm-local"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -8048,7 +7985,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm-remote-http"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.12",
@@ -8065,7 +8002,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8104,7 +8041,7 @@ dependencies = [
 
 [[package]]
 name = "spin-locked-app"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8116,7 +8053,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "glob",
@@ -8135,7 +8072,7 @@ dependencies = [
 
 [[package]]
 name = "spin-oci"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -8165,7 +8102,7 @@ dependencies = [
 
 [[package]]
 name = "spin-outbound-networking"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
@@ -8179,7 +8116,7 @@ dependencies = [
 
 [[package]]
 name = "spin-plugins"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -8205,7 +8142,7 @@ dependencies = [
 
 [[package]]
 name = "spin-runtime-config"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "spin-factor-key-value",
@@ -8224,7 +8161,7 @@ dependencies = [
 
 [[package]]
 name = "spin-serde"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "base64 0.21.7",
  "serde 1.0.197",
@@ -8232,7 +8169,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8246,7 +8183,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-inproc"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8261,7 +8198,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-libsql"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8276,7 +8213,7 @@ dependencies = [
 
 [[package]]
 name = "spin-telemetry"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.12",
@@ -8295,7 +8232,7 @@ dependencies = [
 
 [[package]]
 name = "spin-templates"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8329,7 +8266,7 @@ dependencies = [
 
 [[package]]
 name = "spin-testing"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.1.0",
@@ -8347,7 +8284,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8403,7 +8340,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger-http"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8447,7 +8384,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger-http2"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8488,7 +8425,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger-redis"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8509,7 +8446,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger2"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "clap 3.2.25",
@@ -8539,13 +8476,13 @@ dependencies = [
 
 [[package]]
 name = "spin-variables"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "azure_identity 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "azure_security_keyvault 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "azure_core",
+ "azure_identity",
+ "azure_security_keyvault",
  "dotenvy",
  "once_cell",
  "serde 1.0.197",
@@ -8562,7 +8499,7 @@ dependencies = [
 
 [[package]]
 name = "spin-world"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
  "wasmtime",
@@ -8754,7 +8691,7 @@ dependencies = [
 
 [[package]]
 name = "table"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 
 [[package]]
 name = "tar"
@@ -8812,7 +8749,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "atty",
  "once_cell",
@@ -8852,7 +8789,7 @@ dependencies = [
 [[package]]
 name = "test-environment"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?rev=d2129a3fd73140a76c77f15a030a5273b37cbd11#d2129a3fd73140a76c77f15a030a5273b37cbd11"
+source = "git+https://github.com/fermyon/conformance-tests?rev=387b7f375df59e6254a7c29cf4a53507a9f46d32#387b7f375df59e6254a7c29cf4a53507a9f46d32"
 dependencies = [
  "anyhow",
  "fslock",
@@ -9533,7 +9470,7 @@ dependencies = [
 
 [[package]]
 name = "ui-testing"
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",

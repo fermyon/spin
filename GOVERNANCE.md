@@ -16,8 +16,6 @@ The Spin project consists of several codebases with different release cycles. Th
     - [Spin Plugins Index Repository](https://github.com/fermyon/spin-plugins)
     - [Fermyon Platform Plugin](https://github.com/fermyon/platform-plugin)
     - [Spin Test Plugin](https://github.com/fermyon/spin-test)
-    - [Cloud Plugin](https://github.com/fermyon/cloud-plugin)
-    - [Spin Cloud GPU Plugin](https://github.com/fermyon/spin-cloud-gpu)
 - Triggers:
     - [Spin Command Trigger](https://github.com/fermyon/spin-trigger-command)
     - [Spin SQS Trigger](https://github.com/fermyon/spin-trigger-sqs)

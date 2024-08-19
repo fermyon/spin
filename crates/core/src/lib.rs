@@ -14,7 +14,6 @@ use std::sync::OnceLock;
 use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
-use crossbeam_channel::Sender;
 use tracing::instrument;
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 
@@ -98,9 +97,12 @@ impl Default for Config {
                 .max_component_instance_size(
                     env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize
                 )
+                .max_core_instance_size(
+                    env("SPIN_WASMTIME_CORE_INSTANCE_SIZE", (10 * MB) as u32) as usize
+                )
                 .max_core_instances_per_component(env("SPIN_WASMTIME_CORE_INSTANCE_COUNT", 200))
                 .max_tables_per_component(env("SPIN_WASMTIME_INSTANCE_TABLES", 20))
-                .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
+                .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 100_000))
                 // The number of memories an instance can have effectively limits the number of inner components
                 // a composed component can have (since each inner component has its own memory). We default to 32 for now, and
                 // we'll see how often this limit gets reached.
@@ -250,32 +252,28 @@ impl<T> EngineBuilder<T> {
         self.epoch_ticker_thread = enable;
     }
 
-    fn maybe_spawn_epoch_ticker(&self) -> Option<Sender<()>> {
+    fn maybe_spawn_epoch_ticker(&self) {
         if !self.epoch_ticker_thread {
-            return None;
+            return;
         }
-        let engine = self.engine.clone();
+        let engine_weak = self.engine.weak();
         let interval = self.epoch_tick_interval;
-        let (send, recv) = crossbeam_channel::bounded(0);
         std::thread::spawn(move || loop {
-            match recv.recv_timeout(interval) {
-                Err(crossbeam_channel::RecvTimeoutError::Timeout) => (),
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                res => panic!("unexpected epoch_ticker_signal: {res:?}"),
-            }
+            std::thread::sleep(interval);
+            let Some(engine) = engine_weak.upgrade() else {
+                break;
+            };
             engine.increment_epoch();
         });
-        Some(send)
     }
 
     /// Builds an [`Engine`] from this builder.
     pub fn build(self) -> Engine<T> {
-        let epoch_ticker_signal = self.maybe_spawn_epoch_ticker();
+        self.maybe_spawn_epoch_ticker();
         Engine {
             inner: self.engine,
             linker: self.linker,
             epoch_tick_interval: self.epoch_tick_interval,
-            _epoch_ticker_signal: epoch_ticker_signal,
         }
     }
 }
@@ -286,8 +284,6 @@ pub struct Engine<T> {
     inner: wasmtime::Engine,
     linker: Linker<T>,
     epoch_tick_interval: Duration,
-    // Matching receiver closes on drop
-    _epoch_ticker_signal: Option<Sender<()>>,
 }
 
 impl<T> Engine<T> {

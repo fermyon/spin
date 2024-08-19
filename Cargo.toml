@@ -6,7 +6,7 @@ edition = { workspace = true }
 license = { workspace = true }
 
 [workspace.package]
-version = "2.7.0-pre0"
+version = "2.8.0-pre0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
@@ -95,8 +95,8 @@ redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
 test-components = { path = "tests/test-components" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
-test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "d2129a3fd73140a76c77f15a030a5273b37cbd11" }
-conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "d2129a3fd73140a76c77f15a030a5273b37cbd11" }
+test-environment = { workspace = true }
+conformance-tests = { workspace = true }
 conformance = { path = "tests/conformance-tests" }
 
 [build-dependencies]
@@ -132,6 +132,8 @@ http-body-util = "0.1.0"
 hyper = { version = "1.0.0", features = ["full"] }
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
 tracing = { version = "0.1", features = ["log"] }
+conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 
 wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [
   "tokio",

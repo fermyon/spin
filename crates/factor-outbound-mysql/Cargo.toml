@@ -28,5 +28,9 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 tracing = { version = "0.1", features = ["log"] }
 url = "2.3.1"
 
+[dev-dependencies]
+spin-factor-variables = { path = "../factor-variables" }
+spin-factors-test = { path = "../factors-test" }
+
 [lints]
 workspace = true

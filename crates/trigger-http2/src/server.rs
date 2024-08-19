@@ -99,20 +99,22 @@ impl HttpServer {
     }
 
     /// Handles incoming requests using an HTTP executor.
+    ///
+    /// This method handles well known paths and routes requests to the handler when the router
+    /// matches the requests path.
     async fn handle(
         self: &Arc<Self>,
         mut req: Request<Body>,
         server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
-        set_req_uri(&mut req, server_scheme.clone())?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
 
-        tracing::info!("Processing request on URI {}", req.uri());
-
         let path = req.uri().path().to_string();
+
+        tracing::info!("Processing request on path '{path}'");
 
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
@@ -135,13 +137,15 @@ impl HttpServer {
         }
     }
 
+    /// Handles a successful route match.
     pub async fn handle_trigger_route(
         self: &Arc<Self>,
-        req: Request<Body>,
+        mut req: Request<Body>,
         route_match: RouteMatch,
         server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
+        set_req_uri(&mut req, server_scheme.clone())?;
         let app_id = self
             .trigger_app
             .app()

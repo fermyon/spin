@@ -7708,6 +7708,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-outbound-mysql"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "mysql_async",
+ "mysql_common",
+ "spin-app",
+ "spin-core",
+ "spin-expressions",
+ "spin-factor-outbound-networking",
+ "spin-factors",
+ "spin-outbound-networking",
+ "spin-world",
+ "table",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "spin-factor-outbound-networking"
 version = "2.7.0-pre0"
 dependencies = [

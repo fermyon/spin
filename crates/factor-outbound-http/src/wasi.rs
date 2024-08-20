@@ -112,7 +112,7 @@ async fn send_request_impl(
     let is_relative_url = request.uri().authority().is_none();
     if is_relative_url {
         if !allowed_hosts.allows_relative_url(&["http", "https"]) {
-            return handle_not_allowed(request.uri(), true);
+            return Ok(handle_not_allowed(request.uri(), true));
         }
 
         let origin = request
@@ -131,7 +131,7 @@ async fn send_request_impl(
         let outbound_url = OutboundUrl::parse(request.uri().to_string(), "https")
             .map_err(|_| ErrorCode::HttpRequestUriInvalid)?;
         if !allowed_hosts.allows(&outbound_url) {
-            return handle_not_allowed(request.uri(), false);
+            return Ok(handle_not_allowed(request.uri(), false));
         }
     }
 
@@ -147,11 +147,8 @@ async fn send_request_impl(
 }
 
 // TODO(factors): Move to some callback on spin-factor-outbound-networking (?)
-fn handle_not_allowed(
-    uri: &Uri,
-    is_relative: bool,
-) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
-    tracing::error!("Destination not allowed: {uri}");
+fn handle_not_allowed(uri: &Uri, is_relative: bool) -> Result<IncomingResponse, ErrorCode> {
+    tracing::error!("Destination not allowed!: {uri}");
     let allowed_host_example = if is_relative {
         terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
         "http://self".to_string()
@@ -165,7 +162,7 @@ fn handle_not_allowed(
         host
     };
     eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{allowed_host_example}\"]' to the manifest component section.");
-    Err(ErrorCode::HttpRequestDenied.into())
+    Err(ErrorCode::HttpRequestDenied)
 }
 
 /// This is a fork of wasmtime_wasi_http::default_send_request_handler function

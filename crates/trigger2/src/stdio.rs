@@ -12,8 +12,9 @@ use tokio::io::AsyncWrite;
 use crate::factors::TriggerFactors;
 
 /// Which components should have their logs followed on stdout/stderr.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum FollowComponents {
+    #[default]
     /// No components should have their logs followed.
     None,
     /// Only the specified components should have their logs followed.
@@ -30,12 +31,6 @@ impl FollowComponents {
             Self::All => true,
             Self::Named(ids) => ids.contains(component_id),
         }
-    }
-}
-
-impl Default for FollowComponents {
-    fn default() -> Self {
-        Self::None
     }
 }
 

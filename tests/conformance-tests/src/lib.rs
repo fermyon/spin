@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use test_environment::http::Request;
 use testing_framework::runtimes::spin_cli::{SpinCli, SpinConfig};
 
 /// Run a single conformance test against the supplied spin binary.
@@ -56,9 +57,11 @@ pub fn run_test(
         let conformance_tests::config::Invocation::Http(mut invocation) = invocation;
         invocation.request.substitute_from_env(&mut env)?;
         let spin = env.runtime_mut();
-        let actual = invocation
-            .request
-            .send(|request| spin.make_http_request(request))?;
+        let actual = invocation.request.send(|request| {
+            let request =
+                Request::full(request.method, request.path, request.headers, request.body);
+            spin.make_http_request(request)
+        })?;
 
         conformance_tests::assertions::assert_response(&invocation.response, &actual)
             .with_context(|| {

@@ -14,9 +14,11 @@ regex = "1.10.2"
 reqwest = { workspace = true }
 temp-dir = "0.1.11"
 test-environment = { workspace = true }
-spin-trigger-http = { path = "../../crates/trigger-http" }
+spin-factors-executor = { path = "../../crates/factors-executor" }
+spin-app = { path = "../../crates/app" }
+spin-trigger-http2 = { path = "../../crates/trigger-http2" }
 spin-http = { path = "../../crates/http" }
-spin-trigger = { path = "../../crates/trigger" }
+spin-trigger2 = { path = "../../crates/trigger2" }
 spin-loader = { path = "../../crates/loader" }
 toml = "0.8.6"
 tokio = "1.23"

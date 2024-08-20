@@ -25,7 +25,7 @@ use spin_http::{config::HttpTriggerConfig, routes::Router};
 use spin_trigger2::Trigger;
 use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
 
-use server::HttpServer;
+pub use server::HttpServer;
 
 pub use tls::TlsConfig;
 

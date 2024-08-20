@@ -1,6 +1,7 @@
 mod launch_metadata;
 
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
@@ -13,7 +14,7 @@ use spin_runtime_config::ResolvedRuntimeConfig;
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
-use crate::Trigger;
+use crate::{Trigger, TriggerApp};
 pub use launch_metadata::LaunchMetadata;
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -172,96 +173,32 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
             anyhow::bail!("This application requires the following features that are not available in this version of the '{}' trigger: {unmet}", T::TYPE);
         }
 
-        let mut trigger = T::new(self.trigger_args, &app)?;
+        let trigger = T::new(self.trigger_args, &app)?;
+        let mut builder = TriggerAppBuilder::new(trigger, PathBuf::from(working_dir));
+        let config = builder.engine_config();
 
-        let mut core_engine_builder = {
-            let mut config = spin_core::Config::default();
-
-            // Apply --cache / --disable-cache
-            if !self.disable_cache {
-                config.enable_cache(&self.cache)?;
-            }
-
-            if self.disable_pooling {
-                config.disable_pooling();
-            }
-
-            trigger.update_core_config(&mut config)?;
-
-            spin_core::Engine::builder(&config)?
-        };
-        trigger.add_to_linker(core_engine_builder.linker())?;
-
-        let runtime_config = match &self.runtime_config_file {
-            Some(runtime_config_path) => {
-                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-                    runtime_config_path,
-                    self.state_dir.as_deref(),
-                )?
-            }
-            None => ResolvedRuntimeConfig::default(self.state_dir.as_deref()),
-        };
-
-        runtime_config
-            .set_initial_key_values(&self.key_values)
-            .await?;
-
-        let factors = TriggerFactors::new(
-            working_dir,
-            self.allow_transient_write,
-            runtime_config.key_value_resolver,
-            runtime_config.sqlite_resolver,
-        );
-
-        // TODO: move these into Factor methods/constructors
-        // let init_data = crate::HostComponentInitData::new(
-        //     &*self.key_values,
-        //     &*self.sqlite_statements,
-        //     LLmOptions { use_gpu: true },
-        // );
-
-        // TODO: port the rest of the component loader logic
-        struct SimpleComponentLoader;
-        impl ComponentLoader for SimpleComponentLoader {
-            fn load_component(
-                &mut self,
-                engine: &spin_core::wasmtime::Engine,
-                component: &spin_factors::AppComponent,
-            ) -> anyhow::Result<spin_core::Component> {
-                let source = component
-                    .source()
-                    .content
-                    .source
-                    .as_ref()
-                    .context("LockedComponentSource missing source field")?;
-                let path = parse_file_url(source)?;
-                let bytes = std::fs::read(&path).with_context(|| {
-                    format!(
-                        "failed to read component source from disk at path {}",
-                        quoted_path(&path)
-                    )
-                })?;
-                let component = spin_componentize::componentize_if_necessary(&bytes)?;
-                spin_core::Component::new(engine, component.as_ref())
-                    .with_context(|| format!("loading module {}", quoted_path(&path)))
-            }
+        // Apply --cache / --disable-cache
+        if !self.disable_cache {
+            config.enable_cache(&self.cache)?;
         }
 
-        let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
+        if self.disable_pooling {
+            config.disable_pooling();
+        }
 
-        let log_dir = self.log.clone();
-        executor.add_hooks(StdioLoggingExecutorHooks::new(follow_components, log_dir));
-        // TODO:
-        // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
-        // builder.hooks(KeyValuePersistenceMessageHook);
-        // builder.hooks(SqlitePersistenceMessageHook);
-
-        let configured_app = {
-            let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(app, runtime_config.runtime_config, SimpleComponentLoader)?
-        };
-
-        let run_fut = trigger.run(configured_app);
+        let run_fut = builder
+            .run(
+                app,
+                TriggerAppOptions {
+                    runtime_config_file: self.runtime_config_file.as_deref(),
+                    state_dir: self.state_dir.as_deref(),
+                    initial_key_values: self.key_values,
+                    allow_transient_write: self.allow_transient_write,
+                    follow_components,
+                    log_dir: self.log,
+                },
+            )
+            .await?;
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
         ctrlc::set_handler(move || abort_handle.abort())?;
@@ -314,6 +251,141 @@ fn help_heading<T: Trigger>() -> Option<&'static str> {
         let heading = format!("{} TRIGGER OPTIONS", T::TYPE.to_uppercase());
         let as_str = Box::new(heading).leak();
         Some(as_str)
+    }
+}
+
+/// A builder for a [`TriggerApp`].
+pub struct TriggerAppBuilder<T> {
+    engine_config: spin_core::Config,
+    working_dir: PathBuf,
+    pub trigger: T,
+}
+
+/// Options for building a [`TriggerApp`].
+#[derive(Default)]
+pub struct TriggerAppOptions<'a> {
+    /// Path to the runtime config file.
+    runtime_config_file: Option<&'a Path>,
+    /// Path to the state directory.
+    state_dir: Option<&'a str>,
+    /// Initial key/value pairs to set in the app's default store.
+    initial_key_values: Vec<(String, String)>,
+    /// Whether to allow transient writes to mounted files
+    allow_transient_write: bool,
+    /// Which components should have their logs followed.
+    follow_components: FollowComponents,
+    /// Log directory for component stdout/stderr.
+    log_dir: Option<PathBuf>,
+}
+
+impl<T: Trigger> TriggerAppBuilder<T> {
+    pub fn new(trigger: T, working_dir: PathBuf) -> Self {
+        Self {
+            engine_config: spin_core::Config::default(),
+            working_dir,
+            trigger,
+        }
+    }
+
+    pub fn engine_config(&mut self) -> &mut spin_core::Config {
+        &mut self.engine_config
+    }
+
+    /// Build a [`TriggerApp`] from the given [`App`] and options.
+    pub async fn build(
+        &mut self,
+        app: App,
+        options: TriggerAppOptions<'_>,
+    ) -> anyhow::Result<TriggerApp<T>> {
+        let mut core_engine_builder = {
+            self.trigger.update_core_config(&mut self.engine_config)?;
+
+            spin_core::Engine::builder(&self.engine_config)?
+        };
+        self.trigger.add_to_linker(core_engine_builder.linker())?;
+
+        let runtime_config = match options.runtime_config_file {
+            Some(runtime_config_path) => {
+                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
+                    runtime_config_path,
+                    options.state_dir,
+                )?
+            }
+            None => ResolvedRuntimeConfig::default(options.state_dir),
+        };
+
+        runtime_config
+            .set_initial_key_values(&options.initial_key_values)
+            .await?;
+
+        let factors = TriggerFactors::new(
+            self.working_dir.clone(),
+            options.allow_transient_write,
+            runtime_config.key_value_resolver,
+            runtime_config.sqlite_resolver,
+        );
+
+        // TODO: move these into Factor methods/constructors
+        // let init_data = crate::HostComponentInitData::new(
+        //     &*self.key_values,
+        //     &*self.sqlite_statements,
+        //     LLmOptions { use_gpu: true },
+        // );
+
+        // TODO: port the rest of the component loader logic
+        struct SimpleComponentLoader;
+        impl ComponentLoader for SimpleComponentLoader {
+            fn load_component(
+                &mut self,
+                engine: &spin_core::wasmtime::Engine,
+                component: &spin_factors::AppComponent,
+            ) -> anyhow::Result<spin_core::Component> {
+                let source = component
+                    .source()
+                    .content
+                    .source
+                    .as_ref()
+                    .context("LockedComponentSource missing source field")?;
+                let path = parse_file_url(source)?;
+                let bytes = std::fs::read(&path).with_context(|| {
+                    format!(
+                        "failed to read component source from disk at path {}",
+                        quoted_path(&path)
+                    )
+                })?;
+                let component = spin_componentize::componentize_if_necessary(&bytes)?;
+                spin_core::Component::new(engine, component.as_ref())
+                    .with_context(|| format!("loading module {}", quoted_path(&path)))
+            }
+        }
+
+        let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
+
+        executor.add_hooks(StdioLoggingExecutorHooks::new(
+            options.follow_components,
+            options.log_dir,
+        ));
+        // TODO:
+        // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
+        // builder.hooks(KeyValuePersistenceMessageHook);
+        // builder.hooks(SqlitePersistenceMessageHook);
+
+        let configured_app = {
+            let _sloth_guard = warn_if_wasm_build_slothful();
+            executor.load_app(app, runtime_config.runtime_config, SimpleComponentLoader)?
+        };
+
+        Ok(configured_app)
+    }
+
+    /// Run the [`TriggerApp`] with the given [`App`] and options.
+    pub async fn run(
+        mut self,
+        app: App,
+        options: TriggerAppOptions<'_>,
+    ) -> anyhow::Result<impl Future<Output = anyhow::Result<()>>> {
+        let configured_app = self.build(app, options).await?;
+        Ok(self.trigger.run(configured_app))
     }
 }
 

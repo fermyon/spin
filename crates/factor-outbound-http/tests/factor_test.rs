@@ -65,9 +65,9 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
     let req = Request::get("https://denied.test").body(Default::default())?;
     let mut future_resp = wasi_http.send_request(req, test_request_config())?;
     future_resp.ready().await;
-    match future_resp.unwrap_ready() {
+    match future_resp.unwrap_ready().unwrap() {
         Ok(_) => bail!("expected Err, got Ok"),
-        Err(err) => assert!(matches!(err.downcast()?, ErrorCode::HttpRequestDenied)),
+        Err(err) => assert!(matches!(err, ErrorCode::HttpRequestDenied)),
     };
     Ok(())
 }

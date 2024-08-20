@@ -83,13 +83,34 @@ pub enum WasiFilesMount {
 #[serde(deny_unknown_fields)]
 pub struct ComponentBuildConfig {
     /// `command = "cargo build"`
-    pub command: String,
+    pub command: Commands,
     /// `workdir = "components/main"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workdir: Option<String>,
     /// watch = ["src/**/*.rs"]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub watch: Vec<String>,
+}
+
+impl ComponentBuildConfig {
+    /// The commands to execute for the build
+    pub fn commands(&self) -> impl Iterator<Item = &String> {
+        let as_vec = match &self.command {
+            Commands::Single(cmd) => vec![cmd],
+            Commands::Multiple(cmds) => cmds.iter().collect(),
+        };
+        as_vec.into_iter()
+    }
+}
+
+/// Component build command or commands
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Commands {
+    /// `command = "cargo build"`
+    Single(String),
+    /// `command = ["cargo build", "wac encode compose-deps.wac -d my:pkg=app.wasm --registry fermyon.com"]`
+    Multiple(Vec<String>),
 }
 
 fn is_false(v: &bool) -> bool {

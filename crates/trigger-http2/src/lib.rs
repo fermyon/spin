@@ -23,7 +23,6 @@ use serde::Deserialize;
 use spin_app::App;
 use spin_http::{config::HttpTriggerConfig, routes::Router};
 use spin_trigger2::Trigger;
-use tokio::net::TcpListener;
 use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
 
 use server::HttpServer;
@@ -67,7 +66,7 @@ pub(crate) type InstanceState = ();
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
-    /// The address the server will listen on.
+    /// The address the server should listen on.
     ///
     /// Note that this might not be the actual socket address that ends up being bound to.
     /// If the port is set to 0, the actual address will be determined by the OS.
@@ -85,6 +84,29 @@ impl Trigger for HttpTrigger {
     type InstanceState = InstanceState;
 
     fn new(cli_args: Self::CliArgs, app: &spin_app::App) -> anyhow::Result<Self> {
+        Self::new(app, cli_args.address, cli_args.into_tls_config())
+    }
+
+    async fn run(self, trigger_app: TriggerApp) -> anyhow::Result<()> {
+        let server = self.into_server(trigger_app)?;
+
+        server.serve().await?;
+
+        Ok(())
+    }
+
+    fn supported_host_requirements() -> Vec<&'static str> {
+        vec![spin_app::locked::SERVICE_CHAINING_KEY]
+    }
+}
+
+impl HttpTrigger {
+    /// Create a new `HttpTrigger`.
+    pub fn new(
+        app: &spin_app::App,
+        listen_addr: SocketAddr,
+        tls_config: Option<TlsConfig>,
+    ) -> anyhow::Result<Self> {
         Self::validate_app(app)?;
 
         let component_trigger_configs = HashMap::from_iter(
@@ -114,55 +136,32 @@ impl Trigger for HttpTrigger {
             "Constructed router: {:?}",
             router.routes().collect::<Vec<_>>()
         );
-
         Ok(Self {
-            listen_addr: cli_args.address,
-            tls_config: cli_args.into_tls_config(),
+            listen_addr,
+            tls_config,
             router,
             component_trigger_configs,
         })
     }
 
-    async fn run(self, trigger_app: TriggerApp) -> anyhow::Result<()> {
+    /// Turn this [`HttpTrigger`] into an [`HttpServer`].
+    pub fn into_server(self, trigger_app: TriggerApp) -> anyhow::Result<Arc<HttpServer>> {
         let Self {
             listen_addr,
             tls_config,
             router,
             component_trigger_configs,
         } = self;
-
-        let listener = TcpListener::bind(listen_addr)
-            .await
-            .with_context(|| format!("Unable to listen on {listen_addr}"))?;
-
-        // Get the address the server is actually listening on
-        // We can't use `self.listen_addr` because it might not
-        // be fully resolved (e.g, port 0).
-        let listen_addr = listener
-            .local_addr()
-            .context("failed to retrieve address server is listening on")?;
         let server = Arc::new(HttpServer::new(
             listen_addr,
+            tls_config,
             trigger_app,
             router,
             component_trigger_configs,
         )?);
-
-        if let Some(tls_config) = tls_config {
-            server.serve_tls(listener, tls_config).await?
-        } else {
-            server.serve(listener).await?
-        };
-
-        Ok(())
+        Ok(server)
     }
 
-    fn supported_host_requirements() -> Vec<&'static str> {
-        vec![spin_app::locked::SERVICE_CHAINING_KEY]
-    }
-}
-
-impl HttpTrigger {
     fn validate_app(app: &App) -> anyhow::Result<()> {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]

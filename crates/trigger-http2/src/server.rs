@@ -188,11 +188,10 @@ impl HttpServer {
         let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
         // Set up outbound HTTP request origin and service chaining
+        let outbound_http = instance_builder.factor_builders().outbound_http();
         let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
-        instance_builder
-            .factor_builders()
-            .outbound_http()
-            .set_request_interceptor(OutboundHttpInterceptor::new(self.clone(), origin))?;
+        outbound_http.set_self_request_origin(origin);
+        outbound_http.set_request_interceptor(OutboundHttpInterceptor::new(self.clone()))?;
 
         // Prepare HTTP executor
         let trigger_config = self.component_trigger_configs.get(component_id).unwrap();

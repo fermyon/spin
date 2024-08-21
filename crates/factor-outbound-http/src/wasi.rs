@@ -106,6 +106,7 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
                     request,
                     config,
                     self.state.allowed_hosts.clone(),
+                    self.state.self_request_origin.clone(),
                     tls_client_config,
                 )
                 .in_current_span(),
@@ -118,6 +119,7 @@ async fn send_request_impl(
     mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
     mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     outbound_allowed_hosts: OutboundAllowedHosts,
+    self_request_origin: Option<SelfRequestOrigin>,
     tls_client_config: Arc<ClientConfig>,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
     if request.uri().authority().is_some() {
@@ -137,10 +139,7 @@ async fn send_request_impl(
             return Ok(Err(ErrorCode::HttpRequestDenied));
         }
 
-        let origin = request
-            .extensions()
-            .get::<SelfRequestOrigin>()
-            .cloned()
+        let origin = self_request_origin
             .context("cannot send relative outbound request; no 'origin' set by host")?;
 
         config.use_tls = origin.use_tls();

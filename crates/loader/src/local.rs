@@ -12,7 +12,7 @@ use spin_locked_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
-use spin_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIX;
+use spin_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIXES;
 use tokio::{io::AsyncWriteExt, sync::Semaphore};
 
 use crate::{cache::Cache, FilesMountStrategy};
@@ -661,10 +661,16 @@ fn is_chaining_host(pattern: &str) -> bool {
     match allowed.host() {
         HostConfig::List(hosts) => hosts
             .iter()
-            .any(|h| h.ends_with(SERVICE_CHAINING_DOMAIN_SUFFIX)),
-        HostConfig::AnySubdomain(domain) => domain == SERVICE_CHAINING_DOMAIN_SUFFIX,
+            .any(|h| ends_with_any(h, SERVICE_CHAINING_DOMAIN_SUFFIXES)),
+        HostConfig::AnySubdomain(domain) => {
+            SERVICE_CHAINING_DOMAIN_SUFFIXES.contains(&domain.as_str())
+        }
         _ => false,
     }
+}
+
+fn ends_with_any(host: &str, suffixes: &[&str]) -> bool {
+    suffixes.iter().any(|suffix| host.ends_with(suffix))
 }
 
 const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;

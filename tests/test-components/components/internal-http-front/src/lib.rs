@@ -15,7 +15,7 @@ async fn handle_front_impl(_req: Request) -> Result<impl IntoResponse, String> {
     let mut res: http::Response<String> = ensure_ok!(spin_sdk::http::send(
         spin_sdk::http::Request::new(
             spin_sdk::http::Method::Get,
-            "http://middle.spin.internal/hello/from/front"
+            "http://middle.spin.alt/hello/from/front"
         )
     )
     .await);

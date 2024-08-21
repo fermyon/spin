@@ -21,7 +21,7 @@ component = "web"
 
 [component.four-lights]
 source = "wasm/dummy.wasm"
-allowed_outbound_hosts = ["http://old-test.spin.internal"]
+allowed_outbound_hosts = ["http://old-test.spin.alt"]
 [component.four-lights.environment]
 env1 = "first"
 env2 = "second"

@@ -6,6 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 async-trait = "0.1"
+bytes = "1.0"
 cap-primitives = "3.0.0"
 spin-common = { path = "../common" }
 spin-factors = { path = "../factors" }

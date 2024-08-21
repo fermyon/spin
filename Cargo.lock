@@ -7796,6 +7796,7 @@ name = "spin-factor-wasi"
 version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
+ "bytes",
  "cap-primitives 3.0.0",
  "spin-common",
  "spin-factors",

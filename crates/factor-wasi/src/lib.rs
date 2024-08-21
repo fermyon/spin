@@ -1,18 +1,23 @@
+mod io;
 pub mod spin;
 mod wasi_2023_10_18;
 mod wasi_2023_11_10;
 
-use std::{future::Future, net::SocketAddr, path::Path};
+use std::{
+    future::Future,
+    io::{Read, Write},
+    net::SocketAddr,
+    path::Path,
+};
 
+use io::{PipeReadStream, PipedWriteStream};
 use spin_factors::{
     anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors, RuntimeFactorsInstanceState,
 };
-use tokio::io::{AsyncRead, AsyncWrite};
 use wasmtime_wasi::{
-    pipe::{AsyncReadStream, AsyncWriteStream},
-    AsyncStdinStream, AsyncStdoutStream, DirPerms, FilePerms, ResourceTable, StdinStream,
-    StdoutStream, WasiCtx, WasiCtxBuilder, WasiImpl, WasiView,
+    DirPerms, FilePerms, ResourceTable, StdinStream, StdoutStream, WasiCtx, WasiCtxBuilder,
+    WasiImpl, WasiView,
 };
 
 pub use wasmtime_wasi::SocketAddrUse;
@@ -179,9 +184,9 @@ impl InstanceBuilder {
         self.ctx.stdin(stdin);
     }
 
-    /// Sets the WASI `stdin` descriptor to the given [`AsyncRead`]er.
-    pub fn stdin_pipe(&mut self, r: impl AsyncRead + Send + Unpin + 'static) {
-        self.stdin(AsyncStdinStream::new(AsyncReadStream::new(r)));
+    /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
+    pub fn stdin_pipe(&mut self, r: impl Read + Send + Sync + Unpin + 'static) {
+        self.stdin(PipeReadStream::new(r));
     }
 
     /// Sets the WASI `stdout` descriptor to the given [`StdoutStream`].
@@ -189,12 +194,9 @@ impl InstanceBuilder {
         self.ctx.stdout(stdout);
     }
 
-    /// Sets the WASI `stdout` descriptor to the given [`AsyncWrite`]r.
-    pub fn stdout_pipe(&mut self, w: impl AsyncWrite + Send + Unpin + 'static) {
-        self.stdout(AsyncStdoutStream::new(AsyncWriteStream::new(
-            1024 * 1024,
-            w,
-        )));
+    /// Sets the WASI `stdout` descriptor to the given [`Write`]r.
+    pub fn stdout_pipe(&mut self, w: impl Write + Send + Sync + Unpin + 'static) {
+        self.stdout(PipedWriteStream::new(w));
     }
 
     /// Sets the WASI `stderr` descriptor to the given [`StdoutStream`].
@@ -202,12 +204,9 @@ impl InstanceBuilder {
         self.ctx.stderr(stderr);
     }
 
-    /// Sets the WASI `stderr` descriptor to the given [`AsyncWrite`]r.
-    pub fn stderr_pipe(&mut self, w: impl AsyncWrite + Send + Unpin + 'static) {
-        self.stderr(AsyncStdoutStream::new(AsyncWriteStream::new(
-            1024 * 1024,
-            w,
-        )));
+    /// Sets the WASI `stderr` descriptor to the given [`Write`]r.
+    pub fn stderr_pipe(&mut self, w: impl Write + Send + Sync + Unpin + 'static) {
+        self.stderr(PipedWriteStream::new(w));
     }
 
     /// Appends the given strings to the WASI 'args'.

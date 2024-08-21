@@ -60,8 +60,8 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
-        outbound_networking: OutboundNetworkingFactor,
-        outbound_http: OutboundHttpFactor,
+        outbound_networking: OutboundNetworkingFactor::new(),
+        outbound_http: OutboundHttpFactor::new(),
         key_value: KeyValueFactor::new(key_value_resolver.clone()),
     };
 

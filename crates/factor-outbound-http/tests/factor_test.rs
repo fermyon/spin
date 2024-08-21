@@ -77,8 +77,8 @@ async fn test_instance_state(
 ) -> anyhow::Result<TestFactorsInstanceState> {
     let factors = TestFactors {
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
-        http: OutboundHttpFactor,
+        networking: OutboundNetworkingFactor::new(),
+        http: OutboundHttpFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]

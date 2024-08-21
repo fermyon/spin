@@ -154,7 +154,10 @@ impl SpinTlsRuntimeConfig {
             .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("private key file '{}' contains no private keys", path.display()),
+                    format!(
+                        "private key file '{}' contains no private keys",
+                        path.display()
+                    ),
                 )
             })?)
     }
@@ -184,7 +187,7 @@ fn deserialize_hosts<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<S
 mod tests {
     use super::*;
 
-    const TESTDATA_DIR: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata");
+    const TESTDATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata");
 
     #[test]
     fn test_min_config() -> anyhow::Result<()> {

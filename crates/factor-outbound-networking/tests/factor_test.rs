@@ -17,7 +17,7 @@ async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
     let factors = TestFactors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
+        networking: OutboundNetworkingFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
@@ -58,7 +58,7 @@ async fn wasi_factor_is_optional() -> anyhow::Result<()> {
     }
     TestEnvironment::new(WithoutWasi {
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
+        networking: OutboundNetworkingFactor::new(),
     })
     .build_instance_state()
     .await?;

@@ -253,7 +253,7 @@ mod tests {
         Ok(())
     }
 
-    const TESTDATA_DIR: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata");
+    const TESTDATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata");
 
     fn test_certs() -> anyhow::Result<Vec<CertificateDer<'static>>> {
         let file = std::fs::File::open(Path::new(TESTDATA_DIR).join("valid-cert.pem"))?;

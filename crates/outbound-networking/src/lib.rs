@@ -8,31 +8,6 @@ pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowe
 pub const SERVICE_CHAINING_DOMAIN: &str = "spin.internal";
 pub const SERVICE_CHAINING_DOMAIN_SUFFIX: &str = ".spin.internal";
 
-/// Checks address against allowed hosts
-///
-/// Emits several warnings
-pub fn check_url(url: &str, scheme: &str, allowed_hosts: &AllowedHostsConfig) -> bool {
-    let Ok(url) = OutboundUrl::parse(url, scheme) else {
-        terminal::warn!(
-            "A component tried to make a request to an url that could not be parsed {url}.",
-        );
-        return false;
-    };
-    let is_allowed = allowed_hosts.allows(&url);
-
-    if !is_allowed {
-        terminal::warn!("A component tried to make a request to non-allowed url '{url}'.");
-        let (scheme, host, port) = (url.scheme, url.host, url.port);
-        let msg = if let Some(port) = port {
-            format!("`allowed_outbound_hosts = [\"{scheme}://{host}:{port}\"]`")
-        } else {
-            format!("`allowed_outbound_hosts = [\"{scheme}://{host}:$PORT\"]` (where $PORT is the correct port number)")
-        };
-        eprintln!("To allow requests, add {msg} to the manifest component section.");
-    }
-    is_allowed
-}
-
 /// An address is a url-like string that contains a host, a port, and an optional scheme
 #[derive(Eq, Debug, Clone)]
 pub struct AllowedHostConfig {
@@ -430,6 +405,18 @@ impl OutboundUrl {
             port: parsed.port(),
             original,
         })
+    }
+
+    pub fn scheme(&self) -> &str {
+        &self.scheme
+    }
+
+    pub fn authority(&self) -> String {
+        if let Some(port) = self.port {
+            format!("{}:{port}", self.host)
+        } else {
+            self.host.clone()
+        }
     }
 }
 

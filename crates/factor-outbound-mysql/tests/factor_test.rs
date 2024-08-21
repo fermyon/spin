@@ -20,7 +20,7 @@ struct TestFactors {
 fn factors() -> TestFactors {
     TestFactors {
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
+        networking: OutboundNetworkingFactor::new(),
         mysql: OutboundMysqlFactor::<MockClient>::new(),
     }
 }

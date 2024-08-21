@@ -25,7 +25,16 @@ pub use wasmtime_wasi_http::{
     HttpResult,
 };
 
-pub struct OutboundHttpFactor;
+#[derive(Default)]
+pub struct OutboundHttpFactor {
+    _priv: (),
+}
+
+impl OutboundHttpFactor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl Factor for OutboundHttpFactor {
     type RuntimeConfig = ();

@@ -81,39 +81,36 @@ fn build_components(
 fn build_component(build_info: ComponentBuildInfo, app_dir: &Path) -> Result<()> {
     match build_info.build {
         Some(b) => {
-            terminal::step!(
-                "Building",
-                "component {} with `{}`",
-                build_info.id,
-                b.command
-            );
-            let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
-            if b.workdir.is_some() {
-                println!("Working directory: {}", quoted_path(&workdir));
-            }
+            for command in b.commands() {
+                terminal::step!("Building", "component {} with `{}`", build_info.id, command);
+                let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
+                if b.workdir.is_some() {
+                    println!("Working directory: {}", quoted_path(&workdir));
+                }
 
-            let exit_status = Exec::shell(&b.command)
-                .cwd(workdir)
-                .stdout(Redirection::None)
-                .stderr(Redirection::None)
-                .stdin(Redirection::None)
-                .popen()
-                .map_err(|err| {
-                    anyhow!(
-                        "Cannot spawn build process '{:?}' for component {}: {}",
-                        &b.command,
+                let exit_status = Exec::shell(command)
+                    .cwd(workdir)
+                    .stdout(Redirection::None)
+                    .stderr(Redirection::None)
+                    .stdin(Redirection::None)
+                    .popen()
+                    .map_err(|err| {
+                        anyhow!(
+                            "Cannot spawn build process '{:?}' for component {}: {}",
+                            &b.command,
+                            build_info.id,
+                            err
+                        )
+                    })?
+                    .wait()?;
+
+                if !exit_status.success() {
+                    bail!(
+                        "Build command for component {} failed with status {:?}",
                         build_info.id,
-                        err
-                    )
-                })?
-                .wait()?;
-
-            if !exit_status.success() {
-                bail!(
-                    "Build command for component {} failed with status {:?}",
-                    build_info.id,
-                    exit_status,
-                );
+                        exit_status,
+                    );
+                }
             }
 
             Ok(())

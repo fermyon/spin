@@ -11,8 +11,9 @@ use spin_http::routes::RouteMatch;
 use spin_outbound_networking::parse_service_chaining_target;
 use wasmtime_wasi_http::types::IncomingResponse;
 
-use crate::server::HttpServer;
+use crate::HttpServer;
 
+/// An outbound HTTP interceptor that handles service chaining requests.
 pub struct OutboundHttpInterceptor {
     server: Arc<HttpServer>,
     origin: SelfRequestOrigin,

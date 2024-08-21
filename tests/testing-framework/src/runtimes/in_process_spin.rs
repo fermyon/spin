@@ -1,6 +1,10 @@
 //! The Spin runtime running in the same process as the test
 
+use std::{path::PathBuf, sync::Arc};
+
 use anyhow::Context as _;
+use spin_trigger2::cli::{TriggerAppBuilder, TriggerAppOptions};
+use spin_trigger_http2::{HttpServer, HttpTrigger};
 use test_environment::{
     http::{Request, Response},
     services::ServicesConfig,
@@ -11,7 +15,7 @@ use test_environment::{
 ///
 /// Use `runtimes::spin_cli::SpinCli` if you'd rather use Spin as a separate process
 pub struct InProcessSpin {
-    trigger: spin_trigger_http::HttpTrigger,
+    server: Arc<HttpServer>,
 }
 
 impl InProcessSpin {
@@ -32,31 +36,43 @@ impl InProcessSpin {
     }
 
     /// Create a new instance of Spin running in the same process as the tests
-    pub fn new(trigger: spin_trigger_http::HttpTrigger) -> Self {
-        Self { trigger }
+    pub fn new(server: Arc<HttpServer>) -> Self {
+        Self { server }
     }
 
     /// Make an HTTP request to the Spin instance
     pub fn make_http_request(&self, req: Request<'_, &[u8]>) -> anyhow::Result<Response> {
         tokio::runtime::Runtime::new()?.block_on(async {
             let method: reqwest::Method = req.method.into();
-            let req = http::request::Request::builder()
+            let mut builder = http::request::Request::builder()
                 .method(method)
-                .uri(req.path)
-                // TODO(rylev): convert headers and body as well
-                .body(spin_http::body::empty())
-                .unwrap();
+                .uri(req.path);
+
+            for (key, value) in req.headers {
+                builder = builder.header(*key, *value);
+            }
+            // TODO(rylev): convert body as well
+            let req = builder.body(spin_http::body::empty()).unwrap();
             let response = self
-                .trigger
+                .server
                 .handle(
                     req,
                     http::uri::Scheme::HTTP,
-                    (std::net::Ipv4Addr::LOCALHOST, 3000).into(),
                     (std::net::Ipv4Addr::LOCALHOST, 7000).into(),
                 )
                 .await?;
             use http_body_util::BodyExt;
             let status = response.status().as_u16();
+            let headers = response
+                .headers()
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k.as_str().to_owned(),
+                        String::from_utf8(v.as_bytes().to_owned()).unwrap(),
+                    )
+                })
+                .collect();
             let body = response.into_body();
             let chunks = body
                 .collect()
@@ -64,7 +80,7 @@ impl InProcessSpin {
                 .context("could not get runtime test HTTP response")?
                 .to_bytes()
                 .to_vec();
-            Ok(Response::full(status, Default::default(), chunks))
+            Ok(Response::full(status, headers, chunks))
         })
     }
 }
@@ -79,33 +95,18 @@ impl Runtime for InProcessSpin {
 async fn initialize_trigger(
     env: &mut TestEnvironment<InProcessSpin>,
 ) -> anyhow::Result<InProcessSpin> {
-    use spin_trigger::{
-        loader::TriggerLoader, HostComponentInitData, RuntimeConfig, TriggerExecutorBuilder,
-    };
-    use spin_trigger_http::HttpTrigger;
-
-    // Create the locked app and write it to a file
     let locked_app = spin_loader::from_file(
         env.path().join("spin.toml"),
         spin_loader::FilesMountStrategy::Direct,
         None,
     )
     .await?;
-    let json = locked_app.to_json()?;
-    std::fs::write(env.path().join("locked.json"), json)?;
 
-    // Create a loader and trigger builder
-    let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
-    let mut builder = TriggerExecutorBuilder::<HttpTrigger>::new(loader);
-    builder.hooks(spin_trigger::network::Network::default());
+    let app = spin_app::App::new("my-app", locked_app);
+    let trigger = HttpTrigger::new(&app, "127.0.0.1:80".parse().unwrap(), None)?;
+    let mut builder = TriggerAppBuilder::new(trigger, PathBuf::from("."));
+    let trigger_app = builder.build(app, TriggerAppOptions::default()).await?;
+    let server = builder.trigger.into_server(trigger_app)?;
 
-    // Build the trigger
-    let trigger = builder
-        .build(
-            format!("file:{}", env.path().join("locked.json").display()),
-            RuntimeConfig::default(),
-            HostComponentInitData::default(),
-        )
-        .await?;
-    Ok(InProcessSpin::new(trigger))
+    Ok(InProcessSpin::new(server))
 }

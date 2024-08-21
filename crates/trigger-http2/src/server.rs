@@ -36,11 +36,16 @@ use crate::{
     Body, NotFoundRouteKind, TlsConfig, TriggerApp, TriggerInstanceBuilder,
 };
 
+/// An HTTP server which runs Spin apps.
 pub struct HttpServer {
     /// The address the server is listening on.
     listen_addr: SocketAddr,
-    trigger_app: TriggerApp,
+    /// The TLS configuration for the server.
+    tls_config: Option<TlsConfig>,
+    /// Request router.
     router: Router,
+    /// The app being triggered.
+    trigger_app: TriggerApp,
     // Component ID -> component trigger config
     component_trigger_configs: HashMap<String, HttpTriggerConfig>,
     // Component ID -> handler type
@@ -48,8 +53,10 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
+    /// Create a new [`HttpServer`].
     pub fn new(
         listen_addr: SocketAddr,
+        tls_config: Option<TlsConfig>,
         trigger_app: TriggerApp,
         router: Router,
         component_trigger_configs: HashMap<String, HttpTriggerConfig>,
@@ -64,14 +71,31 @@ impl HttpServer {
             .collect::<anyhow::Result<_>>()?;
         Ok(Self {
             listen_addr,
-            trigger_app,
+            tls_config,
             router,
+            trigger_app,
             component_trigger_configs,
             component_handler_types,
         })
     }
 
-    pub async fn serve(self: Arc<Self>, listener: TcpListener) -> anyhow::Result<()> {
+    /// Serve incoming requests over the provided [`TcpListener`].
+    pub async fn serve(self: Arc<Self>) -> anyhow::Result<()> {
+        let listener = TcpListener::bind(self.listen_addr).await.with_context(|| {
+            format!(
+                "Unable to listen on {listen_addr}",
+                listen_addr = self.listen_addr
+            )
+        })?;
+        if let Some(tls_config) = self.tls_config.clone() {
+            self.serve_https(listener, tls_config).await?;
+        } else {
+            self.serve_http(listener).await?;
+        }
+        Ok(())
+    }
+
+    async fn serve_http(self: Arc<Self>, listener: TcpListener) -> anyhow::Result<()> {
         self.print_startup_msgs("http", &listener)?;
         loop {
             let (stream, client_addr) = listener.accept().await?;
@@ -80,7 +104,7 @@ impl HttpServer {
         }
     }
 
-    pub async fn serve_tls(
+    async fn serve_https(
         self: Arc<Self>,
         listener: TcpListener,
         tls_config: TlsConfig,
@@ -102,7 +126,7 @@ impl HttpServer {
     ///
     /// This method handles well known paths and routes requests to the handler when the router
     /// matches the requests path.
-    async fn handle(
+    pub async fn handle(
         self: &Arc<Self>,
         mut req: Request<Body>,
         server_scheme: Scheme,

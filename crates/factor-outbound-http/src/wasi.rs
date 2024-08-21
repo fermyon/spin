@@ -127,20 +127,24 @@ async fn send_request_impl(
         let is_allowed = outbound_allowed_hosts
             .check_url(&request.uri().to_string(), "https")
             .await
-            .map_err(|_| ErrorCode::HttpRequestUriInvalid)?;
+            .unwrap_or(false);
         if !is_allowed {
             return Ok(Err(ErrorCode::HttpRequestDenied));
         }
     } else {
         // Relative URI ("self" request)
-        let allowed_hosts = outbound_allowed_hosts.resolve().await?;
-        if !allowed_hosts.allows_relative_url(&["http", "https"]) {
-            outbound_allowed_hosts.report_disallowed_host("http", "self");
+        let is_allowed = outbound_allowed_hosts
+            .check_relative_url(&["http", "https"])
+            .await
+            .unwrap_or(false);
+        if !is_allowed {
             return Ok(Err(ErrorCode::HttpRequestDenied));
         }
 
-        let origin = self_request_origin
-            .context("cannot send relative outbound request; no 'origin' set by host")?;
+        let Some(origin) = self_request_origin else {
+            tracing::error!("Couldn't handle outbound HTTP request to relative URI; no origin set");
+            return Ok(Err(ErrorCode::HttpRequestUriInvalid));
+        };
 
         config.use_tls = origin.use_tls();
 
@@ -150,12 +154,11 @@ async fn send_request_impl(
         *request.uri_mut() = origin.into_uri(path_and_query);
     }
 
-    if let Some(authority) = request.uri().authority() {
-        let current_span = tracing::Span::current();
-        current_span.record("server.address", authority.host());
-        if let Some(port) = authority.port() {
-            current_span.record("server.port", port.as_u16());
-        }
+    let authority = request.uri().authority().context("authority not set")?;
+    let current_span = tracing::Span::current();
+    current_span.record("server.address", authority.host());
+    if let Some(port) = authority.port() {
+        current_span.record("server.port", port.as_u16());
     }
 
     Ok(send_request_handler(request, config, tls_client_config).await)

@@ -45,7 +45,7 @@ fn wasi_factor(working_dir: impl Into<PathBuf>, allow_transient_writes: bool) ->
 }
 
 fn outbound_networking_factor() -> OutboundNetworkingFactor {
-    fn disallowed_host_callback(scheme: &str, authority: &str) {
+    fn disallowed_host_handler(scheme: &str, authority: &str) {
         let host_pattern = format!("{scheme}://{authority}");
         tracing::error!("Outbound network destination not allowed: {host_pattern}");
         if scheme.starts_with("http") && authority == "self" {
@@ -59,7 +59,7 @@ fn outbound_networking_factor() -> OutboundNetworkingFactor {
     }
 
     let mut factor = OutboundNetworkingFactor::new();
-    factor.set_disallowed_host_callback(disallowed_host_callback);
+    factor.set_disallowed_host_handler(disallowed_host_handler);
     factor
 }
 

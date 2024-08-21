@@ -24,20 +24,18 @@ pub type SharedFutureResult<T> = Shared<BoxFuture<'static, Result<Arc<T>, Arc<an
 
 #[derive(Default)]
 pub struct OutboundNetworkingFactor {
-    disallowed_host_callback: Option<DisallowedHostCallback>,
+    disallowed_host_handler: Option<Arc<dyn DisallowedHostHandler>>,
 }
-
-pub type DisallowedHostCallback = fn(scheme: &str, authority: &str);
 
 impl OutboundNetworkingFactor {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Sets a function to be called when a request is disallowed by an
+    /// Sets a handler to be called when a request is disallowed by an
     /// instance's configured `allowed_outbound_hosts`.
-    pub fn set_disallowed_host_callback(&mut self, callback: DisallowedHostCallback) {
-        self.disallowed_host_callback = Some(callback);
+    pub fn set_disallowed_host_handler(&mut self, handler: impl DisallowedHostHandler + 'static) {
+        self.disallowed_host_handler = Some(Arc::new(handler));
     }
 }
 
@@ -106,7 +104,7 @@ impl Factor for OutboundNetworkingFactor {
                 // Update Wasi socket allowed ports
                 let allowed_hosts = OutboundAllowedHosts {
                     allowed_hosts_future: allowed_hosts_future.clone(),
-                    disallowed_host_callback: self.disallowed_host_callback,
+                    disallowed_host_handler: self.disallowed_host_handler.clone(),
                 };
                 wasi_builder.outbound_socket_addr_check(move |addr, addr_use| {
                     let allowed_hosts = allowed_hosts.clone();
@@ -137,7 +135,7 @@ impl Factor for OutboundNetworkingFactor {
         Ok(InstanceBuilder {
             allowed_hosts_future,
             component_tls_configs,
-            disallowed_host_callback: self.disallowed_host_callback,
+            disallowed_host_handler: self.disallowed_host_handler.clone(),
         })
     }
 }
@@ -150,14 +148,14 @@ pub struct AppState {
 pub struct InstanceBuilder {
     allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
     component_tls_configs: ComponentTlsConfigs,
-    disallowed_host_callback: Option<DisallowedHostCallback>,
+    disallowed_host_handler: Option<Arc<dyn DisallowedHostHandler>>,
 }
 
 impl InstanceBuilder {
     pub fn allowed_hosts(&self) -> OutboundAllowedHosts {
         OutboundAllowedHosts {
             allowed_hosts_future: self.allowed_hosts_future.clone(),
-            disallowed_host_callback: self.disallowed_host_callback,
+            disallowed_host_handler: self.disallowed_host_handler.clone(),
         }
     }
 
@@ -178,33 +176,10 @@ impl FactorInstanceBuilder for InstanceBuilder {
 #[derive(Clone)]
 pub struct OutboundAllowedHosts {
     allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
-    disallowed_host_callback: Option<DisallowedHostCallback>,
+    disallowed_host_handler: Option<Arc<dyn DisallowedHostHandler>>,
 }
 
 impl OutboundAllowedHosts {
-    pub async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
-        self.allowed_hosts_future.clone().await.map_err(|err| {
-            // TODO: better way to handle this?
-            anyhow::Error::msg(err)
-        })
-    }
-
-    /// Checks if the given URL is allowed by this component's
-    /// `allowed_outbound_hosts`.
-    pub async fn allows(&self, url: &OutboundUrl) -> anyhow::Result<bool> {
-        Ok(self.resolve().await?.allows(url))
-    }
-
-    /// Report that an outbound connection has been disallowed by e.g.
-    /// [`OutboundAllowedHosts::allows`] returning `false`.
-    ///
-    /// Calls the [`DisallowedHostCallback`] if set.
-    pub fn report_disallowed_host(&self, scheme: &str, authority: &str) {
-        if let Some(disallowed_host_callback) = self.disallowed_host_callback {
-            disallowed_host_callback(scheme, authority);
-        }
-    }
-
     /// Checks address against allowed hosts
     ///
     /// Calls the [`DisallowedHostCallback`] if set and URL is disallowed.
@@ -217,11 +192,47 @@ impl OutboundAllowedHosts {
         };
 
         let allowed_hosts = self.resolve().await?;
-
         let is_allowed = allowed_hosts.allows(&url);
         if !is_allowed {
             self.report_disallowed_host(url.scheme(), &url.authority());
         }
         Ok(is_allowed)
+    }
+
+    /// Checks if allowed hosts permit relative requests
+    ///
+    /// Calls the [`DisallowedHostCallback`] if set and relative requests are
+    /// disallowed.
+    pub async fn check_relative_url(&self, schemes: &[&str]) -> anyhow::Result<bool> {
+        let allowed_hosts = self.resolve().await?;
+        let is_allowed = allowed_hosts.allows_relative_url(schemes);
+        if !is_allowed {
+            let scheme = schemes.first().unwrap_or(&"");
+            self.report_disallowed_host(scheme, "self");
+        }
+        Ok(is_allowed)
+    }
+
+    async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
+        self.allowed_hosts_future.clone().await.map_err(|err| {
+            tracing::error!("Error resolving allowed_outbound_hosts variables: {err}");
+            anyhow::Error::msg(err)
+        })
+    }
+
+    fn report_disallowed_host(&self, scheme: &str, authority: &str) {
+        if let Some(handler) = &self.disallowed_host_handler {
+            handler.handle_disallowed_host(scheme, authority);
+        }
+    }
+}
+
+pub trait DisallowedHostHandler: Send + Sync {
+    fn handle_disallowed_host(&self, scheme: &str, authority: &str);
+}
+
+impl<F: Fn(&str, &str) + Send + Sync> DisallowedHostHandler for F {
+    fn handle_disallowed_host(&self, scheme: &str, authority: &str) {
+        self(scheme, authority);
     }
 }

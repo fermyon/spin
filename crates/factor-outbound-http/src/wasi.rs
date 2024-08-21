@@ -149,6 +149,7 @@ async fn send_request_impl(
         config.use_tls = origin.use_tls();
 
         request.headers_mut().insert(HOST, origin.host_header());
+        spin_telemetry::inject_trace_context(&mut request);
 
         let path_and_query = request.uri().path_and_query().cloned();
         *request.uri_mut() = origin.into_uri(path_and_query);

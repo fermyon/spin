@@ -21,7 +21,7 @@ struct TestFactors {
 fn factors() -> TestFactors {
     TestFactors {
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
+        networking: OutboundNetworkingFactor::new(),
         pg: OutboundPgFactor::<MockClient>::new(),
     }
 }

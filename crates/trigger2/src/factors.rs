@@ -28,17 +28,39 @@ impl TriggerFactors {
         default_key_value_label_resolver: impl spin_factor_key_value::DefaultLabelResolver + 'static,
         default_sqlite_label_resolver: impl spin_factor_sqlite::DefaultLabelResolver + 'static,
     ) -> Self {
-        let files_mounter = SpinFilesMounter::new(working_dir, allow_transient_writes);
         Self {
-            wasi: WasiFactor::new(files_mounter),
+            wasi: wasi_factor(working_dir, allow_transient_writes),
             variables: VariablesFactor::default(),
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
-            outbound_networking: OutboundNetworkingFactor,
-            outbound_http: OutboundHttpFactor,
+            outbound_networking: outbound_networking_factor(),
+            outbound_http: OutboundHttpFactor::new(),
             sqlite: SqliteFactor::new(default_sqlite_label_resolver),
             redis: OutboundRedisFactor::new(),
         }
     }
+}
+
+fn wasi_factor(working_dir: impl Into<PathBuf>, allow_transient_writes: bool) -> WasiFactor {
+    WasiFactor::new(SpinFilesMounter::new(working_dir, allow_transient_writes))
+}
+
+fn outbound_networking_factor() -> OutboundNetworkingFactor {
+    fn disallowed_host_handler(scheme: &str, authority: &str) {
+        let host_pattern = format!("{scheme}://{authority}");
+        tracing::error!("Outbound network destination not allowed: {host_pattern}");
+        if scheme.starts_with("http") && authority == "self" {
+            terminal::warn!("A component tried to make an HTTP request to its own app but it does not have permission.");
+        } else {
+            terminal::warn!(
+                "A component tried to make an outbound network connection to disallowed destination '{host_pattern}'."
+            );
+        };
+        eprintln!("To allow this request, add 'allowed_outbound_hosts = [\"{host_pattern}\"]' to the manifest component section.");
+    }
+
+    let mut factor = OutboundNetworkingFactor::new();
+    factor.set_disallowed_host_handler(disallowed_host_handler);
+    factor
 }
 
 impl TryFrom<TomlRuntimeConfigSource<'_>> for TriggerFactorsRuntimeConfig {

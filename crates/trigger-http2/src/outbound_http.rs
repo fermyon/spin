@@ -5,7 +5,7 @@ use std::{
 
 use http::uri::Scheme;
 use spin_factor_outbound_http::{
-    HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request, SelfRequestOrigin,
+    HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request,
 };
 use spin_http::routes::RouteMatch;
 use spin_outbound_networking::parse_service_chaining_target;
@@ -16,12 +16,11 @@ use crate::HttpServer;
 /// An outbound HTTP interceptor that handles service chaining requests.
 pub struct OutboundHttpInterceptor {
     server: Arc<HttpServer>,
-    origin: SelfRequestOrigin,
 }
 
 impl OutboundHttpInterceptor {
-    pub fn new(server: Arc<HttpServer>, origin: SelfRequestOrigin) -> Self {
-        Self { server, origin }
+    pub fn new(server: Arc<HttpServer>) -> Self {
+        Self { server }
     }
 }
 
@@ -58,7 +57,6 @@ impl spin_factor_outbound_http::OutboundHttpInterceptor for OutboundHttpIntercep
             let resp = HostFutureIncomingResponse::pending(wasmtime_wasi::runtime::spawn(resp_fut));
             InterceptOutcome::Complete(Ok(resp))
         } else {
-            request.extensions_mut().insert(self.origin.clone());
             InterceptOutcome::Continue
         }
     }

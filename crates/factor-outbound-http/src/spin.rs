@@ -1,4 +1,3 @@
-use spin_factor_outbound_networking::OutboundUrl;
 use spin_world::{
     async_trait,
     v1::http,
@@ -9,8 +8,7 @@ use spin_world::{
 impl http::Host for crate::InstanceState {
     async fn send_request(&mut self, req: Request) -> Result<Response, HttpError> {
         // FIXME(lann): This is all just a stub to test allowed_outbound_hosts
-        let outbound_url = OutboundUrl::parse(&req.uri, "https").or(Err(HttpError::InvalidUrl))?;
-        match self.allowed_hosts.allows(&outbound_url).await {
+        match self.allowed_hosts.check_url(&req.uri, "https").await {
             Ok(true) => (),
             _ => {
                 return Err(HttpError::DestinationNotAllowed);

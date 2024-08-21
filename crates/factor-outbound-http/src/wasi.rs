@@ -1,13 +1,13 @@
 use std::{error::Error, sync::Arc};
 
 use anyhow::Context;
-use http::{header::HOST, uri::Authority, Request, Uri};
+use http::{header::HOST, Request};
 use http_body_util::BodyExt;
 use rustls::ClientConfig;
-use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundUrl};
+use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
 use tokio::{net::TcpStream, time::timeout};
-use tracing::Instrument;
+use tracing::{field::Empty, instrument, Instrument};
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode,
     body::HyperOutgoingBody,
@@ -68,6 +68,19 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
         self.table
     }
 
+    #[instrument(
+        name = "spin_outbound_http.send_request",
+        skip_all,
+        fields(
+            otel.kind = "client",
+            url.full = %request.uri(),
+            http.request.method = %request.method(),
+            otel.name = %request.method(),
+            http.response.status_code = Empty,
+            server.address = Empty,
+            server.port = Empty,
+        ),
+    )]
     fn send_request(
         &mut self,
         mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
@@ -93,6 +106,7 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
                     request,
                     config,
                     self.state.allowed_hosts.clone(),
+                    self.state.self_request_origin.clone(),
                     tls_client_config,
                 )
                 .in_current_span(),
@@ -104,22 +118,33 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
 async fn send_request_impl(
     mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
     mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
-    allowed_hosts: OutboundAllowedHosts,
+    outbound_allowed_hosts: OutboundAllowedHosts,
+    self_request_origin: Option<SelfRequestOrigin>,
     tls_client_config: Arc<ClientConfig>,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
-    let allowed_hosts = allowed_hosts.resolve().await?;
-
-    let is_relative_url = request.uri().authority().is_none();
-    if is_relative_url {
-        if !allowed_hosts.allows_relative_url(&["http", "https"]) {
-            return Ok(handle_not_allowed(request.uri(), true));
+    if request.uri().authority().is_some() {
+        // Absolute URI
+        let is_allowed = outbound_allowed_hosts
+            .check_url(&request.uri().to_string(), "https")
+            .await
+            .unwrap_or(false);
+        if !is_allowed {
+            return Ok(Err(ErrorCode::HttpRequestDenied));
+        }
+    } else {
+        // Relative URI ("self" request)
+        let is_allowed = outbound_allowed_hosts
+            .check_relative_url(&["http", "https"])
+            .await
+            .unwrap_or(false);
+        if !is_allowed {
+            return Ok(Err(ErrorCode::HttpRequestDenied));
         }
 
-        let origin = request
-            .extensions()
-            .get::<SelfRequestOrigin>()
-            .cloned()
-            .context("cannot send relative outbound request; no 'origin' set by host")?;
+        let Some(origin) = self_request_origin else {
+            tracing::error!("Couldn't handle outbound HTTP request to relative URI; no origin set");
+            return Ok(Err(ErrorCode::HttpRequestUriInvalid));
+        };
 
         config.use_tls = origin.use_tls();
 
@@ -127,42 +152,16 @@ async fn send_request_impl(
 
         let path_and_query = request.uri().path_and_query().cloned();
         *request.uri_mut() = origin.into_uri(path_and_query);
-    } else {
-        let outbound_url = OutboundUrl::parse(request.uri().to_string(), "https")
-            .map_err(|_| ErrorCode::HttpRequestUriInvalid)?;
-        if !allowed_hosts.allows(&outbound_url) {
-            return Ok(handle_not_allowed(request.uri(), false));
-        }
     }
 
-    if let Some(authority) = request.uri().authority() {
-        let current_span = tracing::Span::current();
-        current_span.record("server.address", authority.host());
-        if let Some(port) = authority.port() {
-            current_span.record("server.port", port.as_u16());
-        }
+    let authority = request.uri().authority().context("authority not set")?;
+    let current_span = tracing::Span::current();
+    current_span.record("server.address", authority.host());
+    if let Some(port) = authority.port() {
+        current_span.record("server.port", port.as_u16());
     }
 
     Ok(send_request_handler(request, config, tls_client_config).await)
-}
-
-// TODO(factors): Move to some callback on spin-factor-outbound-networking (?)
-fn handle_not_allowed(uri: &Uri, is_relative: bool) -> Result<IncomingResponse, ErrorCode> {
-    tracing::error!("Destination not allowed!: {uri}");
-    let allowed_host_example = if is_relative {
-        terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
-        "http://self".to_string()
-    } else {
-        let host = format!(
-            "{scheme}://{authority}",
-            scheme = uri.scheme_str().unwrap_or_default(),
-            authority = uri.authority().map(Authority::as_str).unwrap_or_default()
-        );
-        terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host}'.");
-        host
-    };
-    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{allowed_host_example}\"]' to the manifest component section.");
-    Err(ErrorCode::HttpRequestDenied)
 }
 
 /// This is a fork of wasmtime_wasi_http::default_send_request_handler function

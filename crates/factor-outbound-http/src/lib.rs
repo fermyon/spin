@@ -25,7 +25,16 @@ pub use wasmtime_wasi_http::{
     HttpResult,
 };
 
-pub struct OutboundHttpFactor;
+#[derive(Default)]
+pub struct OutboundHttpFactor {
+    _priv: (),
+}
+
+impl OutboundHttpFactor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl Factor for OutboundHttpFactor {
     type RuntimeConfig = ();
@@ -60,6 +69,7 @@ impl Factor for OutboundHttpFactor {
             wasi_http_ctx: WasiHttpCtx::new(),
             allowed_hosts,
             component_tls_configs,
+            self_request_origin: None,
             request_interceptor: None,
         })
     }
@@ -69,10 +79,19 @@ pub struct InstanceState {
     wasi_http_ctx: WasiHttpCtx,
     allowed_hosts: OutboundAllowedHosts,
     component_tls_configs: ComponentTlsConfigs,
+    self_request_origin: Option<SelfRequestOrigin>,
     request_interceptor: Option<Box<dyn OutboundHttpInterceptor>>,
 }
 
 impl InstanceState {
+    /// Sets the [`SelfRequestOrigin`] for this instance.
+    ///
+    /// This is used to handle outbound requests to relative URLs. If unset,
+    /// those requests will fail.
+    pub fn set_self_request_origin(&mut self, origin: SelfRequestOrigin) {
+        self.self_request_origin = Some(origin);
+    }
+
     /// Sets a [`OutboundHttpInterceptor`] for this instance.
     ///
     /// Returns an error if it has already been called for this instance.

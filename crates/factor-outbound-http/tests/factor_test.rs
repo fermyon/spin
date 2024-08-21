@@ -40,12 +40,11 @@ async fn allowed_host_is_allowed() -> anyhow::Result<()> {
 #[tokio::test]
 async fn self_request_smoke_test() -> anyhow::Result<()> {
     let mut state = test_instance_state("http://self").await?;
-    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
+    let origin = SelfRequestOrigin::from_uri(&Uri::from_static("http://[100::1]"))?;
+    state.http.set_self_request_origin(origin);
 
-    let mut req = Request::get("/self-request").body(Default::default())?;
-    let origin = Uri::from_static("http://[100::1]");
-    req.extensions_mut()
-        .insert(SelfRequestOrigin::from_uri(&origin).unwrap());
+    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
+    let req = Request::get("/self-request").body(Default::default())?;
     let mut future_resp = wasi_http.send_request(req, test_request_config())?;
     future_resp.ready().await;
 
@@ -77,8 +76,8 @@ async fn test_instance_state(
 ) -> anyhow::Result<TestFactorsInstanceState> {
     let factors = TestFactors {
         variables: VariablesFactor::default(),
-        networking: OutboundNetworkingFactor,
-        http: OutboundHttpFactor,
+        networking: OutboundNetworkingFactor::new(),
+        http: OutboundHttpFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]

@@ -19,7 +19,18 @@ impl spin_http::Host for crate::InstanceState {
         let uri = req.uri;
         tracing::trace!("Sending outbound HTTP to {uri:?}");
 
-        let abs_url = if uri.starts_with('/') {
+        let abs_url = if !uri.starts_with('/') {
+            // Absolute URI
+            let is_allowed = self
+                .allowed_hosts
+                .check_url(&uri, "https")
+                .await
+                .unwrap_or(false);
+            if !is_allowed {
+                return Err(HttpError::DestinationNotAllowed);
+            }
+            uri
+        } else {
             // Relative URI ("self" request)
             let is_allowed = self
                 .allowed_hosts
@@ -37,17 +48,6 @@ impl spin_http::Host for crate::InstanceState {
                 return Err(HttpError::InvalidUrl);
             };
             format!("{origin}{uri}")
-        } else {
-            // Absolute URI
-            let is_allowed = self
-                .allowed_hosts
-                .check_url(&uri, "https")
-                .await
-                .unwrap_or(false);
-            if !is_allowed {
-                return Err(HttpError::DestinationNotAllowed);
-            }
-            uri
         };
         let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 

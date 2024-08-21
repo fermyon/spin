@@ -3,7 +3,6 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context as _;
-use spin_http::routes::RouteMatch;
 use spin_trigger2::cli::{TriggerAppBuilder, TriggerAppOptions};
 use spin_trigger_http2::{HttpServer, HttpTrigger};
 use test_environment::{
@@ -54,12 +53,10 @@ impl InProcessSpin {
             }
             // TODO(rylev): convert body as well
             let req = builder.body(spin_http::body::empty()).unwrap();
-            let route_match = RouteMatch::synthetic("test", "/");
             let response = self
                 .server
-                .handle_trigger_route(
+                .handle(
                     req,
-                    route_match,
                     http::uri::Scheme::HTTP,
                     (std::net::Ipv4Addr::LOCALHOST, 7000).into(),
                 )

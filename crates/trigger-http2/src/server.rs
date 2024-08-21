@@ -38,9 +38,18 @@ use crate::{
 
 /// An HTTP server which runs Spin apps.
 pub struct HttpServer {
+    /// The address the server is listening on.
+    listen_addr: SocketAddr,
+    /// The TLS configuration for the server.
     tls_config: Option<TlsConfig>,
+    /// Request router.
     router: Router,
-    handler: Arc<RequestHandler>,
+    /// The app being triggered.
+    trigger_app: TriggerApp,
+    // Component ID -> component trigger config
+    component_trigger_configs: HashMap<String, HttpTriggerConfig>,
+    // Component ID -> handler type
+    component_handler_types: HashMap<String, HandlerType>,
 }
 
 impl HttpServer {
@@ -52,27 +61,32 @@ impl HttpServer {
         router: Router,
         component_trigger_configs: HashMap<String, HttpTriggerConfig>,
     ) -> anyhow::Result<Self> {
+        let component_handler_types = component_trigger_configs
+            .keys()
+            .map(|component_id| {
+                let component = trigger_app.get_component(component_id)?;
+                let handler_type = HandlerType::from_component(trigger_app.engine(), component)?;
+                Ok((component_id.clone(), handler_type))
+            })
+            .collect::<anyhow::Result<_>>()?;
         Ok(Self {
+            listen_addr,
             tls_config,
             router,
-            handler: Arc::new(RequestHandler::new(
-                listen_addr,
-                trigger_app,
-                component_trigger_configs,
-            )?),
+            trigger_app,
+            component_trigger_configs,
+            component_handler_types,
         })
     }
 
     /// Serve incoming requests over the provided [`TcpListener`].
     pub async fn serve(self: Arc<Self>) -> anyhow::Result<()> {
-        let listener = TcpListener::bind(self.handler.listen_addr)
-            .await
-            .with_context(|| {
-                format!(
-                    "Unable to listen on {listen_addr}",
-                    listen_addr = self.handler.listen_addr
-                )
-            })?;
+        let listener = TcpListener::bind(self.listen_addr).await.with_context(|| {
+            format!(
+                "Unable to listen on {listen_addr}",
+                listen_addr = self.listen_addr
+            )
+        })?;
         if let Some(tls_config) = self.tls_config.clone() {
             self.serve_https(listener, tls_config).await?;
         } else {
@@ -112,7 +126,7 @@ impl HttpServer {
     ///
     /// This method handles well known paths and routes requests to the handler when the router
     /// matches the requests path.
-    async fn handle(
+    pub async fn handle(
         self: &Arc<Self>,
         mut req: Request<Body>,
         server_scheme: Scheme,
@@ -150,15 +164,70 @@ impl HttpServer {
     /// Handles a successful route match.
     pub async fn handle_trigger_route(
         self: &Arc<Self>,
-        req: Request<Body>,
+        mut req: Request<Body>,
         route_match: RouteMatch,
         server_scheme: Scheme,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
-        let res = self
-            .handler
-            .handle_trigger_route(req, &route_match, server_scheme, client_addr)
-            .await;
+        set_req_uri(&mut req, server_scheme.clone())?;
+        let app_id = self
+            .trigger_app
+            .app()
+            .get_metadata(APP_NAME_KEY)?
+            .unwrap_or_else(|| "<unnamed>".into());
+
+        let component_id = route_match.component_id();
+
+        spin_telemetry::metrics::monotonic_counter!(
+            spin.request_count = 1,
+            trigger_type = "http",
+            app_id = app_id,
+            component_id = component_id
+        );
+
+        let mut instance_builder = self.trigger_app.prepare(component_id)?;
+
+        // Set up outbound HTTP request origin and service chaining
+        let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
+        instance_builder
+            .factor_builders()
+            .outbound_http()
+            .set_request_interceptor(OutboundHttpInterceptor::new(self.clone(), origin))?;
+
+        // Prepare HTTP executor
+        let trigger_config = self.component_trigger_configs.get(component_id).unwrap();
+        let handler_type = self.component_handler_types.get(component_id).unwrap();
+        let executor = trigger_config
+            .executor
+            .as_ref()
+            .unwrap_or(&HttpExecutorType::Http);
+
+        let res = match executor {
+            HttpExecutorType::Http => match handler_type {
+                HandlerType::Spin => {
+                    SpinHttpExecutor
+                        .execute(instance_builder, &route_match, req, client_addr)
+                        .await
+                }
+                HandlerType::Wasi0_2
+                | HandlerType::Wasi2023_11_10
+                | HandlerType::Wasi2023_10_18 => {
+                    WasiHttpExecutor {
+                        handler_type: *handler_type,
+                    }
+                    .execute(instance_builder, &route_match, req, client_addr)
+                    .await
+                }
+            },
+            HttpExecutorType::Wagi(wagi_config) => {
+                let executor = WagiHttpExecutor {
+                    wagi_config: wagi_config.clone(),
+                };
+                executor
+                    .execute(instance_builder, &route_match, req, client_addr)
+                    .await
+            }
+        };
         match res {
             Ok(res) => Ok(MatchedRoute::with_response_extension(
                 res,
@@ -174,7 +243,7 @@ impl HttpServer {
 
     /// Returns spin status information.
     fn app_info(&self, route: String) -> anyhow::Result<Response<Body>> {
-        let info = AppInfo::new(self.handler.trigger_app.app());
+        let info = AppInfo::new(self.trigger_app.app());
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(MatchedRoute::with_response_extension(
             Response::builder()
@@ -278,118 +347,13 @@ impl HttpServer {
         println!("Available Routes:");
         for (route, component_id) in self.router.routes() {
             println!("  {}: {}{}", component_id, base_url, route);
-            if let Some(component) = self.handler.trigger_app.app().get_component(component_id) {
+            if let Some(component) = self.trigger_app.app().get_component(component_id) {
                 if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
                     println!("    {}", description);
                 }
             }
         }
         Ok(())
-    }
-}
-
-/// Handles a routed HTTP trigger request.
-pub struct RequestHandler {
-    /// The address the server is listening on.
-    pub(crate) listen_addr: SocketAddr,
-    /// The app being triggered.
-    trigger_app: TriggerApp,
-    // Component ID -> component trigger config
-    component_trigger_configs: HashMap<String, HttpTriggerConfig>,
-    // Component ID -> handler type
-    component_handler_types: HashMap<String, HandlerType>,
-}
-
-impl RequestHandler {
-    /// Create a new [`RequestHandler`]
-    pub fn new(
-        listen_addr: SocketAddr,
-        trigger_app: TriggerApp,
-        component_trigger_configs: HashMap<String, HttpTriggerConfig>,
-    ) -> anyhow::Result<Self> {
-        let component_handler_types = component_trigger_configs
-            .keys()
-            .map(|component_id| {
-                let component = trigger_app.get_component(component_id)?;
-                let handler_type = HandlerType::from_component(trigger_app.engine(), component)?;
-                Ok((component_id.clone(), handler_type))
-            })
-            .collect::<anyhow::Result<_>>()?;
-        Ok(Self {
-            listen_addr,
-            trigger_app,
-            component_trigger_configs,
-            component_handler_types,
-        })
-    }
-
-    /// Handle a routed request.
-    pub async fn handle_trigger_route(
-        self: &Arc<Self>,
-        mut req: Request<Body>,
-        route_match: &RouteMatch,
-        server_scheme: Scheme,
-        client_addr: SocketAddr,
-    ) -> anyhow::Result<Response<Body>> {
-        set_req_uri(&mut req, server_scheme.clone())?;
-        let app_id = self
-            .trigger_app
-            .app()
-            .get_metadata(APP_NAME_KEY)?
-            .unwrap_or_else(|| "<unnamed>".into());
-
-        let component_id = route_match.component_id();
-
-        spin_telemetry::metrics::monotonic_counter!(
-            spin.request_count = 1,
-            trigger_type = "http",
-            app_id = app_id,
-            component_id = component_id
-        );
-
-        let mut instance_builder = self.trigger_app.prepare(component_id)?;
-
-        // Set up outbound HTTP request origin and service chaining
-        let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
-        instance_builder
-            .factor_builders()
-            .outbound_http()
-            .set_request_interceptor(OutboundHttpInterceptor::new(self.clone(), origin))?;
-
-        // Prepare HTTP executor
-        let trigger_config = self.component_trigger_configs.get(component_id).unwrap();
-        let handler_type = self.component_handler_types.get(component_id).unwrap();
-        let executor = trigger_config
-            .executor
-            .as_ref()
-            .unwrap_or(&HttpExecutorType::Http);
-
-        match executor {
-            HttpExecutorType::Http => match handler_type {
-                HandlerType::Spin => {
-                    SpinHttpExecutor
-                        .execute(instance_builder, route_match, req, client_addr)
-                        .await
-                }
-                HandlerType::Wasi0_2
-                | HandlerType::Wasi2023_11_10
-                | HandlerType::Wasi2023_10_18 => {
-                    WasiHttpExecutor {
-                        handler_type: *handler_type,
-                    }
-                    .execute(instance_builder, route_match, req, client_addr)
-                    .await
-                }
-            },
-            HttpExecutorType::Wagi(wagi_config) => {
-                let executor = WagiHttpExecutor {
-                    wagi_config: wagi_config.clone(),
-                };
-                executor
-                    .execute(instance_builder, route_match, req, client_addr)
-                    .await
-            }
-        }
     }
 }
 

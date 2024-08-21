@@ -11,17 +11,17 @@ use spin_http::routes::RouteMatch;
 use spin_outbound_networking::parse_service_chaining_target;
 use wasmtime_wasi_http::types::IncomingResponse;
 
-use crate::server::RequestHandler;
+use crate::HttpServer;
 
 /// An outbound HTTP interceptor that handles service chaining requests.
 pub struct OutboundHttpInterceptor {
-    handler: Arc<RequestHandler>,
+    server: Arc<HttpServer>,
     origin: SelfRequestOrigin,
 }
 
 impl OutboundHttpInterceptor {
-    pub fn new(handler: Arc<RequestHandler>, origin: SelfRequestOrigin) -> Self {
-        Self { handler, origin }
+    pub fn new(server: Arc<HttpServer>, origin: SelfRequestOrigin) -> Self {
+        Self { server, origin }
     }
 }
 
@@ -41,10 +41,10 @@ impl spin_factor_outbound_http::OutboundHttpInterceptor for OutboundHttpIntercep
             let route_match = RouteMatch::synthetic(&component_id, uri.path());
             let req = std::mem::take(request);
             let between_bytes_timeout = config.between_bytes_timeout;
-            let server = self.handler.clone();
+            let server = self.server.clone();
             let resp_fut = async move {
                 match server
-                    .handle_trigger_route(req, &route_match, Scheme::HTTP, CHAINED_CLIENT_ADDR)
+                    .handle_trigger_route(req, route_match, Scheme::HTTP, CHAINED_CLIENT_ADDR)
                     .await
                 {
                     Ok(resp) => Ok(Ok(IncomingResponse {

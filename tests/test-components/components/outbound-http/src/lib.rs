@@ -10,7 +10,7 @@ async fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
     let mut res: http::Response<String> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
-            .uri("/test/hello")
+            .uri("/hello")
             .body(())?,
     )
     .await?;

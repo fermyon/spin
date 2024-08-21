@@ -86,6 +86,21 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
         mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
         mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
+        // wasmtime-wasi-http fills in scheme and authority for relative URLs
+        // (e.g. https://:443/<path>), which makes them hard to reason about.
+        // Undo that here.
+        let uri = request.uri_mut();
+        if uri
+            .authority()
+            .is_some_and(|authority| authority.host().is_empty())
+        {
+            let mut builder = http::uri::Builder::new();
+            if let Some(paq) = uri.path_and_query() {
+                builder = builder.path_and_query(paq.clone());
+            }
+            *uri = builder.build().unwrap();
+        }
+
         if let Some(interceptor) = &self.state.request_interceptor {
             match interceptor.intercept(&mut request, &mut config) {
                 InterceptOutcome::Continue => (),

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use spin_factor_key_value::KeyValueFactor;
 use spin_factor_outbound_http::OutboundHttpFactor;
+use spin_factor_outbound_mqtt::{NetworkedMqttClient, OutboundMqttFactor};
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_outbound_redis::OutboundRedisFactor;
 use spin_factor_sqlite::SqliteFactor;
@@ -19,6 +20,7 @@ pub struct TriggerFactors {
     pub outbound_http: OutboundHttpFactor,
     pub sqlite: SqliteFactor,
     pub redis: OutboundRedisFactor,
+    pub mqtt: OutboundMqttFactor,
 }
 
 impl TriggerFactors {
@@ -37,6 +39,7 @@ impl TriggerFactors {
             outbound_http: OutboundHttpFactor,
             sqlite: SqliteFactor::new(default_sqlite_label_resolver),
             redis: OutboundRedisFactor::new(),
+            mqtt: OutboundMqttFactor::new(NetworkedMqttClient::creator()),
         }
     }
 }

@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValueStore};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
+use spin_factor_outbound_mqtt::OutboundMqttFactor;
 use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_outbound_redis::OutboundRedisFactor;
@@ -171,6 +172,12 @@ impl FactorRuntimeConfigSource<WasiFactor> for TomlRuntimeConfigSource<'_> {
 }
 
 impl FactorRuntimeConfigSource<OutboundHttpFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
         Ok(None)
     }

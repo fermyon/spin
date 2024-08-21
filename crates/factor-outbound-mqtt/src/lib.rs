@@ -15,7 +15,7 @@ use spin_factors::{
 use spin_world::v2::mqtt::{self as v2, Error, Qos};
 use tokio::sync::Mutex;
 
-pub use host::{ClientCreator, MqttClient};
+pub use host::MqttClient;
 
 pub struct OutboundMqttFactor {
     create_client: Arc<dyn ClientCreator>,
@@ -73,6 +73,19 @@ pub struct NetworkedMqttClient {
 const MQTT_CHANNEL_CAP: usize = 1000;
 
 impl NetworkedMqttClient {
+    /// Create a [`ClientCreator`] that creates a [`NetworkedMqttClient`].
+    pub fn creator() -> Arc<dyn ClientCreator> {
+        Arc::new(|address, username, password, keep_alive_interval| {
+            Ok(Arc::new(NetworkedMqttClient::create(
+                address,
+                username,
+                password,
+                keep_alive_interval,
+            )?) as _)
+        })
+    }
+
+    /// Create a new [`NetworkedMqttClient`] with the given address, username, password, and keep alive interval.
     pub fn create(
         address: String,
         username: String,
@@ -125,5 +138,32 @@ impl MqttClient for NetworkedMqttClient {
             }
         }
         Ok(())
+    }
+}
+
+/// A trait for creating MQTT client.
+#[async_trait]
+pub trait ClientCreator: Send + Sync {
+    fn create(
+        &self,
+        address: String,
+        username: String,
+        password: String,
+        keep_alive_interval: Duration,
+    ) -> Result<Arc<dyn MqttClient>, Error>;
+}
+
+impl<F> ClientCreator for F
+where
+    F: Fn(String, String, String, Duration) -> Result<Arc<dyn MqttClient>, Error> + Send + Sync,
+{
+    fn create(
+        &self,
+        address: String,
+        username: String,
+        password: String,
+        keep_alive_interval: Duration,
+    ) -> Result<Arc<dyn MqttClient>, Error> {
+        self(address, username, password, keep_alive_interval)
     }
 }

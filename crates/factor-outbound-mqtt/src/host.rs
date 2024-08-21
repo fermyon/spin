@@ -6,16 +6,7 @@ use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_world::v2::mqtt::{self as v2, Connection, Error, Qos};
 use tracing::{instrument, Level};
 
-#[async_trait]
-pub trait ClientCreator: Send + Sync {
-    fn create(
-        &self,
-        address: String,
-        username: String,
-        password: String,
-        keep_alive_interval: Duration,
-    ) -> Result<Arc<dyn MqttClient>, Error>;
-}
+use crate::ClientCreator;
 
 pub struct InstanceState {
     allowed_hosts: OutboundAllowedHosts,

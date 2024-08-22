@@ -35,9 +35,9 @@ Changes to project maintainers use the following:
 
 - A project maintainer may step down by emailing the mailing list. When a project maintainer steps down, they become an emeritus maintainer.
 - Project maintainers MUST remain active on the project. If they are unresponsive for > 3 months, they will lose project maintainer-ship, unless the remaining project maintainers of the given project and the Spin Governance Committee agree to extend the period to be greater than 3 months.
-- New maintainers MUST be nominated by existing maintainers. Maintainers are to discuss and agree in a private setting adding a new maintainer. Once a descision has been made, a maintainer may be added to the project via a pull request to the relevant MAINTAINERS.md file.
+- New maintainers MUST be nominated by existing maintainers. Maintainers are to discuss and agree in a private setting adding a new maintainer. Once a decision has been made, a maintainer may be added to the project via a pull request to the relevant MAINTAINERS.md file.
 - A maintainer may be removed for a [code of conduct](CODE_OF_CONDUCT.md) violation by the Spin Governance Committee. Code of conduct violations may be submitted to any member(s) on the Spin Governance Committee by email. See email information on MAINTAINERS.md.
-- When a project has no active maintainers, the maintainers of the [fermyon/spin Github repo](https://github.com/fermyon/spin) become responsible for it, and may archive the project, or find new maintainers
+- When a project has no active maintainers, the maintainers of the [fermyon/spin Github repo](https://github.com/fermyon/spin) become responsible for it, and may archive the project, or find new maintainers.
 
 ## Spin Governance Committee
 

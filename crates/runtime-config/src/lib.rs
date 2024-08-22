@@ -5,8 +5,10 @@ use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValu
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
+use spin_factor_outbound_mysql::OutboundMysqlFactor;
 use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
+use spin_factor_outbound_pg::OutboundPgFactor;
 use spin_factor_outbound_redis::OutboundRedisFactor;
 use spin_factor_sqlite::runtime_config::spin as sqlite;
 use spin_factor_sqlite::SqliteFactor;
@@ -156,6 +158,18 @@ impl FactorRuntimeConfigSource<VariablesFactor> for TomlRuntimeConfigSource<'_> 
         Ok(Some(variables::runtime_config_from_toml(
             self.table.as_ref(),
         )?))
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundPgFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
     }
 }
 

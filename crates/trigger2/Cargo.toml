@@ -23,6 +23,7 @@ spin-componentize = { path = "../componentize" }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
+spin-factor-llm = { path = "../factor-llm" }
 spin-factor-outbound-mqtt = { path = "../factor-outbound-mqtt" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factor-outbound-pg = { path = "../factor-outbound-pg" }

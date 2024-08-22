@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
-use factor_llm::{LlmEngine, LlmFactor};
+use spin_factor_llm::{LlmEngine, LlmFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2, Host};
+use tokio::sync::Mutex;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
@@ -37,9 +39,9 @@ async fn llm_works() -> anyhow::Result<()> {
     });
     let factors = TestFactors {
         llm: LlmFactor::new(move || {
-            Box::new(FakeLLm {
+            Arc::new(Mutex::new(FakeLLm {
                 handle: handle.clone(),
-            }) as _
+            })) as _
         }),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {

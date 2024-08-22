@@ -115,6 +115,10 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
         &self.executor.core_engine
     }
 
+    pub fn configured_app(&self) -> &ConfiguredApp<T> {
+        &self.configured_app
+    }
+
     pub fn app(&self) -> &App {
         self.configured_app.app()
     }

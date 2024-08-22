@@ -130,7 +130,7 @@ pub struct FactorsTriggerCommand<T: Trigger> {
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
 /// for executors that do not need additional CLI args.
 #[derive(Args)]
-pub struct NoArgs;
+pub struct NoCliArgs;
 
 impl<T: Trigger> FactorsTriggerCommand<T> {
     /// Create a new TriggerExecutorBuilder from this TriggerExecutorCommand.
@@ -402,7 +402,7 @@ pub mod help {
 
     impl Trigger for HelpArgsOnlyTrigger {
         const TYPE: &'static str = "help-args-only";
-        type CliArgs = NoArgs;
+        type CliArgs = NoCliArgs;
         type InstanceState = ();
 
         fn new(_cli_args: Self::CliArgs, _app: &App) -> anyhow::Result<Self> {

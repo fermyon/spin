@@ -60,8 +60,6 @@ impl CliArgs {
     }
 }
 
-pub(crate) type InstanceState = ();
-
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
     /// The address the server should listen on.
@@ -76,7 +74,7 @@ impl Trigger for HttpTrigger {
     const TYPE: &'static str = "http";
 
     type CliArgs = CliArgs;
-    type InstanceState = InstanceState;
+    type InstanceState = ();
 
     fn new(cli_args: Self::CliArgs, app: &spin_app::App) -> anyhow::Result<Self> {
         Self::new(app, cli_args.address, cli_args.into_tls_config())

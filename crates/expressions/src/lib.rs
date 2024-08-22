@@ -267,7 +267,7 @@ impl<'a> AsRef<str> for Key<'a> {
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A variable resolution error.
 #[derive(Debug, thiserror::Error)]

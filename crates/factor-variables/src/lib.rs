@@ -5,7 +5,7 @@ pub mod spin_cli;
 use std::sync::Arc;
 
 use runtime_config::RuntimeConfig;
-use spin_expressions::ProviderResolver as ExpressionResolver;
+use spin_expressions::{ProviderResolver as ExpressionResolver, Template};
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InitContext, InstanceBuilders, PrepareContext,
     RuntimeFactors, SelfInstanceBuilder,
@@ -68,6 +68,16 @@ impl Factor for VariablesFactor {
 
 pub struct AppState {
     expression_resolver: Arc<ExpressionResolver>,
+}
+
+impl AppState {
+    pub async fn resolve_expression(
+        &self,
+        expr: impl Into<Box<str>>,
+    ) -> spin_expressions::Result<String> {
+        let template = Template::new(expr)?;
+        self.expression_resolver.resolve_template(&template).await
+    }
 }
 
 pub struct InstanceState {

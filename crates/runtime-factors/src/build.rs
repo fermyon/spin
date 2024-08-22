@@ -22,14 +22,11 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
         config: &FactorsConfig,
         args: &Self::CliArgs,
     ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)> {
-        // Hardcode `use_gpu` to true for now
-        let use_gpu = true;
         let runtime_config = ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
             config.runtime_config_file.clone().as_deref(),
             config.local_app_dir.clone().map(PathBuf::from),
             config.state_dir.clone(),
             config.log_dir.clone(),
-            use_gpu,
         )?;
 
         runtime_config.summarize(config.runtime_config_file.as_deref());
@@ -38,7 +35,6 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
             runtime_config.state_dir(),
             config.working_dir.clone(),
             args.allow_transient_write,
-            use_gpu,
         )
         .context("failed to create factors")?;
         Ok((factors, runtime_config))

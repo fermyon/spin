@@ -4,7 +4,7 @@
 ///
 /// TODO: Remove this file when a new release of Candle makes it obsolete.
 use anyhow::{bail, Result};
-use candle::{DType, Tensor};
+use candle::{DType, Module, Tensor};
 use candle_nn::{Embedding, VarBuilder};
 use serde::Deserialize;
 

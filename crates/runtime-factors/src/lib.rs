@@ -40,7 +40,6 @@ impl TriggerFactors {
         state_dir: Option<PathBuf>,
         working_dir: impl Into<PathBuf>,
         allow_transient_writes: bool,
-        use_gpu: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             wasi: wasi_factor(working_dir, allow_transient_writes),
@@ -54,7 +53,7 @@ impl TriggerFactors {
             pg: OutboundPgFactor::new(),
             mysql: OutboundMysqlFactor::new(),
             llm: LlmFactor::new(
-                spin_factor_llm::spin::default_engine_creator(state_dir, use_gpu)
+                spin_factor_llm::spin::default_engine_creator(state_dir)
                     .context("failed to configure LLM factor")?,
             ),
         })

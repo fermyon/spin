@@ -58,9 +58,42 @@ impl HttpServer {
         listen_addr: SocketAddr,
         tls_config: Option<TlsConfig>,
         trigger_app: TriggerApp,
-        router: Router,
-        component_trigger_configs: HashMap<String, HttpTriggerConfig>,
     ) -> anyhow::Result<Self> {
+        // This needs to be a vec before building the router to handle duplicate routes
+        let component_trigger_configs = Vec::from_iter(
+            trigger_app
+                .app()
+                .trigger_configs::<HttpTriggerConfig>("http")?
+                .into_iter()
+                .map(|(_, config)| (config.component.clone(), config)),
+        );
+
+        // Build router
+        let component_routes = component_trigger_configs
+            .iter()
+            .map(|(component_id, config)| (component_id.as_str(), &config.route));
+        let (router, duplicate_routes) = Router::build("/", component_routes)?;
+        if !duplicate_routes.is_empty() {
+            tracing::error!(
+                "The following component routes are duplicates and will never be used:"
+            );
+            for dup in &duplicate_routes {
+                tracing::error!(
+                    "  {}: {} (duplicate of {})",
+                    dup.replaced_id,
+                    dup.route(),
+                    dup.effective_id,
+                );
+            }
+        }
+        tracing::trace!(
+            "Constructed router: {:?}",
+            router.routes().collect::<Vec<_>>()
+        );
+
+        // Now that router is built we can merge duplicate routes by component
+        let component_trigger_configs = HashMap::from_iter(component_trigger_configs);
+
         let component_handler_types = component_trigger_configs
             .keys()
             .map(|component_id| {

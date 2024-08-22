@@ -10,7 +10,6 @@ mod wagi;
 mod wasi;
 
 use std::{
-    collections::HashMap,
     error::Error,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::PathBuf,
@@ -21,7 +20,6 @@ use anyhow::{bail, Context};
 use clap::Args;
 use serde::Deserialize;
 use spin_app::App;
-use spin_http::{config::HttpTriggerConfig, routes::Router};
 use spin_trigger2::Trigger;
 use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
 
@@ -72,9 +70,6 @@ pub struct HttpTrigger {
     /// If the port is set to 0, the actual address will be determined by the OS.
     listen_addr: SocketAddr,
     tls_config: Option<TlsConfig>,
-    router: Router,
-    // Component ID -> component trigger config
-    component_trigger_configs: HashMap<String, HttpTriggerConfig>,
 }
 
 impl Trigger for HttpTrigger {
@@ -109,38 +104,9 @@ impl HttpTrigger {
     ) -> anyhow::Result<Self> {
         Self::validate_app(app)?;
 
-        let component_trigger_configs = HashMap::from_iter(
-            app.trigger_configs::<HttpTriggerConfig>("http")?
-                .into_iter()
-                .map(|(_, config)| (config.component.clone(), config)),
-        );
-
-        let component_routes = component_trigger_configs
-            .iter()
-            .map(|(component_id, config)| (component_id.as_str(), &config.route));
-        let (router, duplicate_routes) = Router::build("/", component_routes)?;
-        if !duplicate_routes.is_empty() {
-            tracing::error!(
-                "The following component routes are duplicates and will never be used:"
-            );
-            for dup in &duplicate_routes {
-                tracing::error!(
-                    "  {}: {} (duplicate of {})",
-                    dup.replaced_id,
-                    dup.route(),
-                    dup.effective_id,
-                );
-            }
-        }
-        tracing::trace!(
-            "Constructed router: {:?}",
-            router.routes().collect::<Vec<_>>()
-        );
         Ok(Self {
             listen_addr,
             tls_config,
-            router,
-            component_trigger_configs,
         })
     }
 
@@ -149,16 +115,8 @@ impl HttpTrigger {
         let Self {
             listen_addr,
             tls_config,
-            router,
-            component_trigger_configs,
         } = self;
-        let server = Arc::new(HttpServer::new(
-            listen_addr,
-            tls_config,
-            trigger_app,
-            router,
-            component_trigger_configs,
-        )?);
+        let server = Arc::new(HttpServer::new(listen_addr, tls_config, trigger_app)?);
         Ok(server)
     }
 

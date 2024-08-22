@@ -1,7 +1,10 @@
 use std::{collections::HashMap, future::Future, io::IsTerminal, net::SocketAddr, sync::Arc};
 
-use anyhow::Context;
-use http::{uri::Scheme, Request, Response, StatusCode, Uri};
+use anyhow::{bail, Context};
+use http::{
+    uri::{Authority, Scheme},
+    Request, Response, StatusCode, Uri,
+};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Bytes, Incoming},
@@ -359,29 +362,39 @@ impl HttpServer {
 /// The incoming request's scheme and authority
 ///
 /// The incoming request's URI is relative to the server, so we need to set the scheme and authority.
-/// The `Host` header is used to set the authority. This function will error if no `Host` header is
-/// present or if it is not parsable as an `Authority`.
+/// Either the `Host` header or the request's URI's authority is used as the source of truth for the authority.
+/// This function will error if the authority cannot be unambiguously determined.
 fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> anyhow::Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
     let headers = req.headers();
-    let host_header = headers
+    let header_authority = headers
         .get(http::header::HOST)
-        .context("missing 'Host' header")?
-        .to_str()
-        .context("'Host' header is not valid UTF-8")?;
-    let authority = host_header
-        .parse()
-        .context("'Host' header contains an invalid authority")?;
-    // Ensure that if `req.authority` is set, it matches what was in the `Host` header
-    // https://github.com/hyperium/hyper/issues/1612
-    if let Some(a) = parts.authority.as_ref() {
-        if a != &authority {
-            return Err(anyhow::anyhow!(
-                "authority in 'Host' header does not match authority in URI"
-            ));
+        .map(|h| -> anyhow::Result<Authority> {
+            let host_header = h.to_str().context("'Host' header is not valid UTF-8")?;
+            host_header
+                .parse()
+                .context("'Host' header contains an invalid authority")
+        })
+        .transpose()?;
+    let uri_authority = parts.authority;
+
+    // Get authority either from request URI or from 'Host' header
+    let authority = match (header_authority, uri_authority) {
+        (None, None) => bail!("no 'Host' header present in request"),
+        (None, Some(a)) => a,
+        (Some(a), None) => a,
+        (Some(a1), Some(a2)) => {
+            // Ensure that if `req.authority` is set, it matches what was in the `Host` header
+            // https://github.com/hyperium/hyper/issues/1612
+            if a1 != a2 {
+                return Err(anyhow::anyhow!(
+                    "authority in 'Host' header does not match authority in URI"
+                ));
+            }
+            a1
         }
-    }
+    };
     parts.scheme = Some(scheme);
     parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();

@@ -18,6 +18,7 @@ spin-factor-key-value-azure = { path = "../factor-key-value-azure" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-mqtt = { path = "../factor-outbound-mqtt" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-outbound-pg = { path = "../factor-outbound-pg" }
 spin-factor-outbound-redis = { path = "../factor-outbound-redis" }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-factor-variables = { path = "../factor-variables" }

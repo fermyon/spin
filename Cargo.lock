@@ -7237,6 +7237,7 @@ dependencies = [
  "spin-telemetry",
  "spin-templates",
  "spin-trigger-http2",
+ "spin-trigger-redis",
  "spin-trigger2",
  "subprocess",
  "tempfile",

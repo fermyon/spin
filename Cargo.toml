@@ -64,7 +64,7 @@ spin-telemetry = { path = "crates/telemetry", features = [
 spin-templates = { path = "crates/templates" }
 spin-trigger2 = { path = "crates/trigger2" }
 spin-trigger-http2 = { path = "crates/trigger-http2" }
-# TODO: spin-trigger-redis = { path = "crates/trigger-redis" }
+spin-trigger-redis = { path = "crates/trigger-redis" }
 
 tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }

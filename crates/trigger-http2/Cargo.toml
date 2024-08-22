@@ -7,6 +7,11 @@ edition = { workspace = true }
 [lib]
 doctest = false
 
+[features]
+llm = ["spin-trigger2/llm"]
+llm-metal = ["spin-trigger2/llm-metal"]
+llm-cublas = ["spin-trigger2/llm-cublas"]
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"

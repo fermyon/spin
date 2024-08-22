@@ -8,6 +8,11 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+llm = ["spin-factor-llm/llm"]
+llm-metal = ["spin-factor-llm/llm-metal"]
+llm-cublas = ["spin-factor-llm/llm-cublas"]
+
 [dependencies]
 anyhow = "1"
 clap = { version = "3.1.18", features = ["derive", "env"] }

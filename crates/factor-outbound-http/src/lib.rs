@@ -71,6 +71,7 @@ impl Factor for OutboundHttpFactor {
             component_tls_configs,
             self_request_origin: None,
             request_interceptor: None,
+            spin_http_client: None,
         })
     }
 }
@@ -81,6 +82,8 @@ pub struct InstanceState {
     component_tls_configs: ComponentTlsConfigs,
     self_request_origin: Option<SelfRequestOrigin>,
     request_interceptor: Option<Box<dyn OutboundHttpInterceptor>>,
+    // Connection-pooling client for 'fermyon:spin/http' interface
+    spin_http_client: Option<reqwest::Client>,
 }
 
 impl InstanceState {
@@ -153,6 +156,12 @@ impl SelfRequestOrigin {
 
     fn host_header(&self) -> HeaderValue {
         HeaderValue::from_str(self.authority.as_str()).unwrap()
+    }
+}
+
+impl std::fmt::Display for SelfRequestOrigin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}://{}", self.scheme, self.authority)
     }
 }
 

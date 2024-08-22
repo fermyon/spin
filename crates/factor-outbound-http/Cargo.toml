@@ -9,9 +9,11 @@ anyhow = "1.0"
 http = "1.1.0"
 http-body-util = "0.1"
 hyper = "1.4.1"
+reqwest = { version = "0.11", features = ["gzip"] }
 rustls = "0.23"
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
+spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tokio = { version = "1", features = ["macros", "rt"] }

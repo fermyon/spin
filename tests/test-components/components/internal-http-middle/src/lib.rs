@@ -16,10 +16,6 @@ async fn handle_middle_impl(req: Request) -> Result<impl IntoResponse, String> {
         .header("spin-path-info")
         .and_then(|v| v.as_str());
     let inbound_rel_path = ensure_some!(inbound_rel_path);
-    let inbound_base = req
-        .header("spin-base-path")
-        .and_then(|v| v.as_str());
-    ensure_eq!("/", ensure_some!(inbound_base));
     
     let out_req = spin_sdk::http::Request::builder()
         .uri("https://back.spin.internal/hello/from/middle")

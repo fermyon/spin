@@ -16,6 +16,8 @@ impl v2::Host for InstanceState {
             return Err(access_denied_error(&model));
         }
         self.engine
+            .lock()
+            .await
             .infer(
                 model,
                 prompt,
@@ -39,7 +41,7 @@ impl v2::Host for InstanceState {
         if !self.allowed_models.contains(&m) {
             return Err(access_denied_error(&m));
         }
-        self.engine.generate_embeddings(m, data).await
+        self.engine.lock().await.generate_embeddings(m, data).await
     }
 
     fn convert_error(&mut self, error: v2::Error) -> anyhow::Result<v2::Error> {

@@ -1,5 +1,5 @@
 [package]
-name = "factor-llm"
+name = "spin-factor-llm"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -11,10 +11,16 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+serde = "1.0"
 spin-factors = { path = "../factors" }
+spin-llm-local = { path = "../llm-local" }
+spin-llm-remote-http = { path = "../llm-remote-http" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }
+tokio = { version = "1", features = ["sync"] }
+toml = "0.8"
+url = "2"
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

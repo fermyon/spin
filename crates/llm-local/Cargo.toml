@@ -20,7 +20,6 @@ safetensors = "0.3.3"
 serde = { version = "1.0.150", features = ["derive"] }
 spin-common = { path = "../common" }
 spin-core = { path = "../core" }
-spin-llm = { path = "../llm" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tokenizers = "0.13.4"

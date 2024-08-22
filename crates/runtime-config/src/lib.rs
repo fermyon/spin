@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValueStore};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
+use spin_factor_llm::{spin as llm, LlmFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
 use spin_factor_outbound_mysql::OutboundMysqlFactor;
@@ -39,13 +40,17 @@ where
     for<'a> <T as TryFrom<TomlRuntimeConfigSource<'a>>>::Error: Into<anyhow::Error>,
 {
     /// Creates a new resolved runtime configuration from a runtime config source TOML file.
-    pub fn from_file(runtime_config_path: &Path, state_dir: Option<&str>) -> anyhow::Result<Self> {
+    pub fn from_file(
+        runtime_config_path: &Path,
+        state_dir: Option<&str>,
+        use_gpu: bool,
+    ) -> anyhow::Result<Self> {
         let tls_resolver = SpinTlsRuntimeConfig::new(runtime_config_path);
-        let key_value_config_resolver =
-            key_value_config_resolver(PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR)));
+        let state_dir = PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR));
+        let key_value_config_resolver = key_value_config_resolver(state_dir.clone());
 
-        let sqlite_config_resolver =
-            sqlite_config_resolver(state_dir).context("failed to resolve sqlite runtime config")?;
+        let sqlite_config_resolver = sqlite_config_resolver(state_dir.clone())
+            .context("failed to resolve sqlite runtime config")?;
 
         let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
             format!(
@@ -61,9 +66,11 @@ where
         })?;
         let runtime_config: T = TomlRuntimeConfigSource::new(
             &toml,
+            state_dir,
             &key_value_config_resolver,
             &tls_resolver,
             &sqlite_config_resolver,
+            use_gpu,
         )
         .try_into()
         .map_err(Into::into)?;
@@ -99,12 +106,11 @@ where
 
 impl<T: Default> ResolvedRuntimeConfig<T> {
     pub fn default(state_dir: Option<&str>) -> Self {
+        let state_dir = state_dir.unwrap_or(DEFAULT_STATE_DIR);
         Self {
-            sqlite_resolver: sqlite_config_resolver(state_dir)
+            sqlite_resolver: sqlite_config_resolver(PathBuf::from(state_dir))
                 .expect("failed to resolve sqlite runtime config"),
-            key_value_resolver: key_value_config_resolver(PathBuf::from(
-                state_dir.unwrap_or(DEFAULT_STATE_DIR),
-            )),
+            key_value_resolver: key_value_config_resolver(PathBuf::from(state_dir)),
             runtime_config: Default::default(),
         }
     }
@@ -113,23 +119,29 @@ impl<T: Default> ResolvedRuntimeConfig<T> {
 /// The TOML based runtime configuration source Spin CLI.
 pub struct TomlRuntimeConfigSource<'a> {
     table: TomlKeyTracker<'a>,
+    state_dir: PathBuf,
     key_value: &'a key_value::RuntimeConfigResolver,
     tls: &'a SpinTlsRuntimeConfig,
     sqlite: &'a sqlite::RuntimeConfigResolver,
+    use_gpu: bool,
 }
 
 impl<'a> TomlRuntimeConfigSource<'a> {
     pub fn new(
         table: &'a toml::Table,
+        state_dir: PathBuf,
         key_value: &'a key_value::RuntimeConfigResolver,
         tls: &'a SpinTlsRuntimeConfig,
         sqlite: &'a sqlite::RuntimeConfigResolver,
+        use_gpu: bool,
     ) -> Self {
         Self {
             table: TomlKeyTracker::new(table),
+            state_dir,
             key_value,
             tls,
             sqlite,
+            use_gpu,
         }
     }
 }
@@ -170,6 +182,16 @@ impl FactorRuntimeConfigSource<OutboundPgFactor> for TomlRuntimeConfigSource<'_>
 impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<'_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
         Ok(None)
+    }
+}
+
+impl FactorRuntimeConfigSource<LlmFactor> for TomlRuntimeConfigSource<'_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_llm::RuntimeConfig>> {
+        Ok(llm::runtime_config_from_toml(
+            self.table.as_ref(),
+            self.state_dir.clone(),
+            self.use_gpu,
+        )?)
     }
 }
 
@@ -251,14 +273,11 @@ pub fn key_value_config_resolver(
 /// The sqlite runtime configuration resolver.
 ///
 /// Takes a base path to the state directory.
-fn sqlite_config_resolver(
-    state_dir: Option<&str>,
-) -> anyhow::Result<sqlite::RuntimeConfigResolver> {
-    let default_database_dir = PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR));
+fn sqlite_config_resolver(state_dir: PathBuf) -> anyhow::Result<sqlite::RuntimeConfigResolver> {
     let local_database_dir =
         std::env::current_dir().context("failed to get current working directory")?;
     Ok(sqlite::RuntimeConfigResolver::new(
-        default_database_dir,
+        state_dir,
         local_database_dir,
     ))
 }

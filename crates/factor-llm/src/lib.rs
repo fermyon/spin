@@ -1,4 +1,5 @@
 mod host;
+pub mod spin;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -11,26 +12,28 @@ use spin_factors::{
 use spin_locked_app::MetadataKey;
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2};
+use tokio::sync::Mutex;
 
 pub const ALLOWED_MODELS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("ai_models");
 
+/// The factor for LLMs.
 pub struct LlmFactor {
-    create_engine: Box<dyn Fn() -> Box<dyn LlmEngine> + Send + Sync>,
+    default_engine_creator: Box<dyn LlmEngineCreator>,
 }
 
 impl LlmFactor {
-    pub fn new<F>(create_engine: F) -> Self
-    where
-        F: Fn() -> Box<dyn LlmEngine> + Send + Sync + 'static,
-    {
+    /// Creates a new LLM factor with the given default engine creator.
+    ///
+    /// The default engine creator is used to create the engine if no runtime configuration is provided.
+    pub fn new<F: LlmEngineCreator + 'static>(default_engine_creator: F) -> Self {
         Self {
-            create_engine: Box::new(create_engine),
+            default_engine_creator: Box::new(default_engine_creator),
         }
     }
 }
 
 impl Factor for LlmFactor {
-    type RuntimeConfig = ();
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -45,7 +48,7 @@ impl Factor for LlmFactor {
 
     fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<T, Self>,
+        mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         let component_allowed_models = ctx
             .app()
@@ -62,7 +65,12 @@ impl Factor for LlmFactor {
                 ))
             })
             .collect::<anyhow::Result<_>>()?;
+        let engine = ctx
+            .take_runtime_config()
+            .map(|c| c.engine)
+            .unwrap_or_else(|| self.default_engine_creator.create());
         Ok(AppState {
+            engine,
             component_allowed_models,
         })
     }
@@ -78,25 +86,35 @@ impl Factor for LlmFactor {
             .get(ctx.app_component().id())
             .cloned()
             .unwrap_or_default();
+        let engine = ctx.app_state().engine.clone();
 
         Ok(InstanceState {
-            engine: (self.create_engine)(),
+            engine,
             allowed_models,
         })
     }
 }
 
+/// The application state for the LLM factor.
 pub struct AppState {
+    engine: Arc<Mutex<dyn LlmEngine>>,
     component_allowed_models: HashMap<String, Arc<HashSet<String>>>,
 }
 
+/// The instance state for the LLM factor.
 pub struct InstanceState {
-    engine: Box<dyn LlmEngine>,
+    engine: Arc<Mutex<dyn LlmEngine>>,
     pub allowed_models: Arc<HashSet<String>>,
+}
+
+/// The runtime configuration for the LLM factor.
+pub struct RuntimeConfig {
+    engine: Arc<Mutex<dyn LlmEngine>>,
 }
 
 impl SelfInstanceBuilder for InstanceState {}
 
+/// The interface for a language model engine.
 #[async_trait]
 pub trait LlmEngine: Send + Sync {
     async fn infer(
@@ -111,4 +129,18 @@ pub trait LlmEngine: Send + Sync {
         model: v2::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<v2::EmbeddingsResult, v2::Error>;
+}
+
+/// A creator for an LLM engine.
+pub trait LlmEngineCreator: Send + Sync {
+    fn create(&self) -> Arc<Mutex<dyn LlmEngine>>;
+}
+
+impl<F> LlmEngineCreator for F
+where
+    F: Fn() -> Arc<Mutex<dyn LlmEngine>> + Send + Sync,
+{
+    fn create(&self) -> Arc<Mutex<dyn LlmEngine>> {
+        self()
+    }
 }

@@ -10,7 +10,7 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::ResolvedRuntimeConfig;
+use spin_runtime_config::{ResolvedRuntimeConfig, DEFAULT_STATE_DIR};
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -304,11 +304,13 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
+        let use_gpu = true;
         let runtime_config = match options.runtime_config_file {
             Some(runtime_config_path) => {
                 ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
                     runtime_config_path,
                     options.state_dir,
+                    use_gpu,
                 )?
             }
             None => ResolvedRuntimeConfig::default(options.state_dir),
@@ -319,10 +321,12 @@ impl<T: Trigger> TriggerAppBuilder<T> {
             .await?;
 
         let factors = TriggerFactors::new(
+            options.state_dir.unwrap_or(DEFAULT_STATE_DIR),
             self.working_dir.clone(),
             options.allow_transient_write,
             runtime_config.key_value_resolver,
             runtime_config.sqlite_resolver,
+            use_gpu,
         );
 
         // TODO: move these into Factor methods/constructors

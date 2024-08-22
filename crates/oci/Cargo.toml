@@ -31,6 +31,3 @@ tokio = { version = "1", features = ["fs"] }
 tokio-util = { version = "0.7.9", features = ["compat"] }
 tracing = { workspace = true }
 walkdir = "2.3"
-
-[dev-dependencies]
-spin-testing = { path = "../testing" }

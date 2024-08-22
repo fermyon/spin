@@ -5730,12 +5730,9 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.11",
- "llm",
  "reqwest 0.11.24",
  "serde 1.0.203",
  "serde_json",
- "spin-core",
- "spin-llm",
  "spin-telemetry",
  "spin-world",
  "tracing",

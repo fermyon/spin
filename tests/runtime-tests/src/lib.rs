@@ -86,7 +86,7 @@ impl RuntimeTest<SpinCli> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let request = Request::new(Method::Get, "/");
+            let request: Request<String> = Request::full(Method::Get, "/", &[("Host", "localhost")], None);
             let response = runtime.make_http_request(request)?;
             if response.status() == 200 {
                 return Ok(());
@@ -147,7 +147,7 @@ impl RuntimeTest<InProcessSpin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let response = runtime.make_http_request(Request::new(Method::Get, "/"))?;
+            let response = runtime.make_http_request(Request::full(Method::Get, "/", &[("Host", "localhost")],None))?;
             if response.status() == 200 {
                 return Ok(());
             }

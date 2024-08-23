@@ -62,8 +62,20 @@ impl RuntimeConfigResolver {
     ///
     /// Users must ensure that the store type for `config` has been registered with
     /// the resolver using [`Self::register_store_type`].
-    pub fn add_default_store(&mut self, label: &'static str, config: StoreConfig) {
-        self.defaults.insert(label, config);
+    pub fn add_default_store<T>(
+        &mut self,
+        label: &'static str,
+        config: T::RuntimeConfig,
+    ) -> anyhow::Result<()>
+    where
+        T: MakeKeyValueStore,
+        T::RuntimeConfig: Serialize,
+    {
+        self.defaults.insert(
+            label,
+            StoreConfig::new(T::RUNTIME_CONFIG_TYPE.to_owned(), config)?,
+        );
+        Ok(())
     }
 
     /// Registers a store type to the resolver.

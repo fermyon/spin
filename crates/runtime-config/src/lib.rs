@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
-use spin_factor_key_value::runtime_config::spin::{self as key_value, MakeKeyValueStore};
+use spin_factor_key_value::runtime_config::spin::{self as key_value};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
+use spin_factor_key_value_spin::SpinKeyValueStore;
 use spin_factor_llm::{spin as llm, LlmFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
@@ -46,10 +47,9 @@ where
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let tls_resolver = SpinTlsRuntimeConfig::new(runtime_config_path);
-        let state_dir = PathBuf::from(state_dir.unwrap_or(DEFAULT_STATE_DIR));
-        let key_value_config_resolver = key_value_config_resolver(state_dir.clone());
+        let key_value_config_resolver = key_value_config_resolver(state_dir.map(Into::into));
 
-        let sqlite_config_resolver = sqlite_config_resolver(state_dir.clone())
+        let sqlite_config_resolver = sqlite_config_resolver(state_dir.map(Into::into))
             .context("failed to resolve sqlite runtime config")?;
 
         let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
@@ -66,7 +66,7 @@ where
         })?;
         let runtime_config: T = TomlRuntimeConfigSource::new(
             &toml,
-            state_dir,
+            state_dir.unwrap_or(DEFAULT_STATE_DIR).into(),
             &key_value_config_resolver,
             &tls_resolver,
             &sqlite_config_resolver,
@@ -106,11 +106,11 @@ where
 
 impl<T: Default> ResolvedRuntimeConfig<T> {
     pub fn default(state_dir: Option<&str>) -> Self {
-        let state_dir = state_dir.unwrap_or(DEFAULT_STATE_DIR);
+        let state_dir = state_dir.map(PathBuf::from);
         Self {
-            sqlite_resolver: sqlite_config_resolver(PathBuf::from(state_dir))
+            sqlite_resolver: sqlite_config_resolver(state_dir.clone())
                 .expect("failed to resolve sqlite runtime config"),
-            key_value_resolver: key_value_config_resolver(PathBuf::from(state_dir)),
+            key_value_resolver: key_value_config_resolver(state_dir),
             runtime_config: Default::default(),
         }
     }
@@ -227,14 +227,13 @@ impl RuntimeConfigSourceFinalizer for TomlRuntimeConfigSource<'_> {
     }
 }
 
-const DEFAULT_KEY_VALUE_STORE_FILENAME: &str = "sqlite_key_value.db";
 const DEFAULT_KEY_VALUE_STORE_LABEL: &str = "default";
 
 /// The key-value runtime configuration resolver.
 ///
 /// Takes a base path for the local store.
 pub fn key_value_config_resolver(
-    local_store_base_path: PathBuf,
+    local_store_base_path: Option<PathBuf>,
 ) -> key_value::RuntimeConfigResolver {
     let mut key_value = key_value::RuntimeConfigResolver::new();
 
@@ -242,7 +241,7 @@ pub fn key_value_config_resolver(
     // Unwraps are safe because the store types are known to not overlap.
     key_value
         .register_store_type(spin_factor_key_value_spin::SpinKeyValueStore::new(
-            local_store_base_path,
+            local_store_base_path.clone(),
         ))
         .unwrap();
     key_value
@@ -253,27 +252,25 @@ pub fn key_value_config_resolver(
         .unwrap();
 
     // Add handling of "default" store.
-    key_value.add_default_store(
-        DEFAULT_KEY_VALUE_STORE_LABEL,
-        key_value::StoreConfig {
-            type_: spin_factor_key_value_spin::SpinKeyValueStore::RUNTIME_CONFIG_TYPE.to_owned(),
-            config: toml::toml! {
-                path = DEFAULT_KEY_VALUE_STORE_FILENAME
-            },
-        },
-    );
+    // Unwraps are safe because the store is known to be serializable as toml.
+    key_value
+        .add_default_store::<SpinKeyValueStore>(DEFAULT_KEY_VALUE_STORE_LABEL, Default::default())
+        .unwrap();
 
     key_value
 }
 
 /// The sqlite runtime configuration resolver.
 ///
-/// Takes a base path to the state directory.
-fn sqlite_config_resolver(state_dir: PathBuf) -> anyhow::Result<sqlite::RuntimeConfigResolver> {
+/// Takes a path to the directory where the default database should be stored.
+/// If the path is `None`, the default database will be in-memory.
+fn sqlite_config_resolver(
+    default_database_dir: Option<PathBuf>,
+) -> anyhow::Result<sqlite::RuntimeConfigResolver> {
     let local_database_dir =
         std::env::current_dir().context("failed to get current working directory")?;
     Ok(sqlite::RuntimeConfigResolver::new(
-        state_dir,
+        default_database_dir,
         local_database_dir,
     ))
 }

@@ -187,11 +187,7 @@ impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<
 
 impl FactorRuntimeConfigSource<LlmFactor> for TomlRuntimeConfigSource<'_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_llm::RuntimeConfig>> {
-        Ok(llm::runtime_config_from_toml(
-            self.table.as_ref(),
-            self.state_dir.clone(),
-            self.use_gpu,
-        )?)
+        llm::runtime_config_from_toml(self.table.as_ref(), self.state_dir.clone(), self.use_gpu)
     }
 }
 

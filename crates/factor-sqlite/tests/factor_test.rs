@@ -104,7 +104,8 @@ impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeSource<'_> {
 
 impl RuntimeConfigSourceFinalizer for TomlRuntimeSource<'_> {
     fn finalize(&mut self) -> anyhow::Result<()> {
-        Ok(self.table.validate_all_keys_used().unwrap())
+        self.table.validate_all_keys_used()?;
+        Ok(())
     }
 }
 

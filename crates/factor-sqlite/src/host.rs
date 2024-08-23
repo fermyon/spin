@@ -44,9 +44,10 @@ impl InstanceState {
     fn get_connection(
         &self,
         connection: Resource<v2::Connection>,
-    ) -> Result<&Box<dyn Connection>, v2::Error> {
+    ) -> Result<&dyn Connection, v2::Error> {
         self.connections
             .get(connection.rep())
+            .map(|conn| conn.as_ref())
             .ok_or(v2::Error::InvalidConnection)
     }
 }

@@ -2,21 +2,19 @@ use crate::module_info::ModuleInfo;
 
 pub const EARLIEST_PROBABLY_SAFE_CLANG_VERSION: &str = "15.0.7";
 
-/// Represents the detected likelihood of the allocation bug fixed in
-/// https://github.com/WebAssembly/wasi-libc/pull/377 being present in a Wasm
-/// module.
+/// This error represents the likely presence of the allocation bug fixed in
+/// https://github.com/WebAssembly/wasi-libc/pull/377 in a Wasm module.
 #[derive(Debug, PartialEq)]
-pub enum WasiLibc377Bug {
-    ProbablySafe,
-    ProbablyUnsafe { clang_version: String },
-    Unknown,
+pub struct WasiLibc377Bug {
+    clang_version: Option<String>,
 }
 
 impl WasiLibc377Bug {
-    pub fn detect(module_info: &ModuleInfo) -> anyhow::Result<Self> {
+    /// Detects the likely presence of this bug.
+    pub fn check(module_info: &ModuleInfo) -> Result<(), Self> {
         if module_info.probably_uses_wit_bindgen() {
             // Modules built with wit-bindgen are probably safe.
-            return Ok(Self::ProbablySafe);
+            return Ok(());
         }
         if let Some(clang_version) = &module_info.clang_version {
             // Clang/LLVM version is a good proxy for wasi-sdk
@@ -25,12 +23,12 @@ impl WasiLibc377Bug {
             if let Some((major, minor, patch)) = parse_clang_version(clang_version) {
                 let earliest_safe =
                     parse_clang_version(EARLIEST_PROBABLY_SAFE_CLANG_VERSION).unwrap();
-                return if (major, minor, patch) >= earliest_safe {
-                    Ok(Self::ProbablySafe)
+                if (major, minor, patch) >= earliest_safe {
+                    return Ok(());
                 } else {
-                    Ok(Self::ProbablyUnsafe {
-                        clang_version: clang_version.clone(),
-                    })
+                    return Err(Self {
+                        clang_version: Some(clang_version.clone()),
+                    });
                 };
             } else {
                 tracing::warn!(
@@ -39,9 +37,26 @@ impl WasiLibc377Bug {
                 );
             }
         }
-        Ok(Self::Unknown)
+        // If we can't assert that the module uses wit-bindgen OR was compiled
+        // with a new-enough wasi-sdk, conservatively assume it may be buggy.
+        Err(Self {
+            clang_version: None,
+        })
     }
 }
+
+impl std::fmt::Display for WasiLibc377Bug {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "This Wasm module may have been compiled with wasi-sdk version <19 which \
+            contains a critical memory safety bug. For more information, see: \
+            https://github.com/fermyon/spin/issues/2552"
+        )
+    }
+}
+
+impl std::error::Error for WasiLibc377Bug {}
 
 fn parse_clang_version(ver: &str) -> Option<(u16, u16, u16)> {
     // Strip optional trailing detail after space
@@ -59,47 +74,42 @@ mod tests {
 
     #[test]
     fn wasi_libc_377_detect() {
-        use WasiLibc377Bug::*;
-        for (wasm, expected) in [
-            (r#"(module)"#, Unknown),
+        for (wasm, safe) in [
+            (r#"(module)"#, false),
             (
                 r#"(module (func (export "cabi_realloc") (unreachable)))"#,
-                ProbablySafe,
+                true,
             ),
             (
                 r#"(module (func (export "some_other_function") (unreachable)))"#,
-                Unknown,
+                false,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "16.0.0 extra-stuff")))"#,
-                ProbablySafe,
+                true,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "15.0.7")))"#,
-                ProbablySafe,
+                true,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "15.0.6")))"#,
-                ProbablyUnsafe {
-                    clang_version: "15.0.6".into(),
-                },
+                false,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "14.0.0 extra-stuff")))"#,
-                ProbablyUnsafe {
-                    clang_version: "14.0.0 extra-stuff".into(),
-                },
+                false,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "a.b.c")))"#,
-                Unknown,
+                false,
             ),
         ] {
             eprintln!("WAT: {wasm}");
             let module = wat::parse_str(wasm).unwrap();
             let module_info = ModuleInfo::from_module(&module).unwrap();
-            let detected = WasiLibc377Bug::detect(&module_info).unwrap();
-            assert_eq!(detected, expected);
+            let detected = WasiLibc377Bug::check(&module_info);
+            assert!(detected.is_ok() == safe, "{wasm} -> {detected:?}");
         }
     }
 }

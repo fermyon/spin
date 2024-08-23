@@ -115,6 +115,7 @@ pub fn componentize_old_module(module: &[u8], module_info: &ModuleInfo) -> Resul
     // If the module has a _start export and doesn't obviously use wit-bindgen
     // it is likely an old p1 command module.
     if module_info.has_start_export && !module_info.probably_uses_wit_bindgen() {
+        bugs::WasiLibc377Bug::check(module_info)?;
         componentize_command(module)
     } else {
         componentize_old_bindgen(module)

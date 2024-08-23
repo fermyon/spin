@@ -11,12 +11,16 @@ use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 /// A key-value store that uses SQLite as the backend.
 pub struct SpinKeyValueStore {
     /// The base path or directory for the SQLite database file.
-    base_path: PathBuf,
+    base_path: Option<PathBuf>,
 }
 
 impl SpinKeyValueStore {
     /// Create a new SpinKeyValueStore with the given base path.
-    pub fn new(base_path: PathBuf) -> Self {
+    ///
+    /// If the database directory is None, the database will always be in-memory.
+    /// If it's `Some`, the database will be stored at the combined `base_path` and
+    /// the `path` specified in the runtime configuration.
+    pub fn new(base_path: Option<PathBuf>) -> Self {
         Self { base_path }
     }
 }
@@ -31,25 +35,14 @@ pub struct SpinKeyValueRuntimeConfig {
 impl SpinKeyValueRuntimeConfig {
     /// The default filename for the SQLite database.
     const DEFAULT_SPIN_STORE_FILENAME: &'static str = "sqlite_key_value.db";
-
-    /// Create a new runtime configuration with the given directory.
-    ///
-    /// If the database directory is None, the database is in-memory.
-    /// If the database directory is Some, the database is stored in a file in the given directory.
-    pub fn default(default_database_dir: Option<PathBuf>) -> Self {
-        let path = default_database_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
-        Self { path }
-    }
 }
 
-/// Resolve a relative path against a base dir.
-///
-/// If the path is absolute, it is returned as is. Otherwise, it is resolved against the base dir.
-fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
-    if path.is_absolute() {
-        return path.to_owned();
+impl Default for SpinKeyValueRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            path: Some(PathBuf::from(Self::DEFAULT_SPIN_STORE_FILENAME)),
+        }
     }
-    base_dir.join(path)
 }
 
 impl MakeKeyValueStore for SpinKeyValueStore {
@@ -63,16 +56,30 @@ impl MakeKeyValueStore for SpinKeyValueStore {
         &self,
         runtime_config: Self::RuntimeConfig,
     ) -> anyhow::Result<Self::StoreManager> {
-        let location = match runtime_config.path {
-            Some(path) => {
-                let path = resolve_relative_path(&path, &self.base_path);
+        // The base path and the subpath must both be set otherwise, we default to in-memory.
+        let location =
+            if let (Some(base_path), Some(path)) = (&self.base_path, &runtime_config.path) {
+                let path = resolve_relative_path(path, base_path);
                 // Create the store's parent directory if necessary
-                fs::create_dir_all(path.parent().unwrap())
-                    .context("Failed to create key value store")?;
+                let parent = path.parent().unwrap();
+                if !parent.exists() {
+                    fs::create_dir_all(parent)
+                        .context("Failed to create key value store's parent directory")?;
+                }
                 DatabaseLocation::Path(path)
-            }
-            None => DatabaseLocation::InMemory,
-        };
+            } else {
+                DatabaseLocation::InMemory
+            };
         Ok(KeyValueSqlite::new(location))
     }
+}
+
+/// Resolve a relative path against a base dir.
+///
+/// If the path is absolute, it is returned as is. Otherwise, it is resolved against the base dir.
+fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
+    if path.is_absolute() {
+        return path.to_owned();
+    }
+    base_dir.join(path)
 }

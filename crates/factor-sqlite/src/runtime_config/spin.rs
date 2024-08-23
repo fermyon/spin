@@ -20,7 +20,7 @@ use crate::{Connection, ConnectionCreator, DefaultLabelResolver};
 /// This type implements how Spin CLI's SQLite implementation is configured
 /// through the runtime config toml as well as the behavior of the "default" label.
 pub struct RuntimeConfigResolver {
-    default_database_dir: PathBuf,
+    default_database_dir: Option<PathBuf>,
     local_database_dir: PathBuf,
 }
 
@@ -29,11 +29,12 @@ impl RuntimeConfigResolver {
     ///
     /// This takes as arguments:
     /// * the directory to use as the default location for SQLite databases.
-    ///   Usually this will be the path to the `.spin` state directory.
+    ///   Usually this will be the path to the `.spin` state directory. If
+    ///  `None`, the default database will be in-memory.
     /// * the path to the directory from which relative paths to
     ///   local SQLite databases are resolved.  (this should most likely be the
     ///   path to the runtime-config file or the current working dir).
-    pub fn new(default_database_dir: PathBuf, local_database_dir: PathBuf) -> Self {
+    pub fn new(default_database_dir: Option<PathBuf>, local_database_dir: PathBuf) -> Self {
         Self {
             default_database_dir,
             local_database_dir,
@@ -102,9 +103,15 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
             return None;
         }
 
-        let path = self.default_database_dir.join(DEFAULT_SQLITE_DB_FILENAME);
+        let path = self
+            .default_database_dir
+            .as_deref()
+            .map(|p| p.join(DEFAULT_SQLITE_DB_FILENAME));
         let factory = move || {
-            let location = spin_sqlite_inproc::InProcDatabaseLocation::Path(path.clone());
+            let location = match &path {
+                Some(path) => spin_sqlite_inproc::InProcDatabaseLocation::Path(path.clone()),
+                None => spin_sqlite_inproc::InProcDatabaseLocation::InMemory,
+            };
             let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
             Ok(Box::new(connection) as _)
         };

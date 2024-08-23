@@ -66,7 +66,7 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
         [sqlite_database.foo]
         type = "spin"
     };
-    let sqlite_config = RuntimeConfigResolver::new("/".into(), "/".into());
+    let sqlite_config = RuntimeConfigResolver::new(None, "/".into());
     let env = TestEnvironment::new(factors)
         .extend_manifest(toml! {
             [component.test-component]

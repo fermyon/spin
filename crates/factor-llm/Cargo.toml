@@ -8,19 +8,24 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+llm = ["spin-llm-local"]
+llm-metal = ["llm", "spin-llm-local/metal"]
+llm-cublas = ["llm", "spin-llm-local/cublas"]
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
 serde = "1.0"
 spin-factors = { path = "../factors" }
-spin-llm-local = { path = "../llm-local" }
+spin-llm-local = { path = "../llm-local", optional = true }
 spin-llm-remote-http = { path = "../llm-remote-http" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }
 tokio = { version = "1", features = ["sync"] }
 toml = "0.8"
-url = "2"
+url = { version = "2", features = ["serde"] }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

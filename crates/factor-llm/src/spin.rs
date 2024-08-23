@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-pub use spin_llm_local::LocalLlmEngine;
-
 use spin_llm_remote_http::RemoteHttpLlmEngine;
 use spin_world::async_trait;
 use spin_world::v1::llm::{self as v1};
@@ -12,24 +10,46 @@ use url::Url;
 
 use crate::{LlmEngine, LlmEngineCreator, RuntimeConfig};
 
-#[async_trait]
-impl LlmEngine for LocalLlmEngine {
-    async fn infer(
-        &mut self,
-        model: v1::InferencingModel,
-        prompt: String,
-        params: v2::InferencingParams,
-    ) -> Result<v2::InferencingResult, v2::Error> {
-        self.infer(model, prompt, params).await
-    }
+#[cfg(feature = "llm")]
+mod local {
+    use super::*;
+    pub use spin_llm_local::LocalLlmEngine;
 
-    async fn generate_embeddings(
-        &mut self,
-        model: v2::EmbeddingModel,
-        data: Vec<String>,
-    ) -> Result<v2::EmbeddingsResult, v2::Error> {
-        self.generate_embeddings(model, data).await
+    #[async_trait]
+    impl LlmEngine for LocalLlmEngine {
+        async fn infer(
+            &mut self,
+            model: v2::InferencingModel,
+            prompt: String,
+            params: v2::InferencingParams,
+        ) -> Result<v2::InferencingResult, v2::Error> {
+            self.infer(model, prompt, params).await
+        }
+
+        async fn generate_embeddings(
+            &mut self,
+            model: v2::EmbeddingModel,
+            data: Vec<String>,
+        ) -> Result<v2::EmbeddingsResult, v2::Error> {
+            self.generate_embeddings(model, data).await
+        }
     }
+}
+
+/// The default engine creator for the LLM factor when used in the Spin CLI.
+pub fn default_engine_creator(
+    state_dir: PathBuf,
+    use_gpu: bool,
+) -> impl LlmEngineCreator + 'static {
+    #[cfg(feature = "llm")]
+    let engine = spin_llm_local::LocalLlmEngine::new(state_dir.join("ai-models"), use_gpu);
+    #[cfg(not(feature = "llm"))]
+    let engine = {
+        let _ = (state_dir, use_gpu);
+        noop::NoopLlmEngine
+    };
+    let engine = Arc::new(Mutex::new(engine)) as Arc<Mutex<dyn LlmEngine>>;
+    move || engine.clone()
 }
 
 #[async_trait]
@@ -77,6 +97,12 @@ pub enum LlmCompute {
 impl LlmCompute {
     fn into_engine(self, state_dir: PathBuf, use_gpu: bool) -> Arc<Mutex<dyn LlmEngine>> {
         match self {
+            #[cfg(not(feature = "llm"))]
+            LlmCompute::Spin => {
+                let _ = (state_dir, use_gpu);
+                Arc::new(Mutex::new(noop::NoopLlmEngine))
+            }
+            #[cfg(feature = "llm")]
             LlmCompute::Spin => default_engine_creator(state_dir, use_gpu).create(),
             LlmCompute::RemoteHttp(config) => Arc::new(Mutex::new(RemoteHttpLlmEngine::new(
                 config.url,
@@ -92,15 +118,35 @@ pub struct RemoteHttpCompute {
     auth_token: String,
 }
 
-/// The default engine creator for the LLM factor when used in the Spin CLI.
-pub fn default_engine_creator(
-    state_dir: PathBuf,
-    use_gpu: bool,
-) -> impl LlmEngineCreator + 'static {
-    move || {
-        Arc::new(Mutex::new(LocalLlmEngine::new(
-            state_dir.join("ai-models"),
-            use_gpu,
-        ))) as _
+/// A noop engine used when the local engine feature is disabled.
+#[cfg(not(feature = "llm"))]
+mod noop {
+    use super::*;
+
+    #[derive(Clone, Copy)]
+    pub(super) struct NoopLlmEngine;
+
+    #[async_trait]
+    impl LlmEngine for NoopLlmEngine {
+        async fn infer(
+            &mut self,
+            _model: v2::InferencingModel,
+            _prompt: String,
+            _params: v2::InferencingParams,
+        ) -> Result<v2::InferencingResult, v2::Error> {
+            Err(v2::Error::RuntimeError(
+                "Local LLM operations are not supported in this version of Spin.".into(),
+            ))
+        }
+
+        async fn generate_embeddings(
+            &mut self,
+            _model: v2::EmbeddingModel,
+            _data: Vec<String>,
+        ) -> Result<v2::EmbeddingsResult, v2::Error> {
+            Err(v2::Error::RuntimeError(
+                "Local LLM operations are not supported in this version of Spin.".into(),
+            ))
+        }
     }
 }

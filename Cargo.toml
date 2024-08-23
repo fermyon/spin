@@ -113,10 +113,9 @@ wit-component = "0.19.0"
 # TODO(factors): default = ["llm"]
 all-tests = ["extern-dependencies-tests"]
 extern-dependencies-tests = []
-# TODO(factors):
-# llm = ["spin-trigger-http/llm"]
-# llm-metal = ["llm", "spin-trigger-http/llm-metal"]
-# llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
+llm = ["spin-trigger-http2/llm"]
+llm-metal = ["llm", "spin-trigger-http2/llm-metal"]
+llm-cublas = ["llm", "spin-trigger-http2/llm-cublas"]
 
 [workspace]
 members = [

@@ -1,5 +1,5 @@
 [package]
-name = "spin-trigger-http2"
+name = "spin-trigger-http"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -8,9 +8,9 @@ edition = { workspace = true }
 doctest = false
 
 [features]
-llm = ["spin-trigger2/llm"]
-llm-metal = ["spin-trigger2/llm-metal"]
-llm-cublas = ["spin-trigger2/llm-cublas"]
+llm = ["spin-trigger/llm"]
+llm-metal = ["spin-trigger/llm-metal"]
+llm-cublas = ["spin-trigger/llm-cublas"]
 
 [dependencies]
 anyhow = "1.0"
@@ -36,7 +36,7 @@ spin-factor-wasi = { path = "../factor-wasi" }
 spin-http = { path = "../http" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-telemetry = { path = "../telemetry" }
-spin-trigger2 = { path = "../trigger2" }
+spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tls-listener = { version = "0.10.0", features = ["rustls"] }

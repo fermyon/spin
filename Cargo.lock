@@ -7236,9 +7236,9 @@ dependencies = [
  "spin-plugins",
  "spin-telemetry",
  "spin-templates",
- "spin-trigger-http2",
+ "spin-trigger",
+ "spin-trigger-http",
  "spin-trigger-redis",
- "spin-trigger2",
  "subprocess",
  "tempfile",
  "terminal",
@@ -8043,65 +8043,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-trigger-http2"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap 3.2.25",
- "futures",
- "futures-util",
- "http 1.1.0",
- "http-body-util",
- "hyper 1.4.1",
- "hyper-util",
- "indexmap 1.9.3",
- "percent-encoding",
- "rustls 0.22.4",
- "rustls-pemfile 2.1.2",
- "rustls-pki-types",
- "serde 1.0.197",
- "serde_json",
- "spin-app",
- "spin-core",
- "spin-factor-outbound-http",
- "spin-factor-wasi",
- "spin-http",
- "spin-outbound-networking",
- "spin-telemetry",
- "spin-trigger2",
- "spin-world",
- "terminal",
- "tls-listener",
- "tokio",
- "tokio-rustls 0.25.0",
- "tracing",
- "url",
- "wasmtime",
- "wasmtime-wasi",
- "wasmtime-wasi-http",
- "webpki-roots 0.26.1",
-]
-
-[[package]]
-name = "spin-trigger-redis"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "redis 0.26.1",
- "serde 1.0.197",
- "spin-factor-variables",
- "spin-telemetry",
- "spin-trigger2",
- "spin-world",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "spin-trigger2"
+name = "spin-trigger"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
@@ -8131,6 +8073,64 @@ dependencies = [
  "spin-runtime-config",
  "spin-telemetry",
  "terminal",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "spin-trigger-http"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap 3.2.25",
+ "futures",
+ "futures-util",
+ "http 1.1.0",
+ "http-body-util",
+ "hyper 1.4.1",
+ "hyper-util",
+ "indexmap 1.9.3",
+ "percent-encoding",
+ "rustls 0.22.4",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
+ "serde 1.0.197",
+ "serde_json",
+ "spin-app",
+ "spin-core",
+ "spin-factor-outbound-http",
+ "spin-factor-wasi",
+ "spin-http",
+ "spin-outbound-networking",
+ "spin-telemetry",
+ "spin-trigger",
+ "spin-world",
+ "terminal",
+ "tls-listener",
+ "tokio",
+ "tokio-rustls 0.25.0",
+ "tracing",
+ "url",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wasmtime-wasi-http",
+ "webpki-roots 0.26.1",
+]
+
+[[package]]
+name = "spin-trigger-redis"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "redis 0.26.1",
+ "serde 1.0.197",
+ "spin-factor-variables",
+ "spin-telemetry",
+ "spin-trigger",
+ "spin-world",
  "tokio",
  "tracing",
 ]
@@ -8483,8 +8483,8 @@ dependencies = [
  "spin-factors-executor",
  "spin-http",
  "spin-loader",
- "spin-trigger-http2",
- "spin-trigger2",
+ "spin-trigger",
+ "spin-trigger-http",
  "temp-dir",
  "test-environment",
  "tokio",

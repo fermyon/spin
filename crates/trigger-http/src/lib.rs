@@ -20,7 +20,7 @@ use anyhow::{bail, Context};
 use clap::Args;
 use serde::Deserialize;
 use spin_app::App;
-use spin_trigger2::Trigger;
+use spin_trigger::Trigger;
 use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
 
 pub use server::HttpServer;
@@ -29,8 +29,8 @@ pub use tls::TlsConfig;
 
 pub(crate) use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-pub(crate) type TriggerApp = spin_trigger2::TriggerApp<HttpTrigger>;
-pub(crate) type TriggerInstanceBuilder<'a> = spin_trigger2::TriggerInstanceBuilder<'a, HttpTrigger>;
+pub(crate) type TriggerApp = spin_trigger::TriggerApp<HttpTrigger>;
+pub(crate) type TriggerInstanceBuilder<'a> = spin_trigger::TriggerInstanceBuilder<'a, HttpTrigger>;
 
 #[derive(Args)]
 pub struct CliArgs {

@@ -358,7 +358,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
                     )
                 })?;
                 let component = spin_componentize::componentize_if_necessary(&bytes)?;
-                spin_core::Component::new(engine, component.as_ref())
+                spin_core::Component::new(engine, component)
                     .with_context(|| format!("loading module {}", quoted_path(&path)))
             }
         }

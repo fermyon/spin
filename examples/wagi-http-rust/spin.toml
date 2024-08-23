@@ -9,7 +9,7 @@ version = "1.0.0"
 [[trigger.http]]
 route = "/env"
 component = "env"
-executor =  { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
+executor =  { type = "wagi" }
 
 [component.env]
 source = "target/wasm32-wasi/release/wagihelloworld.wasm"

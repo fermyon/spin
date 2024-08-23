@@ -861,12 +861,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bytesize"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e368af43e418a04d52505cf3dbc23dda4e3407ae2fa99fd0e4f308ce546acc"
-
-[[package]]
 name = "bzip2"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -925,7 +919,7 @@ source = "git+https://github.com/huggingface/candle?rev=b80348d22f8f0dadb6cc4101
 dependencies = [
  "byteorder",
  "candle-gemm",
- "half 2.4.0",
+ "half",
  "memmap2 0.7.1",
  "num-traits 0.2.18",
  "num_cpus",
@@ -1016,7 +1010,7 @@ dependencies = [
  "candle-gemm-common",
  "candle-gemm-f32",
  "dyn-stack",
- "half 2.4.0",
+ "half",
  "lazy_static 1.4.0",
  "num-complex",
  "num-traits 0.2.18",
@@ -1218,12 +1212,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cast"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
-
-[[package]]
 name = "cc"
 version = "1.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1301,17 +1289,6 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
-dependencies = [
- "bitflags 1.3.2",
- "textwrap 0.11.0",
- "unicode-width",
-]
-
-[[package]]
-name = "clap"
 version = "3.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ea181bf566f71cb9a5d17a59e1871af638180a18fb0035c92ae62b705207123"
@@ -1324,7 +1301,7 @@ dependencies = [
  "once_cell",
  "strsim 0.10.0",
  "termcolor",
- "textwrap 0.16.1",
+ "textwrap",
 ]
 
 [[package]]
@@ -1696,44 +1673,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "criterion"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b01d6de93b2b6c65e17c634a26653a29d107b3c98c607c765bf38d041531cd8f"
-dependencies = [
- "atty",
- "cast",
- "clap 2.34.0",
- "criterion-plot",
- "csv",
- "futures",
- "itertools 0.10.5",
- "lazy_static 1.4.0",
- "num-traits 0.2.18",
- "oorandom",
- "plotters",
- "rayon",
- "regex",
- "serde 1.0.197",
- "serde_cbor",
- "serde_derive",
- "serde_json",
- "tinytemplate",
- "tokio",
- "walkdir",
-]
-
-[[package]]
-name = "criterion-plot"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2673cc8207403546f45f5fd319a974b1e6983ad1a3ee7e6041650013be041876"
-dependencies = [
- "cast",
- "itertools 0.10.5",
-]
-
-[[package]]
 name = "crossbeam"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1840,27 +1779,6 @@ checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
  "generic-array",
  "typenum",
-]
-
-[[package]]
-name = "csv"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
-dependencies = [
- "csv-core",
- "itoa",
- "ryu",
- "serde 1.0.197",
-]
-
-[[package]]
-name = "csv-core"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -3157,12 +3075,6 @@ dependencies = [
 
 [[package]]
 name = "half"
-version = "1.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
-
-[[package]]
-name = "half"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5eceaaeec696539ddaf7b333340f1af35a5aa87ae3e4f3ead0532f72affab2e"
@@ -4228,12 +4140,7 @@ version = "0.2.0-dev"
 source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
 dependencies = [
  "llm-base",
- "llm-bloom",
- "llm-gpt2",
- "llm-gptj",
- "llm-gptneox",
  "llm-llama",
- "llm-mpt",
  "serde 1.0.197",
  "tracing",
 ]
@@ -4245,7 +4152,7 @@ source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a87
 dependencies = [
  "bytemuck",
  "ggml",
- "half 2.4.0",
+ "half",
  "llm-samplers",
  "memmap2 0.5.10",
  "partial_sort",
@@ -4259,53 +4166,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "llm-bloom"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
-name = "llm-gpt2"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "bytemuck",
- "llm-base",
-]
-
-[[package]]
-name = "llm-gptj"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
-name = "llm-gptneox"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
 name = "llm-llama"
 version = "0.2.0-dev"
 source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
 dependencies = [
  "llm-base",
  "tracing",
-]
-
-[[package]]
-name = "llm-mpt"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
 ]
 
 [[package]]
@@ -5128,12 +4994,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oorandom"
-version = "11.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
-
-[[package]]
 name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5312,94 +5172,6 @@ name = "os_str_bytes"
 version = "6.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
-
-[[package]]
-name = "outbound-http"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "http 0.2.12",
- "reqwest 0.11.27",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-locked-app",
- "spin-outbound-networking",
- "spin-telemetry",
- "spin-world",
- "terminal",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "outbound-mqtt"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "rumqttc",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-outbound-networking",
- "spin-world",
- "table",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "outbound-mysql"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "flate2",
- "mysql_async",
- "mysql_common",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-outbound-networking",
- "spin-world",
- "table",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "outbound-pg"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "native-tls",
- "postgres-native-tls",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-outbound-networking",
- "spin-world",
- "table",
- "tokio",
- "tokio-postgres",
- "tracing",
-]
-
-[[package]]
-name = "outbound-redis"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "redis 0.21.7",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-outbound-networking",
- "spin-world",
- "table",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "overload"
@@ -5721,34 +5493,6 @@ name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
-
-[[package]]
-name = "plotters"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c224ba00d7cadd4d5c660deaf2098e5e80e07846537c51f9cfa4be50c1fd45"
-dependencies = [
- "num-traits 0.2.18",
- "plotters-backend",
- "plotters-svg",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "plotters-backend"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e76628b4d3a7581389a35d5b6e2139607ad7c75b17aed325f210aa91f4a9609"
-
-[[package]]
-name = "plotters-svg"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38f6d39893cca0701371e3c27294f09797214b86f1fb951b89ade8ec04e2abab"
-dependencies = [
- "plotters-backend",
-]
 
 [[package]]
 name = "polling"
@@ -6817,16 +6561,6 @@ dependencies = [
 
 [[package]]
 name = "sanitize-filename"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08c502bdb638f1396509467cb0580ef3b29aa2a45c5d43e5d84928241280296c"
-dependencies = [
- "lazy_static 1.4.0",
- "regex",
-]
-
-[[package]]
-name = "sanitize-filename"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ed72fbaf78e6f2d41744923916966c4fbe3d7c74e3037a8ee482f1115572603"
@@ -6990,16 +6724,6 @@ version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b8497c313fd43ab992087548117643f6fcd935cbf36f176ffda0aacf9591734"
 dependencies = [
- "serde 1.0.197",
-]
-
-[[package]]
-name = "serde_cbor"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
-dependencies = [
- "half 1.8.3",
  "serde 1.0.197",
 ]
 
@@ -7974,18 +7698,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-llm"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "bytesize",
- "llm",
- "spin-app",
- "spin-core",
- "spin-world",
-]
-
-[[package]]
 name = "spin-llm-local"
 version = "2.8.0-pre0"
 dependencies = [
@@ -8114,7 +7826,6 @@ dependencies = [
  "spin-loader",
  "spin-locked-app",
  "spin-manifest",
- "spin-testing",
  "tempfile",
  "tokio",
  "tokio-util 0.7.10",
@@ -8291,124 +8002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-testing"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "http 1.1.0",
- "hyper 1.4.1",
- "serde 1.0.197",
- "serde_json",
- "spin-app",
- "spin-componentize",
- "spin-core",
- "spin-http",
- "spin-trigger",
- "tokio",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "spin-trigger"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap 3.2.25",
- "ctrlc",
- "dirs 4.0.0",
- "futures",
- "http 1.1.0",
- "indexmap 1.9.3",
- "ipnet",
- "outbound-http",
- "outbound-mqtt",
- "outbound-mysql",
- "outbound-pg",
- "outbound-redis",
- "rustls-pemfile 2.1.2",
- "rustls-pki-types",
- "sanitize-filename 0.4.0",
- "serde 1.0.197",
- "serde_json",
- "spin-app",
- "spin-common",
- "spin-componentize",
- "spin-core",
- "spin-expressions",
- "spin-key-value",
- "spin-key-value-azure",
- "spin-key-value-redis",
- "spin-key-value-sqlite",
- "spin-llm",
- "spin-llm-local",
- "spin-llm-remote-http",
- "spin-loader",
- "spin-manifest",
- "spin-outbound-networking",
- "spin-serde",
- "spin-sqlite",
- "spin-sqlite-inproc",
- "spin-sqlite-libsql",
- "spin-telemetry",
- "spin-variables",
- "spin-world",
- "tempfile",
- "terminal",
- "tokio",
- "toml 0.5.11",
- "tracing",
- "url",
- "wasmtime",
- "wasmtime-wasi",
- "wasmtime-wasi-http",
-]
-
-[[package]]
-name = "spin-trigger-http"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap 3.2.25",
- "criterion",
- "futures",
- "futures-util",
- "http 1.1.0",
- "http-body-util",
- "hyper 1.4.1",
- "hyper-util",
- "indexmap 1.9.3",
- "num_cpus",
- "outbound-http",
- "percent-encoding",
- "rustls 0.22.4",
- "rustls-pemfile 2.1.2",
- "rustls-pki-types",
- "serde 1.0.197",
- "serde_json",
- "spin-app",
- "spin-core",
- "spin-http",
- "spin-outbound-networking",
- "spin-telemetry",
- "spin-testing",
- "spin-trigger",
- "spin-world",
- "terminal",
- "tls-listener",
- "tokio",
- "tokio-rustls 0.25.0",
- "tracing",
- "url",
- "wasi-common",
- "wasmtime",
- "wasmtime-wasi",
- "wasmtime-wasi-http",
- "webpki-roots 0.26.1",
-]
-
-[[package]]
 name = "spin-trigger-http2"
 version = "2.8.0-pre0"
 dependencies = [
@@ -8450,27 +8043,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-trigger-redis"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "redis 0.21.7",
- "serde 1.0.197",
- "spin-app",
- "spin-common",
- "spin-core",
- "spin-expressions",
- "spin-telemetry",
- "spin-testing",
- "spin-trigger",
- "spin-world",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "spin-trigger2"
 version = "2.8.0-pre0"
 dependencies = [
@@ -8478,7 +8050,7 @@ dependencies = [
  "clap 3.2.25",
  "ctrlc",
  "futures",
- "sanitize-filename 0.5.0",
+ "sanitize-filename",
  "serde 1.0.197",
  "serde_json",
  "spin-app",
@@ -8503,29 +8075,6 @@ dependencies = [
  "terminal",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "spin-variables"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "azure_core",
- "azure_identity",
- "azure_security_keyvault",
- "dotenvy",
- "once_cell",
- "serde 1.0.197",
- "spin-app",
- "spin-core",
- "spin-expressions",
- "spin-world",
- "thiserror",
- "tokio",
- "toml 0.5.11",
- "tracing",
- "vaultrs",
 ]
 
 [[package]]
@@ -8887,15 +8436,6 @@ dependencies = [
 
 [[package]]
 name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
-name = "textwrap"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23d434d3f8967a09480fb04132ebe0a3e088c173e6d0ee7897abbdf4eab0f8b9"
@@ -8980,16 +8520,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7af24570664a3074673dbbf69a65bdae0ae0b72f2949b1adfbacb736ee4d6896"
 dependencies = [
  "lazy_static 0.2.11",
-]
-
-[[package]]
-name = "tinytemplate"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4d6b5f19ff7664e8c98d03e2139cb510db9b0a60b55f8e8709b689d939b6bc"
-dependencies = [
- "serde 1.0.197",
- "serde_json",
 ]
 
 [[package]]
@@ -9897,33 +9427,6 @@ name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
-
-[[package]]
-name = "wasi-common"
-version = "22.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86fd41e1e26ff6af9451c6a332a5ce5f5283ca51e87d875cdd9a05305598ee3"
-dependencies = [
- "anyhow",
- "bitflags 2.5.0",
- "cap-fs-ext",
- "cap-rand",
- "cap-std 3.0.0",
- "cap-time-ext",
- "fs-set-times",
- "io-extras",
- "io-lifetimes 2.0.3",
- "log",
- "once_cell",
- "rustix 0.38.32",
- "system-interface",
- "thiserror",
- "tokio",
- "tracing",
- "wasmtime",
- "wiggle",
- "windows-sys 0.52.0",
-]
 
 [[package]]
 name = "wasite"

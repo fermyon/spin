@@ -5,7 +5,7 @@ use futures::{StreamExt, TryFutureExt};
 use redis::{Client, Msg};
 use serde::Deserialize;
 use spin_factor_variables::VariablesFactor;
-use spin_trigger2::{cli::NoCliArgs, App, Trigger, TriggerApp};
+use spin_trigger::{cli::NoCliArgs, App, Trigger, TriggerApp};
 use spin_world::exports::fermyon::spin::inbound_redis;
 use tracing::{instrument, Level};
 
@@ -41,7 +41,7 @@ impl Trigger for RedisTrigger {
         Ok(Self)
     }
 
-    async fn run(self, trigger_app: spin_trigger2::TriggerApp<Self>) -> anyhow::Result<()> {
+    async fn run(self, trigger_app: spin_trigger::TriggerApp<Self>) -> anyhow::Result<()> {
         let app_variables = trigger_app
             .configured_app()
             .app_state::<VariablesFactor>()

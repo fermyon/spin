@@ -3,8 +3,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context as _;
-use spin_trigger2::cli::{TriggerAppBuilder, TriggerAppOptions};
-use spin_trigger_http2::{HttpServer, HttpTrigger};
+use spin_trigger::cli::{TriggerAppBuilder, TriggerAppOptions};
+use spin_trigger_http::{HttpServer, HttpTrigger};
 use test_environment::{
     http::{Request, Response},
     services::ServicesConfig,

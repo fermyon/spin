@@ -15,9 +15,9 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_trigger2::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger2::cli::FactorsTriggerCommand;
-use spin_trigger_http2::HttpTrigger;
+use spin_trigger::cli::help::HelpArgsOnlyTrigger;
+use spin_trigger::cli::FactorsTriggerCommand;
+use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
 
 #[tokio::main]

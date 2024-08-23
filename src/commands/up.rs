@@ -15,7 +15,7 @@ use spin_app::locked::LockedApp;
 use spin_common::ui::quoted_path;
 use spin_loader::FilesMountStrategy;
 use spin_oci::OciLoader;
-use spin_trigger2::cli::{LaunchMetadata, SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
+use spin_trigger::cli::{LaunchMetadata, SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;

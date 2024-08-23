@@ -1,14 +1,15 @@
+pub mod cli;
+mod factors;
+mod stdio;
+
 use std::future::Future;
 
 use clap::Args;
 use factors::{TriggerFactors, TriggerFactorsInstanceState};
-use spin_app::App;
 use spin_core::Linker;
 use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
-pub mod cli;
-mod factors;
-mod stdio;
+pub use spin_app::App;
 
 /// Type alias for a [`FactorsConfiguredApp`] specialized to a [`Trigger`].
 pub type TriggerApp<T> = FactorsExecutorApp<TriggerFactors, <T as Trigger>::InstanceState>;
@@ -54,7 +55,7 @@ pub trait Trigger: Sized + Send {
     /// Run this trigger.
     fn run(
         self,
-        configured_app: TriggerApp<Self>,
+        trigger_app: TriggerApp<Self>,
     ) -> impl Future<Output = anyhow::Result<()>> + Send;
 
     /// Returns a list of host requirements supported by this trigger specifically.

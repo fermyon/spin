@@ -1,0 +1,24 @@
+[package]
+name = "spin-trigger-redis"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+serde = "1.0.188"
+spin-factor-variables = { path = "../factor-variables" }
+spin-telemetry = { path = "../telemetry" }
+spin-trigger2 = { path = "../trigger2" }
+spin-world = { path = "../world" }
+redis = { version = "0.26.1", features = ["tokio-comp"] }
+tracing = { workspace = true }
+tokio = { version = "1.39.3", features = ["macros", "rt"] }
+
+[lints]
+workspace = true

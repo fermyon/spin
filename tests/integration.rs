@@ -341,8 +341,13 @@ mod integration_tests {
                 app_type: SpinAppType::None,
             },
             ServicesConfig::none(),
-            |_| Ok(()),
+            |env| {
+                // Since this test asserts exact stderr output, disable logging
+                env.set_env_var("RUST_LOG", "off");
+                Ok(())
+            },
         )?;
+
         let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
 
 Caused by:

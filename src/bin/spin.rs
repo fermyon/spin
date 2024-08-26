@@ -73,7 +73,10 @@ async fn _main() -> anyhow::Result<()> {
         }
     }
 
-    SpinApp::from_arg_matches(&matches)?.run(cmd).await
+    SpinApp::from_arg_matches(&matches)?
+        .run(cmd)
+        .await
+        .inspect_err(|err| tracing::debug!(?err))
 }
 
 fn print_error_chain(err: anyhow::Error) {

@@ -175,7 +175,7 @@ impl HostConfig {
             HostConfig::List(l) => l.iter().any(|h| h.as_str() == host),
             HostConfig::ToSelf => false,
             HostConfig::Cidr(c) => {
-                let Ok(ip) = host.parse::<ipnet::IpNet>() else {
+                let Ok(ip) = host.parse::<std::net::IpAddr>() else {
                     return false;
                 };
                 c.contains(&ip)
@@ -775,5 +775,12 @@ mod test {
         assert!(allowed
             .allows(&OutboundUrl::parse("mysql://user%3Apass%23word@xyz.com", "mysql").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("user%3Apass%23word@xyz.com", "mysql").unwrap()));
+    }
+
+    #[test]
+    fn test_cidr() {
+        let allowed =
+            AllowedHostsConfig::parse(&["*://127.0.0.1/24:63551"], &dummy_resolver()).unwrap();
+        assert!(allowed.allows(&OutboundUrl::parse("tcp://127.0.0.1:63551", "tcp").unwrap()));
     }
 }

@@ -155,6 +155,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         // Required env vars
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
+        let local_app_dir = std::env::var(SPIN_LOCAL_APP_DIR).ok();
 
         let follow_components = self.follow_components();
 
@@ -192,6 +193,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
                 TriggerAppOptions {
                     runtime_config_file: self.runtime_config_file.as_deref(),
                     state_dir: self.state_dir.as_deref(),
+                    local_app_dir: local_app_dir.as_deref(),
                     initial_key_values: self.key_values,
                     allow_transient_write: self.allow_transient_write,
                     follow_components,
@@ -268,6 +270,8 @@ pub struct TriggerAppOptions<'a> {
     runtime_config_file: Option<&'a Path>,
     /// Path to the state directory.
     state_dir: Option<&'a str>,
+    /// Path to the local app directory.
+    local_app_dir: Option<&'a str>,
     /// Initial key/value pairs to set in the app's default store.
     initial_key_values: Vec<(String, String)>,
     /// Whether to allow transient writes to mounted files
@@ -306,12 +310,17 @@ impl<T: Trigger> TriggerAppBuilder<T> {
 
         // Hardcode `use_gpu` to true for now
         let use_gpu = true;
-        // Make sure `--state-dir=""` unsets the state dir
-        let state_dir = options.state_dir.filter(|s| !s.is_empty()).map(Path::new);
+        let state_dir = match options.state_dir {
+            // Make sure `--state-dir=""` unsets the state dir
+            Some(s) if s.is_empty() => None,
+            Some(s) => Some(PathBuf::from(s)),
+            // Default to `.spin/` in the local app dir
+            None => options.local_app_dir.map(|d| Path::new(d).join(".spin")),
+        };
         let runtime_config =
             ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
                 options.runtime_config_file,
-                state_dir,
+                state_dir.as_deref(),
                 use_gpu,
             )?;
 

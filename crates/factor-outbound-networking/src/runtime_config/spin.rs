@@ -37,9 +37,9 @@ impl SpinTlsRuntimeConfig {
     /// client_cert_file = "path/to/client.crt"
     /// client_private_key_file = "path/to/client.key"
     /// ```
-    pub fn config_from_table<T: GetTomlValue>(
+    pub fn config_from_table(
         &self,
-        table: &T,
+        table: &impl GetTomlValue,
     ) -> anyhow::Result<Option<super::RuntimeConfig>> {
         let Some(tls_configs) = self.tls_configs_from_table(table)? else {
             return Ok(None);

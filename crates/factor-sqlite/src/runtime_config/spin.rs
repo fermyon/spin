@@ -49,9 +49,9 @@ impl RuntimeConfigResolver {
     /// type = "$database-type"
     /// ... extra type specific configuration ...
     /// ```
-    pub fn resolve_from_toml<T: GetTomlValue>(
+    pub fn resolve_from_toml(
         &self,
-        table: &T,
+        table: &impl GetTomlValue,
     ) -> anyhow::Result<Option<super::RuntimeConfig>> {
         let Some(table) = table.get("sqlite_database") else {
             return Ok(None);

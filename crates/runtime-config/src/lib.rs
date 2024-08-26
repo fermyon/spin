@@ -189,12 +189,6 @@ impl<'a> TomlResolver<'a> {
     }
 }
 
-impl AsRef<toml::Table> for TomlResolver<'_> {
-    fn as_ref(&self) -> &toml::Table {
-        self.table.as_ref()
-    }
-}
-
 /// The TOML based runtime configuration source Spin CLI.
 pub struct TomlRuntimeConfigSource<'a, 'b> {
     toml: TomlResolver<'b>,
@@ -226,7 +220,7 @@ impl FactorRuntimeConfigSource<KeyValueFactor> for TomlRuntimeConfigSource<'_, '
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<spin_factor_key_value::RuntimeConfig>> {
-        self.key_value.resolve_from_toml(Some(self.toml.as_ref()))
+        self.key_value.resolve_from_toml(Some(&self.toml.table))
     }
 }
 
@@ -238,7 +232,7 @@ impl FactorRuntimeConfigSource<OutboundNetworkingFactor> for TomlRuntimeConfigSo
         let Some(tls) = self.tls else {
             return Ok(None);
         };
-        tls.config_from_table(self.toml.as_ref())
+        tls.config_from_table(&self.toml.table)
     }
 }
 
@@ -246,9 +240,7 @@ impl FactorRuntimeConfigSource<VariablesFactor> for TomlRuntimeConfigSource<'_, 
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<<VariablesFactor as spin_factors::Factor>::RuntimeConfig>> {
-        Ok(Some(variables::runtime_config_from_toml(
-            self.toml.as_ref(),
-        )?))
+        Ok(Some(variables::runtime_config_from_toml(&self.toml.table)?))
     }
 }
 
@@ -266,7 +258,7 @@ impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<
 
 impl FactorRuntimeConfigSource<LlmFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_llm::RuntimeConfig>> {
-        llm::runtime_config_from_toml(self.toml.as_ref(), self.toml.state_dir()?, self.use_gpu)
+        llm::runtime_config_from_toml(&self.toml.table, self.toml.state_dir()?, self.use_gpu)
     }
 }
 
@@ -296,7 +288,7 @@ impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'
 
 impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_sqlite::RuntimeConfig>> {
-        self.sqlite.resolve_from_toml(self.toml.as_ref())
+        self.sqlite.resolve_from_toml(&self.toml.table)
     }
 }
 

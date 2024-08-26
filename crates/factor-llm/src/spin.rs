@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use spin_factors::runtime_config::toml::GetTomlValue;
 use spin_llm_remote_http::RemoteHttpLlmEngine;
 use spin_world::async_trait;
 use spin_world::v1::llm::{self as v1};
@@ -80,7 +81,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
 }
 
 pub fn runtime_config_from_toml(
-    table: &toml::Table,
+    table: &impl GetTomlValue,
     state_dir: Option<PathBuf>,
     use_gpu: bool,
 ) -> anyhow::Result<Option<RuntimeConfig>> {

@@ -4,6 +4,7 @@ use crate::{DefaultLabelResolver, RuntimeConfig};
 use anyhow::Context as _;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use spin_factors::runtime_config::toml::GetTomlValue;
 use spin_key_value::StoreManager;
 use std::{collections::HashMap, sync::Arc};
 
@@ -100,7 +101,7 @@ impl RuntimeConfigResolver {
     /// Resolves a toml table into a runtime config.
     pub fn resolve_from_toml(
         &self,
-        table: Option<&toml::Table>,
+        table: Option<&impl GetTomlValue>,
     ) -> anyhow::Result<Option<RuntimeConfig>> {
         let Some(table) = table.and_then(|t| t.get("key_value_store")) else {
             return Ok(None);

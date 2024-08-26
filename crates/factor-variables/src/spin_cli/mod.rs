@@ -12,12 +12,12 @@ pub use vault::*;
 
 use serde::Deserialize;
 use spin_expressions::Provider;
-use spin_factors::anyhow;
+use spin_factors::{anyhow, runtime_config::toml::GetTomlValue};
 
 use crate::runtime_config::RuntimeConfig;
 
 /// Resolves a runtime configuration for the variables factor from a TOML table.
-pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeConfig> {
+pub fn runtime_config_from_toml(table: &impl GetTomlValue) -> anyhow::Result<RuntimeConfig> {
     // Always include the environment variable provider.
     let mut providers = vec![Box::<EnvVariablesProvider>::default() as _];
     let Some(array) = table.get("variable_provider") else {

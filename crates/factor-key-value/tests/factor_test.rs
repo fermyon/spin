@@ -4,7 +4,7 @@ use spin_factor_key_value::{
     KeyValueFactor, RuntimeConfig,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
-use spin_factor_key_value_spin::SpinKeyValueStore;
+use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factors::{FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
 use spin_world::v2::key_value::HostStore;
@@ -19,7 +19,8 @@ struct TestFactors {
 async fn default_key_value_works() -> anyhow::Result<()> {
     let mut test_resolver = RuntimeConfigResolver::new();
     test_resolver.register_store_type(SpinKeyValueStore::new(None))?;
-    test_resolver.add_default_store::<SpinKeyValueStore>("default", Default::default())?;
+    test_resolver
+        .add_default_store::<SpinKeyValueStore>("default", SpinKeyValueRuntimeConfig::new(None))?;
     let factors = TestFactors {
         key_value: KeyValueFactor::new(test_resolver),
     };

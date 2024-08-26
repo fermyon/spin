@@ -304,17 +304,16 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
+        // Hardcode `use_gpu` to true for now
         let use_gpu = true;
-        let runtime_config = match options.runtime_config_file {
-            Some(runtime_config_path) => {
-                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-                    runtime_config_path,
-                    options.state_dir,
-                    use_gpu,
-                )?
-            }
-            None => ResolvedRuntimeConfig::default(options.state_dir),
-        };
+        // Make sure `--state-dir=""` unsets the state dir
+        let state_dir = options.state_dir.filter(|s| !s.is_empty()).map(Path::new);
+        let runtime_config =
+            ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
+                options.runtime_config_file,
+                state_dir,
+                use_gpu,
+            )?;
 
         runtime_config
             .set_initial_key_values(&options.initial_key_values)

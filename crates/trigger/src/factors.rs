@@ -81,10 +81,10 @@ fn outbound_networking_factor() -> OutboundNetworkingFactor {
     factor
 }
 
-impl TryFrom<TomlRuntimeConfigSource<'_>> for TriggerFactorsRuntimeConfig {
+impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
     type Error = anyhow::Error;
 
-    fn try_from(value: TomlRuntimeConfigSource<'_>) -> Result<Self, Self::Error> {
+    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
         Self::from_source(value)
     }
 }

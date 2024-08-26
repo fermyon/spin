@@ -5,7 +5,7 @@ use http_body_util::BodyExt;
 use spin_app::App;
 use spin_factor_key_value::{runtime_config::spin::RuntimeConfigResolver, KeyValueFactor};
 use spin_factor_key_value_redis::RedisKeyValueStore;
-use spin_factor_key_value_spin::SpinKeyValueStore;
+use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
@@ -39,7 +39,8 @@ impl AsInstanceState<FactorsInstanceState> for Data {
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
     let mut key_value_resolver = RuntimeConfigResolver::default();
-    key_value_resolver.add_default_store::<SpinKeyValueStore>("default", Default::default())?;
+    key_value_resolver
+        .add_default_store::<SpinKeyValueStore>("default", SpinKeyValueRuntimeConfig::new(None))?;
     key_value_resolver.register_store_type(SpinKeyValueStore::new(Some(
         std::env::current_dir().context("failed to get current directory")?,
     )))?;

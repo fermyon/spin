@@ -598,7 +598,7 @@ dependencies = [
 [[package]]
 name = "azure_core"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "base64 0.22.0",
@@ -626,7 +626,7 @@ dependencies = [
 [[package]]
 name = "azure_data_cosmos"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "azure_core",
@@ -644,7 +644,7 @@ dependencies = [
 [[package]]
 name = "azure_identity"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-lock 3.3.0",
  "async-process 2.2.2",
@@ -664,7 +664,7 @@ dependencies = [
 [[package]]
 name = "azure_security_keyvault"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "azure_core",
@@ -7601,28 +7601,13 @@ name = "spin-factors"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "cargo-target-dep",
- "http 1.1.0",
- "http-body-util",
  "serde 1.0.197",
- "serde_json",
  "spin-app",
- "spin-componentize",
- "spin-factor-key-value",
- "spin-factor-key-value-redis",
- "spin-factor-key-value-spin",
- "spin-factor-outbound-http",
- "spin-factor-outbound-networking",
- "spin-factor-variables",
- "spin-factor-wasi",
  "spin-factors-derive",
- "spin-loader",
  "thiserror",
- "tokio",
  "toml 0.8.14",
  "tracing",
  "wasmtime",
- "wasmtime-wasi-http",
 ]
 
 [[package]]

@@ -30,7 +30,7 @@ impl RuntimeConfigResolver {
     /// This takes as arguments:
     /// * the directory to use as the default location for SQLite databases.
     ///   Usually this will be the path to the `.spin` state directory. If
-    ///  `None`, the default database will be in-memory.
+    ///   `None`, the default database will be in-memory.
     /// * the path to the directory from which relative paths to
     ///   local SQLite databases are resolved.  (this should most likely be the
     ///   path to the runtime-config file or the current working dir).

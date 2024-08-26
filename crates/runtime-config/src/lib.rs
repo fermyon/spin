@@ -339,8 +339,9 @@ pub fn key_value_config_resolver(
 
     key_value
 }
+
 /// The default filename for the SQLite database.
-const DEFAULT_SPIN_STORE_FILENAME: &'static str = "sqlite_key_value.db";
+const DEFAULT_SPIN_STORE_FILENAME: &str = "sqlite_key_value.db";
 
 /// The sqlite runtime configuration resolver.
 ///

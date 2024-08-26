@@ -312,7 +312,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         let use_gpu = true;
         let state_dir = match options.state_dir {
             // Make sure `--state-dir=""` unsets the state dir
-            Some(s) if s.is_empty() => None,
+            Some(s) if s.trim().is_empty() => None,
             Some(s) => Some(PathBuf::from(s)),
             // Default to `.spin/` in the local app dir
             None => options.local_app_dir.map(|d| Path::new(d).join(".spin")),

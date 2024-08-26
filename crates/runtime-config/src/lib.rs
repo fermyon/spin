@@ -118,6 +118,12 @@ where
         &self,
         initial_key_values: impl IntoIterator<Item = &(String, String)>,
     ) -> anyhow::Result<()> {
+        // We don't want to unnecessarily interact with the default store
+        let mut iter = initial_key_values.into_iter().peekable();
+        if iter.peek().is_none() {
+            return Ok(());
+        }
+
         let store = self
             .key_value_resolver
             .default(DEFAULT_KEY_VALUE_STORE_LABEL)
@@ -125,7 +131,7 @@ where
             .get(DEFAULT_KEY_VALUE_STORE_LABEL)
             .await
             .expect("trigger was misconfigured and lacks a default store");
-        for (key, value) in initial_key_values {
+        for (key, value) in iter {
             store
                 .set(key, value.as_bytes())
                 .await

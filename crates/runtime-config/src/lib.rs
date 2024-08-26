@@ -173,8 +173,7 @@ impl<'a> TomlResolver<'a> {
         // Prefer explicitly provided state directory, then take from toml.
         self.state_dir
             .or_else(from_toml)
-            .map(PathBuf::from)
-            .map(std::fs::canonicalize)
+            .map(std::path::absolute)
             .transpose()
     }
 

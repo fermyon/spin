@@ -616,14 +616,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-target-dep"
-version = "0.1.0"
-source = "git+https://github.com/fermyon/cargo-target-dep?rev=482f269eceb7b1a7e8fc618bf8c082dd24979cf1#482f269eceb7b1a7e8fc618bf8c082dd24979cf1"
-dependencies = [
- "glob",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4034,7 +4026,6 @@ name = "spin-factors"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "cargo-target-dep",
  "serde",
  "spin-app",
  "spin-factors-derive",

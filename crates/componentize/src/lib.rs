@@ -3,6 +3,7 @@
 use {
     anyhow::{anyhow, Context, Result},
     convert::{IntoEntityType, IntoExportKind},
+    module_info::ModuleInfo,
     std::{borrow::Cow, collections::HashSet},
     wasm_encoder::{CustomSection, ExportSection, ImportSection, Module, RawSection},
     wasmparser::{Encoding, Parser, Payload},
@@ -14,6 +15,7 @@ pub mod bugs;
 #[cfg(test)]
 mod abi_conformance;
 mod convert;
+mod module_info;
 
 const SPIN_ADAPTER: &[u8] = include_bytes!(concat!(
     env!("OUT_DIR"),
@@ -51,8 +53,9 @@ pub fn componentize_if_necessary(module_or_component: &[u8]) -> Result<Cow<[u8]>
 }
 
 pub fn componentize(module: &[u8]) -> Result<Vec<u8>> {
-    match WitBindgenVersion::from_module(module)? {
-        WitBindgenVersion::V0_2 => componentize_old_bindgen(module),
+    let module_info = ModuleInfo::from_module(module)?;
+    match WitBindgenVersion::detect(&module_info)? {
+        WitBindgenVersion::V0_2OrNone => componentize_old_module(module, &module_info),
         WitBindgenVersion::GreaterThanV0_4 => componentize_new_bindgen(module),
         WitBindgenVersion::Other(other) => Err(anyhow::anyhow!(
             "cannot adapt modules created with wit-bindgen version {other}"
@@ -65,40 +68,36 @@ pub fn componentize(module: &[u8]) -> Result<Vec<u8>> {
 #[derive(Debug)]
 enum WitBindgenVersion {
     GreaterThanV0_4,
-    V0_2,
+    V0_2OrNone,
     Other(String),
 }
 
 impl WitBindgenVersion {
-    fn from_module(module: &[u8]) -> Result<Self> {
-        let (_, bindgen) = metadata::decode(module)?;
-        if let Some(producers) = bindgen.producers {
-            if let Some(processors) = producers.get("processed-by") {
-                let bindgen_version = processors.iter().find_map(|(key, value)| {
-                    key.starts_with("wit-bindgen").then_some(value.as_str())
-                });
-                if let Some(v) = bindgen_version {
-                    let mut parts = v.split('.');
-                    let Some(major) = parts.next().and_then(|p| p.parse::<u8>().ok()) else {
-                        return Ok(Self::Other(v.to_owned()));
-                    };
-                    let Some(minor) = parts.next().and_then(|p| p.parse::<u8>().ok()) else {
-                        return Ok(Self::Other(v.to_owned()));
-                    };
-                    if (major == 0 && minor < 5) || major >= 1 {
-                        return Ok(Self::Other(v.to_owned()));
-                    }
-                    // Either there should be no patch version or nothing after patch
-                    if parts.next().is_none() || parts.next().is_none() {
-                        return Ok(Self::GreaterThanV0_4);
-                    } else {
-                        return Ok(Self::Other(v.to_owned()));
-                    }
+    fn detect(module_info: &ModuleInfo) -> Result<Self> {
+        if let Some(processors) = module_info.bindgen_processors() {
+            let bindgen_version = processors
+                .iter()
+                .find_map(|(key, value)| key.starts_with("wit-bindgen").then_some(value.as_str()));
+            if let Some(v) = bindgen_version {
+                let mut parts = v.split('.');
+                let Some(major) = parts.next().and_then(|p| p.parse::<u8>().ok()) else {
+                    return Ok(Self::Other(v.to_owned()));
+                };
+                let Some(minor) = parts.next().and_then(|p| p.parse::<u8>().ok()) else {
+                    return Ok(Self::Other(v.to_owned()));
+                };
+                if (major == 0 && minor < 5) || major >= 1 {
+                    return Ok(Self::Other(v.to_owned()));
+                }
+                // Either there should be no patch version or nothing after patch
+                if parts.next().is_none() || parts.next().is_none() {
+                    return Ok(Self::GreaterThanV0_4);
+                } else {
+                    return Ok(Self::Other(v.to_owned()));
                 }
             }
         }
-
-        Ok(Self::V0_2)
+        Ok(Self::V0_2OrNone)
     }
 }
 
@@ -109,6 +108,18 @@ pub fn componentize_new_bindgen(module: &[u8]) -> Result<Vec<u8>> {
         .module(module)?
         .adapter("wasi_snapshot_preview1", PREVIEW1_ADAPTER)?
         .encode()
+}
+
+/// Modules *not* produced with wit-bindgen >= 0.5 could be old wit-bindgen or no wit-bindgen
+pub fn componentize_old_module(module: &[u8], module_info: &ModuleInfo) -> Result<Vec<u8>> {
+    // If the module has a _start export and doesn't obviously use wit-bindgen
+    // it is likely an old p1 command module.
+    if module_info.has_start_export && !module_info.probably_uses_wit_bindgen() {
+        bugs::WasiLibc377Bug::check(module_info)?;
+        componentize_command(module)
+    } else {
+        componentize_old_bindgen(module)
+    }
 }
 
 /// Modules produced with wit-bindgen 0.2 need more extensive adaption

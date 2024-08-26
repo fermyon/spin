@@ -357,9 +357,10 @@ impl<T: Trigger> TriggerAppBuilder<T> {
                         quoted_path(&path)
                     )
                 })?;
-                let component = spin_componentize::componentize_if_necessary(&bytes)?;
-                spin_core::Component::new(engine, component.as_ref())
-                    .with_context(|| format!("loading module {}", quoted_path(&path)))
+                let component = spin_componentize::componentize_if_necessary(&bytes)
+                    .with_context(|| format!("preparing wasm {}", quoted_path(&path)))?;
+                spin_core::Component::new(engine, component)
+                    .with_context(|| format!("compiling wasm {}", quoted_path(&path)))
             }
         }
 

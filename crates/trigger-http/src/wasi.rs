@@ -93,7 +93,8 @@ impl HttpExecutor for WasiHttpExecutor {
                         drop(exports);
                         Handler::Latest(Proxy::new(&mut store, &instance)?)
                     }
-                    HandlerType::Spin => panic!("should have used execute_spin instead"),
+                    HandlerType::Spin => unreachable!("should have used SpinHttpExecutor"),
+                    HandlerType::Wagi => unreachable!("should have used WagiExecutor instead"),
                 }
             };
 

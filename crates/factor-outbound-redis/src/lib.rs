@@ -8,13 +8,14 @@ use spin_factors::{
 };
 
 /// The [`Factor`] for `fermyon:spin/outbound-redis`.
+#[derive(Default)]
 pub struct OutboundRedisFactor {
     _priv: (),
 }
 
 impl OutboundRedisFactor {
     pub fn new() -> Self {
-        Self { _priv: () }
+        Self::default()
     }
 }
 

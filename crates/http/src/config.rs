@@ -63,7 +63,8 @@ pub enum HttpExecutorType {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct WagiTriggerConfig {
-    /// The name of the entrypoint.
+    /// The name of the entrypoint. (DEPRECATED)
+    #[serde(skip_serializing)]
     pub entrypoint: String,
 
     /// A string representation of the argv array.

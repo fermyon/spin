@@ -9,7 +9,7 @@ version = "1.0.0"
 [[trigger.http]]
 route = "/hello"
 component = "hello"
-executor = { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
+executor = { type = "wagi" }
 
 [[trigger.http]]
 route = "/goodbye"

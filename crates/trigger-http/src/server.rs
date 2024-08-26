@@ -98,10 +98,21 @@ impl HttpServer {
         let component_trigger_configs = HashMap::from_iter(component_trigger_configs);
 
         let component_handler_types = component_trigger_configs
-            .keys()
-            .map(|component_id| {
-                let component = trigger_app.get_component(component_id)?;
-                let handler_type = HandlerType::from_component(trigger_app.engine(), component)?;
+            .iter()
+            .map(|(component_id, trigger_config)| {
+                let handler_type = match &trigger_config.executor {
+                    None | Some(HttpExecutorType::Http) => {
+                        let component = trigger_app.get_component(component_id)?;
+                        HandlerType::from_component(trigger_app.engine(), component)?
+                    }
+                    Some(HttpExecutorType::Wagi(wagi_config)) => {
+                        anyhow::ensure!(
+                            wagi_config.entrypoint == "_start",
+                            "Wagi component '{component_id}' cannot use deprecated 'entrypoint' field"
+                        );
+                        HandlerType::Wagi
+                    }
+                };
                 Ok((component_id.clone(), handler_type))
             })
             .collect::<anyhow::Result<_>>()?;
@@ -253,6 +264,7 @@ impl HttpServer {
                     .execute(instance_builder, &route_match, req, client_addr)
                     .await
                 }
+                HandlerType::Wagi => unreachable!(),
             },
             HttpExecutorType::Wagi(wagi_config) => {
                 let executor = WagiHttpExecutor {
@@ -446,9 +458,10 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 }
 
 /// Whether this handler uses the custom Spin http handler interface for wasi-http
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 pub enum HandlerType {
     Spin,
+    Wagi,
     Wasi0_2,
     Wasi2023_11_10,
     Wasi2023_10_18,
@@ -490,8 +503,10 @@ impl HandlerType {
 
         handler_ty.ok_or_else(|| {
             anyhow::anyhow!(
-                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
-                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
+                "Expected component to export one of \
+                `{WASI_HTTP_EXPORT_2023_10_18}`, \
+                `{WASI_HTTP_EXPORT_2023_11_10}`, \
+                `{WASI_HTTP_EXPORT_0_2_0}`, \
                  or `fermyon:spin/inbound-http` but it exported none of those"
             )
         })

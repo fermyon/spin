@@ -1,9 +1,10 @@
 use anyhow::Error;
 use clap::Parser;
-use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger::cli::FactorsTriggerCommand;
+
 use trigger_timer::TimerTrigger;
 
-type Command = TriggerExecutorCommand<TimerTrigger>;
+type Command = FactorsTriggerCommand<TimerTrigger>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

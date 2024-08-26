@@ -2,18 +2,13 @@ use std::collections::HashMap;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
-use spin_app::MetadataKey;
-use spin_core::{async_trait, InstancePre};
-use spin_trigger::{TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{App, Trigger, TriggerApp};
 
 wasmtime::component::bindgen!({
     path: ".",
     world: "spin-timer",
     async: true
 });
-
-pub(crate) type RuntimeData = ();
-pub(crate) type _Store = spin_core::Store<RuntimeData>;
 
 #[derive(Args)]
 pub struct CliArgs {
@@ -24,7 +19,7 @@ pub struct CliArgs {
 
 // The trigger structure with all values processed and ready
 pub struct TimerTrigger {
-    engine: TriggerAppEngine<Self>,
+    test: bool,
     speedup: u64,
     component_timings: HashMap<String, u64>,
 }
@@ -50,45 +45,36 @@ pub struct TimerTriggerConfig {
     interval_secs: u64,
 }
 
-const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadataParent> = MetadataKey::new("triggers");
+impl Trigger for TimerTrigger {
+    const TYPE: &'static str = "timer";
 
-#[async_trait]
-impl TriggerExecutor for TimerTrigger {
-    const TRIGGER_TYPE: &'static str = "timer";
+    type CliArgs = CliArgs;
 
-    type RuntimeData = RuntimeData;
+    type InstanceState = ();
 
-    type TriggerConfig = TimerTriggerConfig;
+    fn new(cli_args: Self::CliArgs, app: &App) -> anyhow::Result<Self> {
+        let metadata = app
+            .get_trigger_metadata::<TriggerMetadata>(Self::TYPE)?
+            .unwrap_or_default();
+        let speedup = metadata.speedup.unwrap_or(1);
 
-    type RunConfig = CliArgs;
-
-    type InstancePre = InstancePre<RuntimeData>;
-
-    async fn new(engine: spin_trigger::TriggerAppEngine<Self>) -> anyhow::Result<Self> {
-        let speedup = engine
-            .app()
-            .require_metadata(TRIGGER_METADATA_KEY)?
-            .timer
-            .unwrap_or_default()
-            .speedup
-            .unwrap_or(1);
-
-        let component_timings = engine
-            .trigger_configs()
+        let component_timings = app
+            .trigger_configs::<TimerTriggerConfig>(Self::TYPE)?
+            .into_iter()
             .map(|(_, config)| (config.component.clone(), config.interval_secs))
             .collect();
 
         Ok(Self {
-            engine,
+            test: cli_args.test,
             speedup,
             component_timings,
         })
     }
 
-    async fn run(self, config: Self::RunConfig) -> anyhow::Result<()> {
-        if config.test {
+    async fn run(self, trigger_app: TriggerApp<Self>) -> anyhow::Result<()> {
+        if self.test {
             for component in self.component_timings.keys() {
-                self.handle_timer_event(component).await?;
+                self.handle_timer_event(&trigger_app, component).await?;
             }
         } else {
             // This trigger spawns threads, which Ctrl+C does not kill.  So
@@ -102,12 +88,16 @@ impl TriggerExecutor for TimerTrigger {
             let speedup = self.speedup;
             tokio_scoped::scope(|scope| {
                 // For each component, run its own timer loop
-                for (c, d) in &self.component_timings {
+                for (component_id, interval_secs) in &self.component_timings {
                     scope.spawn(async {
-                        let duration = tokio::time::Duration::from_millis(*d * 1000 / speedup);
+                        let duration =
+                            tokio::time::Duration::from_millis(*interval_secs * 1000 / speedup);
                         loop {
                             tokio::time::sleep(duration).await;
-                            self.handle_timer_event(c).await.unwrap();
+
+                            self.handle_timer_event(&trigger_app, component_id)
+                                .await
+                                .unwrap();
                         }
                     });
                 }
@@ -118,11 +108,14 @@ impl TriggerExecutor for TimerTrigger {
 }
 
 impl TimerTrigger {
-    async fn handle_timer_event(&self, component_id: &str) -> anyhow::Result<()> {
-        // Load the guest...
-        let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
-        let instance = SpinTimer::new(&mut store, &instance)?;
-        // ...and call the entry point
-        instance.call_handle_timer_request(&mut store).await
+    async fn handle_timer_event(
+        &self,
+        trigger_app: &TriggerApp<Self>,
+        component_id: &str,
+    ) -> anyhow::Result<()> {
+        let instance_builder = trigger_app.prepare(component_id)?;
+        let (instance, mut store) = instance_builder.instantiate(()).await?;
+        let timer = SpinTimer::new(&mut store, &instance)?;
+        timer.call_handle_timer_request(&mut store).await
     }
 }

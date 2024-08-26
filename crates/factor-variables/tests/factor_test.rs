@@ -31,7 +31,7 @@ async fn static_provider_works() -> anyhow::Result<()> {
         }))?;
 
     let mut state = env.build_instance_state().await?;
-    let val = state.variables.get("baz".try_into().unwrap()).await?;
+    let val = state.variables.get("baz".into()).await?;
     assert_eq!(val, "<bar>");
     Ok(())
 }

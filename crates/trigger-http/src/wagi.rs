@@ -1,6 +1,6 @@
 use std::{io::Cursor, net::SocketAddr};
 
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{ensure, Result};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
@@ -83,27 +83,18 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let (instance, mut store) = instance_builder.instantiate(()).await?;
 
-        let start = instance
-            .get_func(&mut store, &self.wagi_config.entrypoint)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No such function '{}' in {}",
-                    self.wagi_config.entrypoint,
-                    component
-                )
-            })?;
+        let command = wasmtime_wasi::bindings::Command::new(&mut store, &instance)?;
+
         tracing::trace!("Calling Wasm entry point");
-        start
-            .call_async(&mut store, &[], &mut [])
+        if let Err(()) = command
+            .wasi_cli_run()
+            .call_run(&mut store)
             .await
-            .or_else(ignore_successful_proc_exit_trap)
-            .with_context(|| {
-                anyhow!(
-                    "invoking {} for component {component}",
-                    self.wagi_config.entrypoint
-                )
-            })?;
-        tracing::info!("Module execution complete");
+            .or_else(ignore_successful_proc_exit_trap)?
+        {
+            tracing::error!("Wagi main function returned unsuccessful result");
+        }
+        tracing::info!("Wagi execution complete");
 
         // Drop the store so we're left with a unique reference to `stdout`:
         drop(store);
@@ -119,13 +110,13 @@ impl HttpExecutor for WagiHttpExecutor {
     }
 }
 
-fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<()> {
+fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<Result<(), ()>> {
     match guest_err
         .root_cause()
         .downcast_ref::<wasmtime_wasi::I32Exit>()
     {
         Some(trap) => match trap.0 {
-            0 => Ok(()),
+            0 => Ok(Ok(())),
             _ => Err(guest_err),
         },
         None => Err(guest_err),

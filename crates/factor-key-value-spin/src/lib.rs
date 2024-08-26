@@ -17,15 +17,49 @@ pub struct SpinKeyValueStore {
 impl SpinKeyValueStore {
     /// Create a new SpinKeyValueStore with the given base path.
     ///
-    /// If the database directory is None, the database will always be in-memory.
-    /// If it's `Some`, the database will be stored at the combined `base_path` and
-    /// the `path` specified in the runtime configuration.
+    /// If `base_path` is `Some`, the database will be stored at the combined
+    /// `base_path` and the `path` specified in the runtime configuration. Otherwise,
+    /// only if the `path` in the runtime config is an absolute path will it be used as is.
+    /// In all other cases, an in-memory database will be used.
     pub fn new(base_path: Option<PathBuf>) -> Self {
         Self { base_path }
     }
 }
 
-/// Runtime configuration for the SQLite key-value store.
+impl MakeKeyValueStore for SpinKeyValueStore {
+    const RUNTIME_CONFIG_TYPE: &'static str = "spin";
+
+    type RuntimeConfig = SpinKeyValueRuntimeConfig;
+
+    type StoreManager = KeyValueSqlite;
+
+    fn make_store(
+        &self,
+        runtime_config: Self::RuntimeConfig,
+    ) -> anyhow::Result<Self::StoreManager> {
+        let location = match (&self.base_path, &runtime_config.path) {
+            // If both the base path and the path are specified, resolve the path against the base path
+            (Some(base_path), Some(path)) => {
+                let path = resolve_relative_path(path, base_path);
+                DatabaseLocation::Path(path)
+            }
+            // If the base path is `None` but path is an absolute path, use the absolute path
+            (None, Some(path)) if path.is_absolute() => DatabaseLocation::Path(path.clone()),
+            // Otherwise, use an in-memory database
+            _ => DatabaseLocation::InMemory,
+        };
+        if let DatabaseLocation::Path(path) = &location {
+            // Create the store's parent directory if necessary
+            if let Some(parent) = path.parent().filter(|p| !p.exists()) {
+                fs::create_dir_all(parent)
+                    .context("Failed to create key value store's parent directory")?;
+            }
+        }
+        Ok(KeyValueSqlite::new(location))
+    }
+}
+
+/// The serialized runtime configuration for the SQLite key-value store.
 #[derive(Deserialize, Serialize)]
 pub struct SpinKeyValueRuntimeConfig {
     /// The path to the SQLite database file.
@@ -42,35 +76,6 @@ impl Default for SpinKeyValueRuntimeConfig {
         Self {
             path: Some(PathBuf::from(Self::DEFAULT_SPIN_STORE_FILENAME)),
         }
-    }
-}
-
-impl MakeKeyValueStore for SpinKeyValueStore {
-    const RUNTIME_CONFIG_TYPE: &'static str = "spin";
-
-    type RuntimeConfig = SpinKeyValueRuntimeConfig;
-
-    type StoreManager = KeyValueSqlite;
-
-    fn make_store(
-        &self,
-        runtime_config: Self::RuntimeConfig,
-    ) -> anyhow::Result<Self::StoreManager> {
-        // The base path and the subpath must both be set otherwise, we default to in-memory.
-        let location =
-            if let (Some(base_path), Some(path)) = (&self.base_path, &runtime_config.path) {
-                let path = resolve_relative_path(path, base_path);
-                // Create the store's parent directory if necessary
-                let parent = path.parent().unwrap();
-                if !parent.exists() {
-                    fs::create_dir_all(parent)
-                        .context("Failed to create key value store's parent directory")?;
-                }
-                DatabaseLocation::Path(path)
-            } else {
-                DatabaseLocation::InMemory
-            };
-        Ok(KeyValueSqlite::new(location))
     }
 }
 

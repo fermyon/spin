@@ -38,18 +38,25 @@ mod local {
 
 /// The default engine creator for the LLM factor when used in the Spin CLI.
 pub fn default_engine_creator(
-    state_dir: PathBuf,
+    state_dir: Option<PathBuf>,
     use_gpu: bool,
-) -> impl LlmEngineCreator + 'static {
+) -> anyhow::Result<impl LlmEngineCreator + 'static> {
     #[cfg(feature = "llm")]
-    let engine = spin_llm_local::LocalLlmEngine::new(state_dir.join("ai-models"), use_gpu);
+    let engine = {
+        use anyhow::Context as _;
+        let models_dir_parent = match state_dir {
+            Some(ref dir) => dir.clone(),
+            None => std::env::current_dir().context("failed to get current working directory")?,
+        };
+        spin_llm_local::LocalLlmEngine::new(models_dir_parent.join("ai-models"), use_gpu)
+    };
     #[cfg(not(feature = "llm"))]
     let engine = {
         let _ = (state_dir, use_gpu);
         noop::NoopLlmEngine
     };
     let engine = Arc::new(Mutex::new(engine)) as Arc<Mutex<dyn LlmEngine>>;
-    move || engine.clone()
+    Ok(move || engine.clone())
 }
 
 #[async_trait]
@@ -74,7 +81,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
 
 pub fn runtime_config_from_toml(
     table: &toml::Table,
-    state_dir: PathBuf,
+    state_dir: Option<PathBuf>,
     use_gpu: bool,
 ) -> anyhow::Result<Option<RuntimeConfig>> {
     let Some(value) = table.get("llm_compute") else {
@@ -95,7 +102,7 @@ pub enum LlmCompute {
 }
 
 impl LlmCompute {
-    fn into_engine(self, state_dir: PathBuf, use_gpu: bool) -> Arc<Mutex<dyn LlmEngine>> {
+    fn into_engine(self, state_dir: Option<PathBuf>, use_gpu: bool) -> Arc<Mutex<dyn LlmEngine>> {
         match self {
             #[cfg(not(feature = "llm"))]
             LlmCompute::Spin => {

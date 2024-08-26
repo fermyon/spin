@@ -13,6 +13,7 @@ impl GetTomlValue for toml::Table {
     }
 }
 
+#[derive(Debug, Clone)]
 /// A helper for tracking which keys have been used in a TOML table.
 pub struct TomlKeyTracker<'a> {
     unused_keys: RefCell<HashSet<&'a str>>,

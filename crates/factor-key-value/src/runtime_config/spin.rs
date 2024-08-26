@@ -28,11 +28,12 @@ type StoreFromToml =
 /// Creates a `StoreFromToml` function from a `MakeKeyValueStore` implementation.
 fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
     Arc::new(move |table| {
-        let runtime_config: T::RuntimeConfig =
-            table.try_into().context("could not parse runtime config")?;
+        let runtime_config: T::RuntimeConfig = table
+            .try_into()
+            .context("could not parse key-value runtime config")?;
         let provider = provider_type
             .make_store(runtime_config)
-            .context("could not make store")?;
+            .context("could not make key-value store from runtime config")?;
         Ok(Arc::new(provider))
     })
 }
@@ -62,8 +63,20 @@ impl RuntimeConfigResolver {
     ///
     /// Users must ensure that the store type for `config` has been registered with
     /// the resolver using [`Self::register_store_type`].
-    pub fn add_default_store(&mut self, label: &'static str, config: StoreConfig) {
-        self.defaults.insert(label, config);
+    pub fn add_default_store<T>(
+        &mut self,
+        label: &'static str,
+        config: T::RuntimeConfig,
+    ) -> anyhow::Result<()>
+    where
+        T: MakeKeyValueStore,
+        T::RuntimeConfig: Serialize,
+    {
+        self.defaults.insert(
+            label,
+            StoreConfig::new(T::RUNTIME_CONFIG_TYPE.to_owned(), config)?,
+        );
+        Ok(())
     }
 
     /// Registers a store type to the resolver.
@@ -96,7 +109,9 @@ impl RuntimeConfigResolver {
 
         let mut runtime_config = RuntimeConfig::default();
         for (label, config) in table {
-            let store_manager = self.store_manager_from_config(config)?;
+            let store_manager = self.store_manager_from_config(config).with_context(|| {
+                format!("could not configure key-value store with label '{label}'")
+            })?;
             runtime_config.add_store_manager(label.clone(), store_manager);
         }
         Ok(Some(runtime_config))
@@ -121,6 +136,8 @@ impl RuntimeConfigResolver {
 impl DefaultLabelResolver for RuntimeConfigResolver {
     fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
         let config = self.defaults.get(label)?;
+        // TODO(rylev): The unwrap here is not ideal. We should return a Result instead.
+        // Piping that through `DefaultLabelResolver` is a bit awkward, though.
         Some(self.store_manager_from_config(config.clone()).unwrap())
     }
 }

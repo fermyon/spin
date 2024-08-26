@@ -10,7 +10,7 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::{ResolvedRuntimeConfig, DEFAULT_STATE_DIR};
+use spin_runtime_config::ResolvedRuntimeConfig;
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -155,6 +155,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
         // Required env vars
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
+        let local_app_dir = std::env::var(SPIN_LOCAL_APP_DIR).ok();
 
         let follow_components = self.follow_components();
 
@@ -192,6 +193,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
                 TriggerAppOptions {
                     runtime_config_file: self.runtime_config_file.as_deref(),
                     state_dir: self.state_dir.as_deref(),
+                    local_app_dir: local_app_dir.as_deref(),
                     initial_key_values: self.key_values,
                     allow_transient_write: self.allow_transient_write,
                     follow_components,
@@ -268,6 +270,8 @@ pub struct TriggerAppOptions<'a> {
     runtime_config_file: Option<&'a Path>,
     /// Path to the state directory.
     state_dir: Option<&'a str>,
+    /// Path to the local app directory.
+    local_app_dir: Option<&'a str>,
     /// Initial key/value pairs to set in the app's default store.
     initial_key_values: Vec<(String, String)>,
     /// Whether to allow transient writes to mounted files
@@ -304,30 +308,35 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
+        // Hardcode `use_gpu` to true for now
         let use_gpu = true;
-        let runtime_config = match options.runtime_config_file {
-            Some(runtime_config_path) => {
-                ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-                    runtime_config_path,
-                    options.state_dir,
-                    use_gpu,
-                )?
-            }
-            None => ResolvedRuntimeConfig::default(options.state_dir),
+        let state_dir = match options.state_dir {
+            // Make sure `--state-dir=""` unsets the state dir
+            Some(s) if s.is_empty() => None,
+            Some(s) => Some(PathBuf::from(s)),
+            // Default to `.spin/` in the local app dir
+            None => options.local_app_dir.map(|d| Path::new(d).join(".spin")),
         };
+        let runtime_config =
+            ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
+                options.runtime_config_file,
+                state_dir.as_deref(),
+                use_gpu,
+            )?;
 
         runtime_config
             .set_initial_key_values(&options.initial_key_values)
             .await?;
 
         let factors = TriggerFactors::new(
-            options.state_dir.unwrap_or(DEFAULT_STATE_DIR),
+            runtime_config.state_dir(),
             self.working_dir.clone(),
             options.allow_transient_write,
             runtime_config.key_value_resolver,
             runtime_config.sqlite_resolver,
             use_gpu,
-        );
+        )
+        .context("failed to create factors")?;
 
         // TODO: move these into Factor methods/constructors
         // let init_data = crate::HostComponentInitData::new(

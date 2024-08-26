@@ -10,6 +10,7 @@ use std::{
 use tokio::task;
 use tracing::{instrument, Level};
 
+#[derive(Clone, Debug)]
 pub enum DatabaseLocation {
     InMemory,
     Path(PathBuf),

@@ -59,6 +59,7 @@ impl SpinCli {
         let port = get_random_port()?;
         let mut spin_cmd = Command::new(spin_config.binary_path);
         let child = spin_cmd
+            .envs(env.env_vars())
             .arg("up")
             .current_dir(env.path())
             .args(["--listen", &format!("127.0.0.1:{port}")])
@@ -117,6 +118,7 @@ impl SpinCli {
         env: &mut TestEnvironment<R>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_config.binary_path)
+            .envs(env.env_vars())
             .arg("up")
             .current_dir(env.path())
             .args(spin_config.spin_up_args)
@@ -149,6 +151,7 @@ impl SpinCli {
         env: &mut TestEnvironment<R>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_config.binary_path)
+            .envs(env.env_vars())
             .arg("up")
             .current_dir(env.path())
             .args(spin_config.spin_up_args)

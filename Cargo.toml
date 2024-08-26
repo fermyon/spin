@@ -12,7 +12,7 @@ edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
 homepage = "https://developer.fermyon.com/spin"
 repository = "https://github.com/fermyon/spin"
-rust-version = "1.76"
+rust-version = "1.79"
 
 [dependencies]
 anyhow = { workspace = true }

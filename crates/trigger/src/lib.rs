@@ -53,10 +53,7 @@ pub trait Trigger: Sized + Send {
     }
 
     /// Run this trigger.
-    fn run(
-        self,
-        trigger_app: TriggerApp<Self>,
-    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn run(self, trigger_app: TriggerApp<Self>) -> impl Future<Output = anyhow::Result<()>> + Send;
 
     /// Returns a list of host requirements supported by this trigger specifically.
     ///

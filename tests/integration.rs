@@ -422,11 +422,7 @@ Caused by:
                     )
                 };
                 ensure_success("/hello", 200, "I'm a teapot")?;
-                ensure_success(
-                    "/hello/wildcards/should/be/handled",
-                    200,
-                    "I'm a teapot",
-                )?;
+                ensure_success("/hello/wildcards/should/be/handled", 200, "I'm a teapot")?;
                 ensure_success("/thisshouldfail", 404, "")?;
                 ensure_success("/hello/test-placement", 200, "text for test")?;
                 Ok(())

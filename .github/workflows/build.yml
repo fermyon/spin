@@ -7,7 +7,7 @@ on:
     # Also run on tag pushes, as the release.yml doesn't currently run tests
     tags: ["v*"]
   pull_request:
-    branches: ["main", "v*"]
+    branches: ["main", "v*", "factors"]
     paths-ignore:
       - "docs/**"
       - "*.md"

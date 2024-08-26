@@ -10,7 +10,7 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::{ResolvedRuntimeConfig, DEFAULT_STATE_DIR};
+use spin_runtime_config::ResolvedRuntimeConfig;
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -321,13 +321,14 @@ impl<T: Trigger> TriggerAppBuilder<T> {
             .await?;
 
         let factors = TriggerFactors::new(
-            options.state_dir.unwrap_or(DEFAULT_STATE_DIR),
+            runtime_config.state_dir(),
             self.working_dir.clone(),
             options.allow_transient_write,
             runtime_config.key_value_resolver,
             runtime_config.sqlite_resolver,
             use_gpu,
-        );
+        )
+        .context("failed to create factors")?;
 
         // TODO: move these into Factor methods/constructors
         // let init_data = crate::HostComponentInitData::new(

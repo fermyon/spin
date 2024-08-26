@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use spin_factor_key_value::KeyValueFactor;
 use spin_factor_llm::LlmFactor;
 use spin_factor_outbound_http::OutboundHttpFactor;
@@ -31,14 +32,14 @@ pub struct TriggerFactors {
 
 impl TriggerFactors {
     pub fn new(
-        state_dir: impl Into<PathBuf>,
+        state_dir: Option<PathBuf>,
         working_dir: impl Into<PathBuf>,
         allow_transient_writes: bool,
         default_key_value_label_resolver: impl spin_factor_key_value::DefaultLabelResolver + 'static,
         default_sqlite_label_resolver: impl spin_factor_sqlite::DefaultLabelResolver + 'static,
         use_gpu: bool,
-    ) -> Self {
-        Self {
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
             wasi: wasi_factor(working_dir, allow_transient_writes),
             variables: VariablesFactor::default(),
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
@@ -49,11 +50,11 @@ impl TriggerFactors {
             mqtt: OutboundMqttFactor::new(NetworkedMqttClient::creator()),
             pg: OutboundPgFactor::new(),
             mysql: OutboundMysqlFactor::new(),
-            llm: LlmFactor::new(spin_factor_llm::spin::default_engine_creator(
-                state_dir.into(),
-                use_gpu,
-            )),
-        }
+            llm: LlmFactor::new(
+                spin_factor_llm::spin::default_engine_creator(state_dir, use_gpu)
+                    .context("failed to configure LLM factor")?,
+            ),
+        })
     }
 }
 

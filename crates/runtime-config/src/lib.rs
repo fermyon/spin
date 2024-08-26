@@ -16,6 +16,7 @@ use spin_factor_sqlite::runtime_config::spin as sqlite;
 use spin_factor_sqlite::SqliteFactor;
 use spin_factor_variables::{spin_cli as variables, VariablesFactor};
 use spin_factor_wasi::WasiFactor;
+use spin_factors::runtime_config::toml::GetTomlValue as _;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
@@ -33,6 +34,10 @@ pub struct ResolvedRuntimeConfig<T> {
     pub key_value_resolver: key_value::RuntimeConfigResolver,
     /// The resolver used to resolve sqlite databases from runtime configuration.
     pub sqlite_resolver: sqlite::RuntimeConfigResolver,
+    /// The fully resolved state directory.
+    ///
+    /// `None` is used for an "unset" state directory which each factor will treat differently.
+    pub state_dir: Option<PathBuf>,
 }
 
 impl<T> ResolvedRuntimeConfig<T>
@@ -41,6 +46,9 @@ where
     for<'a> <T as TryFrom<TomlRuntimeConfigSource<'a>>>::Error: Into<anyhow::Error>,
 {
     /// Creates a new resolved runtime configuration from a runtime config source TOML file.
+    ///
+    /// `state_dir` is the explicitly provided state directory, if any. Some("") will be treated as
+    /// as `None`.
     pub fn from_file(
         runtime_config_path: &Path,
         state_dir: Option<&str>,
@@ -64,21 +72,22 @@ where
                 runtime_config_path.display()
             )
         })?;
-        let runtime_config: T = TomlRuntimeConfigSource::new(
+        let source = TomlRuntimeConfigSource::new(
             &toml,
-            state_dir.unwrap_or(DEFAULT_STATE_DIR).into(),
+            state_dir,
             &key_value_config_resolver,
             &tls_resolver,
             &sqlite_config_resolver,
             use_gpu,
-        )
-        .try_into()
-        .map_err(Into::into)?;
+        );
+        let state_dir = source.state_dir();
+        let runtime_config: T = source.try_into().map_err(Into::into)?;
 
         Ok(Self {
             runtime_config,
             key_value_resolver: key_value_config_resolver,
             sqlite_resolver: sqlite_config_resolver,
+            state_dir,
         })
     }
 
@@ -102,16 +111,23 @@ where
         }
         Ok(())
     }
+
+    /// The fully resolved state directory.
+    pub fn state_dir(&self) -> Option<PathBuf> {
+        self.state_dir.clone()
+    }
 }
 
 impl<T: Default> ResolvedRuntimeConfig<T> {
+    /// Creates a new resolved runtime configuration with default values.
     pub fn default(state_dir: Option<&str>) -> Self {
         let state_dir = state_dir.map(PathBuf::from);
         Self {
             sqlite_resolver: sqlite_config_resolver(state_dir.clone())
                 .expect("failed to resolve sqlite runtime config"),
-            key_value_resolver: key_value_config_resolver(state_dir),
+            key_value_resolver: key_value_config_resolver(state_dir.clone()),
             runtime_config: Default::default(),
+            state_dir,
         }
     }
 }
@@ -119,7 +135,8 @@ impl<T: Default> ResolvedRuntimeConfig<T> {
 /// The TOML based runtime configuration source Spin CLI.
 pub struct TomlRuntimeConfigSource<'a> {
     table: TomlKeyTracker<'a>,
-    state_dir: PathBuf,
+    /// Explicitly provided state directory.
+    state_dir: Option<&'a str>,
     key_value: &'a key_value::RuntimeConfigResolver,
     tls: &'a SpinTlsRuntimeConfig,
     sqlite: &'a sqlite::RuntimeConfigResolver,
@@ -129,7 +146,7 @@ pub struct TomlRuntimeConfigSource<'a> {
 impl<'a> TomlRuntimeConfigSource<'a> {
     pub fn new(
         table: &'a toml::Table,
-        state_dir: PathBuf,
+        state_dir: Option<&'a str>,
         key_value: &'a key_value::RuntimeConfigResolver,
         tls: &'a SpinTlsRuntimeConfig,
         sqlite: &'a sqlite::RuntimeConfigResolver,
@@ -143,6 +160,17 @@ impl<'a> TomlRuntimeConfigSource<'a> {
             sqlite,
             use_gpu,
         }
+    }
+
+    /// Get the configured state_directory.
+    pub fn state_dir(&self) -> Option<PathBuf> {
+        let from_toml = || self.table.get("state_dir").and_then(|v| v.as_str());
+        // Prefer explicitly provided state directory, then take from toml.
+        self.state_dir
+            .or_else(from_toml)
+            // Treat "" as None.
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
     }
 }
 
@@ -187,7 +215,7 @@ impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<
 
 impl FactorRuntimeConfigSource<LlmFactor> for TomlRuntimeConfigSource<'_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_llm::RuntimeConfig>> {
-        llm::runtime_config_from_toml(self.table.as_ref(), self.state_dir.clone(), self.use_gpu)
+        llm::runtime_config_from_toml(self.table.as_ref(), self.state_dir(), self.use_gpu)
     }
 }
 

@@ -75,15 +75,10 @@ impl ModuleInfo {
     /// Returns true if the given module was heuristically probably compiled
     /// with wit-bindgen.
     pub fn probably_uses_wit_bindgen(&self) -> bool {
-        if self.bindgen.is_some() {
-            // Presence of bindgen metadata is a strong signal
-            true
-        } else if self.realloc_export.is_some() {
+        // Presence of bindgen metadata is a strong signal
+        self.bindgen.is_some() ||
             // A canonical ABI realloc export is a decent signal
-            true
-        } else {
-            false
-        }
+            self.realloc_export.is_some()
     }
 
     /// Returns the wit-bindgen metadata producers processed-by field, if

@@ -101,7 +101,7 @@ async fn custom_spin_key_value_works() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn custom_spin_key_value_works_with_absolute_path() -> anyhow::Result<()> {
-    let tmp_dir = tempdir::TempDir::new("example")?;
+    let tmp_dir = tempfile::TempDir::with_prefix("example")?;
     let db_path = tmp_dir.path().join("foo/custom.db");
     // Check that the db does not exist yet - it will exist by the end of the test
     assert!(!db_path.exists());
@@ -132,7 +132,7 @@ async fn custom_spin_key_value_works_with_absolute_path() -> anyhow::Result<()> 
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn custom_spin_key_value_works_with_relative_path() -> anyhow::Result<()> {
-    let tmp_dir = tempdir::TempDir::new("example")?;
+    let tmp_dir = tempfile::TempDir::with_prefix("example")?;
     let db_path = tmp_dir.path().join("custom.db");
     // Check that the db does not exist yet - it will exist by the end of the test
     assert!(!db_path.exists());
@@ -176,7 +176,7 @@ async fn custom_redis_key_value_works() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
-    let tmp_dir = tempdir::TempDir::new("example")?;
+    let tmp_dir = tempfile::TempDir::with_prefix("example")?;
     let runtime_config = toml::toml! {
         [key_value_store.custom]
         type = "spin"
@@ -198,7 +198,7 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
 // TODO(rylev): consider removing this test as it is really only a consequence of
 // toml deserialization and not a feature of the key-value store.
 async fn multiple_custom_key_value_uses_second_store() -> anyhow::Result<()> {
-    let tmp_dir = tempdir::TempDir::new("example")?;
+    let tmp_dir = tempfile::TempDir::with_prefix("example")?;
     let db_path = tmp_dir.path().join("custom.db");
     // Check that the db does not exist yet - it will exist by the end of the test
     assert!(!db_path.exists());

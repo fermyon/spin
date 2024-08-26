@@ -7,7 +7,7 @@ on:
     # Also run on tag pushes, as the release.yml doesn't currently run tests
     tags: ["v*"]
   pull_request:
-    branches: ["main", "v*"]
+    branches: ["main", "v*", "factors"]
     paths-ignore:
       - "docs/**"
       - "*.md"
@@ -74,6 +74,9 @@ jobs:
         run: cargo build --workspace --release --all-targets --features openssl/vendored --features all-tests
         env:
           CARGO_INCREMENTAL: 0
+          # Work around https://github.com/rust-lang/cc-rs/issues/958
+          CC: clang
+          CXX: clang++
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
@@ -110,6 +113,9 @@ jobs:
         env:
           CARGO_INCREMENTAL: 0
           BUILD_SPIN_EXAMPLES: 0
+          # Work around https://github.com/rust-lang/cc-rs/issues/958
+          CC: clang
+          CXX: clang++
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3

@@ -108,7 +108,7 @@ impl LlmCompute {
         state_dir: Option<PathBuf>,
         use_gpu: bool,
     ) -> anyhow::Result<Arc<Mutex<dyn LlmEngine>>> {
-        let engine = match self {
+        let engine: Arc<Mutex<dyn LlmEngine>> = match self {
             #[cfg(not(feature = "llm"))]
             LlmCompute::Spin => {
                 let _ = (state_dir, use_gpu);

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use spin_app::{App, AppComponent};
-use spin_core::Component;
+use spin_core::{async_trait, Component};
 use spin_factors::{AsInstanceState, ConfiguredApp, RuntimeFactors, RuntimeFactorsInstanceState};
 
 /// A FactorsExecutor manages execution of a Spin app.
@@ -41,7 +41,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     }
 
     /// Loads a [`FactorsApp`] with this executor.
-    pub fn load_app(
+    pub async fn load_app(
         mut self,
         app: App,
         runtime_config: T::RuntimeConfig,
@@ -56,16 +56,16 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
             hooks.configure_app(&configured_app)?;
         }
 
-        let component_instance_pres = configured_app
-            .app()
-            .components()
-            .map(|app_component| {
-                let component =
-                    component_loader.load_component(self.core_engine.as_ref(), &app_component)?;
-                let instance_pre = self.core_engine.instantiate_pre(&component)?;
-                Ok((app_component.id().to_string(), instance_pre))
-            })
-            .collect::<anyhow::Result<HashMap<_, _>>>()?;
+        let mut component_instance_pres = HashMap::new();
+
+        for app_component in configured_app.app().components() {
+            let component = component_loader
+                .load_component(self.core_engine.as_ref(), &app_component)
+                .await?;
+            let instance_pre = self.core_engine.instantiate_pre(&component)?;
+
+            component_instance_pres.insert(app_component.id().to_string(), instance_pre);
+        }
 
         Ok(FactorsExecutorApp {
             executor: self,
@@ -90,9 +90,10 @@ pub trait ExecutorHooks<T: RuntimeFactors, U>: Send + Sync {
 }
 
 /// A ComponentLoader is responsible for loading Wasmtime [`Component`]s.
+#[async_trait]
 pub trait ComponentLoader {
     /// Loads a [`Component`] for the given [`AppComponent`].
-    fn load_component(
+    async fn load_component(
         &mut self,
         engine: &spin_core::wasmtime::Engine,
         component: &AppComponent,
@@ -272,7 +273,9 @@ mod tests {
         let engine_builder = spin_core::Engine::builder(&Default::default())?;
         let executor = FactorsExecutor::new(engine_builder, env.factors)?;
 
-        let factors_app = executor.load_app(app, Default::default(), DummyComponentLoader)?;
+        let factors_app = executor
+            .load_app(app, Default::default(), DummyComponentLoader)
+            .await?;
 
         let mut instance_builder = factors_app.prepare("empty")?;
 
@@ -293,8 +296,9 @@ mod tests {
 
     struct DummyComponentLoader;
 
+    #[async_trait]
     impl ComponentLoader for DummyComponentLoader {
-        fn load_component(
+        async fn load_component(
             &mut self,
             engine: &spin_core::wasmtime::Engine,
             _component: &AppComponent,

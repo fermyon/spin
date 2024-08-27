@@ -166,7 +166,8 @@ impl App {
 pub struct AppComponent<'a> {
     /// The app this component belongs to.
     pub app: &'a App,
-    locked: &'a LockedComponent,
+    /// The locked component.
+    pub locked: &'a LockedComponent,
 }
 
 impl<'a> AppComponent<'a> {

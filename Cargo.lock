@@ -574,7 +574,7 @@ version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "base64 0.22.0",
+ "base64 0.22.1",
  "bytes",
  "dyn-clone",
  "futures",
@@ -682,9 +682,9 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64ct"
@@ -6141,7 +6141,7 @@ version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "bytes",
  "encoding_rs",
  "futures-channel",
@@ -6448,7 +6448,7 @@ version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "rustls-pki-types",
 ]
 
@@ -6768,7 +6768,7 @@ version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ad483d2ab0149d5a5ebcd9972a3852711e0153d863bf5a5d0391d28883c4a20"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -7069,7 +7069,6 @@ dependencies = [
  "serde 1.0.197",
  "serde_json",
  "spin-locked-app",
- "spin-serde",
  "thiserror",
 ]
 
@@ -7175,7 +7174,7 @@ name = "spin-common"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "dirs 4.0.0",
+ "dirs 5.0.1",
  "sha2",
  "tempfile",
  "tokio",
@@ -7206,6 +7205,22 @@ dependencies = [
  "wat",
  "wit-component 0.200.0",
  "wit-parser 0.200.0",
+]
+
+[[package]]
+name = "spin-compose"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "indexmap 2.2.6",
+ "semver",
+ "spin-app",
+ "spin-componentize",
+ "spin-serde",
+ "thiserror",
+ "tokio",
+ "wac-graph",
 ]
 
 [[package]]
@@ -7698,6 +7713,7 @@ dependencies = [
  "spin-locked-app",
  "spin-manifest",
  "spin-outbound-networking",
+ "spin-serde",
  "tempfile",
  "terminal",
  "thiserror",
@@ -7837,8 +7853,11 @@ dependencies = [
 name = "spin-serde"
 version = "2.8.0-pre0"
 dependencies = [
- "base64 0.21.7",
+ "anyhow",
+ "base64 0.22.1",
+ "semver",
  "serde 1.0.197",
+ "wasm-pkg-common",
 ]
 
 [[package]]
@@ -7952,6 +7971,7 @@ dependencies = [
  "spin-app",
  "spin-common",
  "spin-componentize",
+ "spin-compose",
  "spin-core",
  "spin-factor-key-value",
  "spin-factor-llm",
@@ -9198,6 +9218,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "wac-graph"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9d62ffef518aba9d62dc1532960702a67a62ca1b0ffb3cf152391d477bc7e11"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "indexmap 2.2.6",
+ "log",
+ "petgraph",
+ "semver",
+ "thiserror",
+ "wac-types",
+ "wasm-encoder 0.202.0",
+ "wasm-metadata 0.202.0",
+ "wasmparser 0.202.0",
+]
+
+[[package]]
+name = "wac-types"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fe3e5531080631b8d14f355119f4b3bac92bdacaad6786599cf474958eee01f"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "indexmap 2.2.6",
+ "semver",
+ "wasm-encoder 0.202.0",
+ "wasmparser 0.202.0",
+]
+
+[[package]]
 name = "waker-fn"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9495,6 +9548,15 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
+version = "0.202.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfd106365a7f5f7aa3c1916a98cbb3ad477f5ff96ddb130285a91c6e7429e67a"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
+name = "wasm-encoder"
 version = "0.209.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b4a05336882dae732ce6bd48b7e11fe597293cb72c13da4f35d7d5f8d53b2a7"
@@ -9532,6 +9594,22 @@ dependencies = [
  "spdx",
  "wasm-encoder 0.200.0",
  "wasmparser 0.200.0",
+]
+
+[[package]]
+name = "wasm-metadata"
+version = "0.202.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "094aea3cb90e09f16ee25a4c0e324b3e8c934e7fd838bfa039aef5352f44a917"
+dependencies = [
+ "anyhow",
+ "indexmap 2.2.6",
+ "serde 1.0.197",
+ "serde_derive",
+ "serde_json",
+ "spdx",
+ "wasm-encoder 0.202.0",
+ "wasmparser 0.202.0",
 ]
 
 [[package]]
@@ -9576,7 +9654,7 @@ checksum = "11338b173351bc505bc752c00068a7d1da5106a9d351753f0d01267dcc4747b2"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.22.0",
+ "base64 0.22.1",
  "bytes",
  "dirs 5.0.1",
  "docker_credential",
@@ -9639,6 +9717,17 @@ name = "wasmparser"
 version = "0.200.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a03f65ac876612140c57ff6c3b8fe4990067cce97c2cfdb07368a3cc3354b062"
+dependencies = [
+ "bitflags 2.5.0",
+ "indexmap 2.2.6",
+ "semver",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.202.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6998515d3cf3f8b980ef7c11b29a9b1017d4cf86b99ae93b546992df9931413"
 dependencies = [
  "bitflags 2.5.0",
  "indexmap 2.2.6",

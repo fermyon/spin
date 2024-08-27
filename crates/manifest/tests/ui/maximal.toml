@@ -36,6 +36,7 @@ allowed_outbound_hosts = ["https://example.com:443"]
 key_value_stores = ["default"]
 sqlite_databases = ["default"]
 ai_models = ["llama2-chat"]
+dependencies_inherit_configuration = true
 
 [component.maximal-component.build]
 command = "cargo build"
@@ -44,3 +45,10 @@ watch = ["src/**/*.rs"]
 
 [component.maximal-component.tool.clean]
 command = "cargo clean"
+
+[component.maximal-component.dependencies]
+"a:b/c" = { registry = "my-registry.com", version = "^1.2.3", package = "a:b", export = "foo"}
+"foo:bar/baz@0.1.0" = { path = "path/to/component.wasm" }
+"fib:fub/fob" = { path = "path/to/component.wasm", export = "my-export" }
+"fizz:buzz" = ">=0.1.0"
+"abc:xyz@0.1.0" = { version = "=0.1.0" }

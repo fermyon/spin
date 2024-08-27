@@ -20,7 +20,10 @@ use crate::runtime_config::RuntimeConfig;
 pub fn runtime_config_from_toml(table: &impl GetTomlValue) -> anyhow::Result<RuntimeConfig> {
     // Always include the environment variable provider.
     let mut providers = vec![Box::<EnvVariablesProvider>::default() as _];
-    let Some(array) = table.get("variable_provider") else {
+    let value = table
+        .get("variables_provider")
+        .or_else(|| table.get("config_provider"));
+    let Some(array) = value else {
         return Ok(RuntimeConfig { providers });
     };
 

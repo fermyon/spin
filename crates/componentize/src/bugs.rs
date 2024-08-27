@@ -23,9 +23,7 @@ impl WasiLibc377Bug {
             if let Some((major, minor, patch)) = parse_clang_version(clang_version) {
                 let earliest_safe =
                     parse_clang_version(EARLIEST_PROBABLY_SAFE_CLANG_VERSION).unwrap();
-                if (major, minor, patch) >= earliest_safe {
-                    return Ok(());
-                } else {
+                if (major, minor, patch) < earliest_safe {
                     return Err(Self {
                         clang_version: Some(clang_version.clone()),
                     });
@@ -37,11 +35,7 @@ impl WasiLibc377Bug {
                 );
             }
         }
-        // If we can't assert that the module uses wit-bindgen OR was compiled
-        // with a new-enough wasi-sdk, conservatively assume it may be buggy.
-        Err(Self {
-            clang_version: None,
-        })
+        Ok(())
     }
 }
 
@@ -49,8 +43,8 @@ impl std::fmt::Display for WasiLibc377Bug {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "This Wasm module may have been compiled with wasi-sdk version <19 which \
-            contains a critical memory safety bug. For more information, see: \
+            "This Wasm module appears to have been compiled with wasi-sdk version <19 \
+            which contains a critical memory safety bug. For more information, see: \
             https://github.com/fermyon/spin/issues/2552"
         )
     }

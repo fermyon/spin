@@ -91,7 +91,7 @@ pub fn runtime_config_from_toml(
     let config: LlmCompute = value.clone().try_into()?;
 
     Ok(Some(RuntimeConfig {
-        engine: config.into_engine(state_dir, use_gpu),
+        engine: config.into_engine(state_dir, use_gpu)?,
     }))
 }
 
@@ -103,20 +103,25 @@ pub enum LlmCompute {
 }
 
 impl LlmCompute {
-    fn into_engine(self, state_dir: Option<PathBuf>, use_gpu: bool) -> Arc<Mutex<dyn LlmEngine>> {
-        match self {
+    fn into_engine(
+        self,
+        state_dir: Option<PathBuf>,
+        use_gpu: bool,
+    ) -> anyhow::Result<Arc<Mutex<dyn LlmEngine>>> {
+        let engine = match self {
             #[cfg(not(feature = "llm"))]
             LlmCompute::Spin => {
                 let _ = (state_dir, use_gpu);
                 Arc::new(Mutex::new(noop::NoopLlmEngine))
             }
             #[cfg(feature = "llm")]
-            LlmCompute::Spin => default_engine_creator(state_dir, use_gpu).create(),
+            LlmCompute::Spin => default_engine_creator(state_dir, use_gpu)?.create(),
             LlmCompute::RemoteHttp(config) => Arc::new(Mutex::new(RemoteHttpLlmEngine::new(
                 config.url,
                 config.auth_token,
             ))),
-        }
+        };
+        Ok(engine)
     }
 }
 

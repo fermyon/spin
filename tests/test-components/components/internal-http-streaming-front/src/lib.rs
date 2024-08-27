@@ -17,7 +17,7 @@ async fn handle_front_impl(_req: Request) -> Result<impl IntoResponse, String> {
         spin_sdk::http::Fields::new()
     );
     out_req.set_method(&spin_sdk::http::Method::Post).unwrap();
-    out_req.set_authority(Some("back-streaming.spin.internal")).unwrap();
+    out_req.set_authority(Some("back-streaming.spin.alt")).unwrap();
     out_req.set_scheme(Some(&spin_sdk::http::Scheme::Http)).unwrap();
     out_req.set_path_with_query(Some("/")).unwrap();
 

@@ -1201,8 +1201,8 @@ mod tests {
 
     #[test]
     fn forbidden_headers_are_removed() {
-        let mut req = Request::get("http://test.spin.internal")
-            .header("Host", "test.spin.internal")
+        let mut req = Request::get("http://test.spin.alt")
+            .header("Host", "test.spin.alt")
             .header("accept", "text/plain")
             .body(Default::default())
             .unwrap();

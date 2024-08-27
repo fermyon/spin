@@ -5,8 +5,8 @@ use spin_locked_app::MetadataKey;
 
 pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
 
-pub const SERVICE_CHAINING_DOMAIN: &str = "spin.internal";
-pub const SERVICE_CHAINING_DOMAIN_SUFFIX: &str = ".spin.internal";
+pub const SERVICE_CHAINING_DOMAINS: &[&str] = &["spin.alt", "spin.internal"];
+pub const SERVICE_CHAINING_DOMAIN_SUFFIXES: &[&str] = &[".spin.alt", ".spin.internal"];
 
 /// Checks address against allowed hosts
 ///
@@ -453,7 +453,7 @@ fn parse_service_chaining_host(host: &str) -> Option<String> {
 
     let (first, rest) = host.split_once('.')?;
 
-    if rest == SERVICE_CHAINING_DOMAIN {
+    if SERVICE_CHAINING_DOMAINS.contains(&rest) {
         Some(first.to_owned())
     } else {
         None

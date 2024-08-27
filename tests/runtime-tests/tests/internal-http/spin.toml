@@ -11,7 +11,7 @@ component = "front"
 
 [component.front]
 source = "%{source=internal-http-front}"
-allowed_outbound_hosts = ["http://middle.spin.internal"]
+allowed_outbound_hosts = ["http://middle.spin.alt"]
 
 [[trigger.http]]
 route = { private = true }

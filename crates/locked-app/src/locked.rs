@@ -15,7 +15,8 @@ use crate::{
 pub type LockedMap<T> = std::collections::BTreeMap<String, T>;
 
 /// If present and required in `host_requirements`, the host must support
-/// local service chaining (*.spin.internal) or reject the app.
+/// local service chaining (via *.spin.alt, and, for backward compatibility,
+/// *.spin.internal) or reject the app.
 pub const SERVICE_CHAINING_KEY: &str = "local_service_chaining";
 
 /// Indicates that a host feature is optional. This is the default and is

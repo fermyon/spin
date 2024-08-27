@@ -55,7 +55,7 @@
       "id": "four-lights",
       "metadata": {
         "allowed_outbound_hosts": [
-          "http://old-test.spin.internal"
+          "http://old-test.spin.alt"
         ]
       },
       "source": {

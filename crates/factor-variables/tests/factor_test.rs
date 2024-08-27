@@ -25,7 +25,7 @@ async fn static_provider_works() -> anyhow::Result<()> {
             variables = { baz = "<{{ foo }}>" }
         })
         .runtime_config(TomlConfig::new(toml! {
-            [[variable_provider]]
+            [[variables_provider]]
             type = "static"
             values = { foo = "bar" }
         }))?;

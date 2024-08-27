@@ -52,13 +52,15 @@ where
     /// Creates a new resolved runtime configuration from an optional runtime config source TOML file.
     pub fn from_optional_file(
         runtime_config_path: Option<&Path>,
-        provided_state_dir: Option<&Path>,
-        provided_log_dir: LogDir,
+        local_app_dir: Option<PathBuf>,
+        provided_state_dir: UserProvidedPath,
+        provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         match runtime_config_path {
             Some(runtime_config_path) => Self::from_file(
                 runtime_config_path,
+                local_app_dir,
                 provided_state_dir,
                 provided_log_dir,
                 use_gpu,
@@ -66,6 +68,7 @@ where
             None => Self::new(
                 Default::default(),
                 None,
+                local_app_dir,
                 provided_state_dir,
                 provided_log_dir,
                 use_gpu,
@@ -78,8 +81,9 @@ where
     /// `provided_state_dir` is the explicitly provided state directory, if any.
     pub fn from_file(
         runtime_config_path: &Path,
-        provided_state_dir: Option<&Path>,
-        provided_log_dir: LogDir,
+        local_app_dir: Option<PathBuf>,
+        provided_state_dir: UserProvidedPath,
+        provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
@@ -98,6 +102,7 @@ where
         Self::new(
             toml,
             Some(runtime_config_path),
+            local_app_dir,
             provided_state_dir,
             provided_log_dir,
             use_gpu,
@@ -108,11 +113,13 @@ where
     pub fn new(
         toml: toml::Table,
         runtime_config_path: Option<&Path>,
-        provided_state_dir: Option<&Path>,
-        provided_log_dir: LogDir,
+        local_app_dir: Option<PathBuf>,
+        provided_state_dir: UserProvidedPath,
+        provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
-        let toml_resolver = TomlResolver::new(&toml, provided_state_dir, provided_log_dir);
+        let toml_resolver =
+            TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
         let tls_resolver = runtime_config_path.map(SpinTlsRuntimeConfig::new);
         let key_value_config_resolver = key_value_config_resolver(toml_resolver.state_dir()?);
         let sqlite_config_resolver = sqlite_config_resolver(toml_resolver.state_dir()?)
@@ -178,19 +185,25 @@ where
 /// Resolves runtime configuration from a TOML file.
 pub struct TomlResolver<'a> {
     table: TomlKeyTracker<'a>,
+    /// The local app directory.
+    local_app_dir: Option<PathBuf>,
     /// Explicitly provided state directory.
-    state_dir: Option<&'a Path>,
+    state_dir: UserProvidedPath,
     /// Explicitly provided log directory.
-    log_dir: LogDir,
+    log_dir: UserProvidedPath,
 }
 
 impl<'a> TomlResolver<'a> {
     /// Create a new TOML resolver.
-    ///
-    /// The `state_dir` is the explicitly provided state directory, if any.
-    pub fn new(table: &'a toml::Table, state_dir: Option<&'a Path>, log_dir: LogDir) -> Self {
+    pub fn new(
+        table: &'a toml::Table,
+        local_app_dir: Option<PathBuf>,
+        state_dir: UserProvidedPath,
+        log_dir: UserProvidedPath,
+    ) -> Self {
         Self {
             table: TomlKeyTracker::new(table),
+            local_app_dir,
             state_dir,
             log_dir,
         }
@@ -200,28 +213,63 @@ impl<'a> TomlResolver<'a> {
     ///
     /// Errors if the path cannot be converted to an absolute path.
     pub fn state_dir(&self) -> std::io::Result<Option<PathBuf>> {
-        let from_toml = || {
-            self.table
-                .get("state_dir")
-                .and_then(|v| v.as_str())
-                .filter(|v| !v.is_empty())
-                .map(Path::new)
-        };
-        // Prefer explicitly provided state directory, then take from toml.
-        self.state_dir
-            .or_else(from_toml)
-            .map(std::path::absolute)
-            .transpose()
+        let mut state_dir = self.state_dir.clone();
+        // If the state_dir is not explicitly provided, check the toml.
+        if matches!(state_dir, UserProvidedPath::Default) {
+            let from_toml =
+                self.table
+                    .get("state_dir")
+                    .and_then(|v| v.as_str())
+                    .map(|toml_value| {
+                        if toml_value.is_empty() {
+                            // If the toml value is empty, treat it as unset.
+                            UserProvidedPath::Unset
+                        } else {
+                            // Otherwise, treat the toml value as a provided path.
+                            UserProvidedPath::Provided(PathBuf::from(toml_value))
+                        }
+                    });
+            // If toml value is not provided, use the original value after all.
+            state_dir = from_toml.unwrap_or(state_dir);
+        }
+
+        match (state_dir, &self.local_app_dir) {
+            (UserProvidedPath::Provided(p), _) => Ok(Some(std::path::absolute(p)?)),
+            (UserProvidedPath::Default, Some(local_app_dir)) => {
+                Ok(Some(local_app_dir.join(".spin")))
+            }
+            (UserProvidedPath::Default | UserProvidedPath::Unset, _) => Ok(None),
+        }
     }
 
     /// Get the configured log directory.
     ///
     /// Errors if the path cannot be converted to an absolute path.
     pub fn log_dir(&self) -> std::io::Result<Option<PathBuf>> {
-        match &self.log_dir {
-            LogDir::Provided(p) => Ok(Some(std::path::absolute(p)?)),
-            LogDir::Default => Ok(self.state_dir()?.map(|p| p.join("logs"))),
-            LogDir::None => Ok(None),
+        let mut log_dir = self.log_dir.clone();
+        // If the log_dir is not explicitly provided, check the toml.
+        if matches!(log_dir, UserProvidedPath::Default) {
+            let from_toml = self
+                .table
+                .get("log_dir")
+                .and_then(|v| v.as_str())
+                .map(|toml_value| {
+                    if toml_value.is_empty() {
+                        // If the toml value is empty, treat it as unset.
+                        UserProvidedPath::Unset
+                    } else {
+                        // Otherwise, treat the toml value as a provided path.
+                        UserProvidedPath::Provided(PathBuf::from(toml_value))
+                    }
+                });
+            // If toml value is not provided, use the original value after all.
+            log_dir = from_toml.unwrap_or(log_dir);
+        }
+
+        match log_dir {
+            UserProvidedPath::Provided(p) => Ok(Some(std::path::absolute(p)?)),
+            UserProvidedPath::Default => Ok(self.state_dir()?.map(|p| p.join("logs"))),
+            UserProvidedPath::Unset => Ok(None),
         }
     }
 
@@ -397,13 +445,13 @@ fn sqlite_config_resolver(
     ))
 }
 
-/// The log directory for the trigger.
+/// A user provided option which be either be provided, default, or explicitly none.
 #[derive(Clone, Debug)]
-pub enum LogDir {
-    /// Use the explicitly provided log directory.
+pub enum UserProvidedPath {
+    /// Use the explicitly provided directory.
     Provided(PathBuf),
-    /// Use the default log directory.
+    /// Use the default.
     Default,
-    /// Do not log.
-    None,
+    /// Explicitly unset.
+    Unset,
 }

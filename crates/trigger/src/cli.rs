@@ -10,7 +10,7 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::{LogDir, ResolvedRuntimeConfig};
+use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -308,25 +308,31 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
-        // Hardcode `use_gpu` to true for now
-        let use_gpu = true;
+        let runtime_config_path = options.runtime_config_file;
+        let local_app_dir = options
+            .local_app_dir
+            .map(std::path::absolute)
+            .transpose()
+            .context("failed to resolve local app directory path to an absolute path")?;
         let state_dir = match options.state_dir {
             // Make sure `--state-dir=""` unsets the state dir
-            Some("") => None,
-            Some(s) => Some(PathBuf::from(s)),
-            // Default to `.spin/` in the local app dir
-            None => options.local_app_dir.map(|d| Path::new(d).join(".spin")),
+            Some("") => UserProvidedPath::Unset,
+            Some(s) => UserProvidedPath::Provided(PathBuf::from(s)),
+            None => UserProvidedPath::Default,
         };
         let log_dir = match &options.log_dir {
             // Make sure `--log-dir=""` unsets the log dir
-            Some(p) if p.as_os_str().is_empty() => LogDir::None,
-            Some(p) => LogDir::Provided(p.clone()),
-            None => LogDir::Default,
+            Some(p) if p.as_os_str().is_empty() => UserProvidedPath::Unset,
+            Some(p) => UserProvidedPath::Provided(p.clone()),
+            None => UserProvidedPath::Default,
         };
+        // Hardcode `use_gpu` to true for now
+        let use_gpu = true;
         let runtime_config =
             ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
-                options.runtime_config_file,
-                state_dir.as_deref(),
+                runtime_config_path,
+                local_app_dir,
+                state_dir,
                 log_dir,
                 use_gpu,
             )?;

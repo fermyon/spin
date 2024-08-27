@@ -10,6 +10,7 @@ use spin_factors::{
     anyhow::{self, Context as _},
     runtime_config::toml::GetTomlValue,
 };
+use spin_sqlite_inproc::InProcDatabaseLocation;
 use spin_world::v2::sqlite as v2;
 use tokio::sync::OnceCell;
 
@@ -108,10 +109,7 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
             .as_deref()
             .map(|p| p.join(DEFAULT_SQLITE_DB_FILENAME));
         let factory = move || {
-            let location = match &path {
-                Some(path) => spin_sqlite_inproc::InProcDatabaseLocation::Path(path.clone()),
-                None => spin_sqlite_inproc::InProcDatabaseLocation::InMemory,
-            };
+            let location = InProcDatabaseLocation::from_path(path.clone())?;
             let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
             Ok(Box::new(connection) as _)
         };
@@ -202,17 +200,11 @@ impl LocalDatabase {
     ///
     /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
     fn connection_creator(self, base_dir: &Path) -> anyhow::Result<impl ConnectionCreator> {
-        let location = match self.path {
-            Some(path) => {
-                let path = resolve_relative_path(&path, base_dir);
-                // Create the store's parent directory if necessary
-                // unwrapping the parent is fine, because `resolve_relative_path`` will always return a path with a parent
-                std::fs::create_dir_all(path.parent().unwrap())
-                    .context("Failed to create sqlite database directory")?;
-                spin_sqlite_inproc::InProcDatabaseLocation::Path(path)
-            }
-            None => spin_sqlite_inproc::InProcDatabaseLocation::InMemory,
-        };
+        let path = self
+            .path
+            .as_ref()
+            .map(|p| resolve_relative_path(p, base_dir));
+        let location = InProcDatabaseLocation::from_path(path)?;
         let factory = move || {
             let connection = spin_sqlite_inproc::InProcConnection::new(location.clone())?;
             Ok(Box::new(connection) as _)

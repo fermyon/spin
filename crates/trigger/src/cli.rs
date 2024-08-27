@@ -10,7 +10,7 @@ use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::ResolvedRuntimeConfig;
+use spin_runtime_config::{LogDir, ResolvedRuntimeConfig};
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -317,10 +317,17 @@ impl<T: Trigger> TriggerAppBuilder<T> {
             // Default to `.spin/` in the local app dir
             None => options.local_app_dir.map(|d| Path::new(d).join(".spin")),
         };
+        let log_dir = match &options.log_dir {
+            // Make sure `--log-dir=""` unsets the log dir
+            Some(p) if p.as_os_str().is_empty() => LogDir::None,
+            Some(p) => LogDir::Provided(p.clone()),
+            None => LogDir::Default,
+        };
         let runtime_config =
             ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
                 options.runtime_config_file,
                 state_dir.as_deref(),
+                log_dir,
                 use_gpu,
             )?;
 
@@ -328,6 +335,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
             .set_initial_key_values(&options.initial_key_values)
             .await?;
 
+        let log_dir = runtime_config.log_dir();
         let factors = TriggerFactors::new(
             runtime_config.state_dir(),
             self.working_dir.clone(),
@@ -338,12 +346,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         )
         .context("failed to create factors")?;
 
-        // TODO: move these into Factor methods/constructors
-        // let init_data = crate::HostComponentInitData::new(
-        //     &*self.key_values,
-        //     &*self.sqlite_statements,
-        //     LLmOptions { use_gpu: true },
-        // );
+        // TODO(factors): handle: self.sqlite_statements
 
         // TODO: port the rest of the component loader logic
         struct SimpleComponentLoader;
@@ -377,7 +380,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
 
         executor.add_hooks(StdioLoggingExecutorHooks::new(
             options.follow_components,
-            options.log_dir,
+            log_dir,
         ));
         // TODO:
         // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));

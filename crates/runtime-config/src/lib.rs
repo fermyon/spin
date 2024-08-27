@@ -38,6 +38,10 @@ pub struct ResolvedRuntimeConfig<T> {
     ///
     /// `None` is used for an "unset" state directory which each factor will treat differently.
     pub state_dir: Option<PathBuf>,
+    /// The fully resolved log directory.
+    ///
+    /// `None` is used for an "unset" log directory.
+    pub log_dir: Option<PathBuf>,
 }
 
 impl<T> ResolvedRuntimeConfig<T>
@@ -49,13 +53,23 @@ where
     pub fn from_optional_file(
         runtime_config_path: Option<&Path>,
         provided_state_dir: Option<&Path>,
+        provided_log_dir: LogDir,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         match runtime_config_path {
-            Some(runtime_config_path) => {
-                Self::from_file(runtime_config_path, provided_state_dir, use_gpu)
-            }
-            None => Self::new(Default::default(), None, provided_state_dir, use_gpu),
+            Some(runtime_config_path) => Self::from_file(
+                runtime_config_path,
+                provided_state_dir,
+                provided_log_dir,
+                use_gpu,
+            ),
+            None => Self::new(
+                Default::default(),
+                None,
+                provided_state_dir,
+                provided_log_dir,
+                use_gpu,
+            ),
         }
     }
 
@@ -65,6 +79,7 @@ where
     pub fn from_file(
         runtime_config_path: &Path,
         provided_state_dir: Option<&Path>,
+        provided_log_dir: LogDir,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
@@ -80,7 +95,13 @@ where
             )
         })?;
 
-        Self::new(toml, Some(runtime_config_path), provided_state_dir, use_gpu)
+        Self::new(
+            toml,
+            Some(runtime_config_path),
+            provided_state_dir,
+            provided_log_dir,
+            use_gpu,
+        )
     }
 
     /// Creates a new resolved runtime configuration from a TOML table.
@@ -88,9 +109,10 @@ where
         toml: toml::Table,
         runtime_config_path: Option<&Path>,
         provided_state_dir: Option<&Path>,
+        provided_log_dir: LogDir,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
-        let toml_resolver = TomlResolver::new(&toml, provided_state_dir);
+        let toml_resolver = TomlResolver::new(&toml, provided_state_dir, provided_log_dir);
         let tls_resolver = runtime_config_path.map(SpinTlsRuntimeConfig::new);
         let key_value_config_resolver = key_value_config_resolver(toml_resolver.state_dir()?);
         let sqlite_config_resolver = sqlite_config_resolver(toml_resolver.state_dir()?)
@@ -110,6 +132,7 @@ where
             key_value_resolver: key_value_config_resolver,
             sqlite_resolver: sqlite_config_resolver,
             state_dir: toml_resolver.state_dir()?,
+            log_dir: toml_resolver.log_dir()?,
         })
     }
 
@@ -144,6 +167,11 @@ where
     pub fn state_dir(&self) -> Option<PathBuf> {
         self.state_dir.clone()
     }
+
+    /// The fully resolved state directory.
+    pub fn log_dir(&self) -> Option<PathBuf> {
+        self.log_dir.clone()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -152,16 +180,19 @@ pub struct TomlResolver<'a> {
     table: TomlKeyTracker<'a>,
     /// Explicitly provided state directory.
     state_dir: Option<&'a Path>,
+    /// Explicitly provided log directory.
+    log_dir: LogDir,
 }
 
 impl<'a> TomlResolver<'a> {
     /// Create a new TOML resolver.
     ///
     /// The `state_dir` is the explicitly provided state directory, if any.
-    pub fn new(table: &'a toml::Table, state_dir: Option<&'a Path>) -> Self {
+    pub fn new(table: &'a toml::Table, state_dir: Option<&'a Path>, log_dir: LogDir) -> Self {
         Self {
             table: TomlKeyTracker::new(table),
             state_dir,
+            log_dir,
         }
     }
 
@@ -181,6 +212,17 @@ impl<'a> TomlResolver<'a> {
             .or_else(from_toml)
             .map(std::path::absolute)
             .transpose()
+    }
+
+    /// Get the configured log directory.
+    ///
+    /// Errors if the path cannot be converted to an absolute path.
+    pub fn log_dir(&self) -> std::io::Result<Option<PathBuf>> {
+        match &self.log_dir {
+            LogDir::Provided(p) => Ok(Some(std::path::absolute(p)?)),
+            LogDir::Default => Ok(self.state_dir()?.map(|p| p.join("logs"))),
+            LogDir::None => Ok(None),
+        }
     }
 
     /// Validate that all keys in the TOML file have been used.
@@ -353,4 +395,15 @@ fn sqlite_config_resolver(
         default_database_dir,
         local_database_dir,
     ))
+}
+
+/// The log directory for the trigger.
+#[derive(Clone, Debug)]
+pub enum LogDir {
+    /// Use the explicitly provided log directory.
+    Provided(PathBuf),
+    /// Use the default log directory.
+    Default,
+    /// Do not log.
+    None,
 }

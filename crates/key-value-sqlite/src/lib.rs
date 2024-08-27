@@ -10,6 +10,7 @@ use std::{
 use tokio::task;
 use tracing::{instrument, Level};
 
+#[derive(Clone, Debug)]
 pub enum DatabaseLocation {
     InMemory,
     Path(PathBuf),
@@ -159,10 +160,13 @@ mod test {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
-            Arc::new(DelegatingStoreManager::new([(
-                "default".to_owned(),
-                Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as _,
-            )])),
+            Arc::new(DelegatingStoreManager::new(
+                [(
+                    "default".to_owned(),
+                    Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as _,
+                )],
+                Arc::new(|_: &str| -> Option<Arc<dyn StoreManager>> { None }),
+            )),
         );
 
         assert!(matches!(

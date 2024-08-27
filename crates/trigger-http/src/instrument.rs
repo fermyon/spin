@@ -1,7 +1,8 @@
 use anyhow::Result;
 use http::Response;
 use tracing::Level;
-use wasmtime_wasi_http::body::HyperIncomingBody;
+
+use crate::Body;
 
 /// Create a span for an HTTP request.
 macro_rules! http_span {
@@ -18,10 +19,10 @@ macro_rules! http_span {
             "url.scheme" = $request.uri().scheme_str().unwrap_or(""),
             "client.address" = $request.headers().get("x-forwarded-for").and_then(|val| val.to_str().ok()),
             // Recorded later
-            "error.type" = Empty,
-            "http.response.status_code" = Empty,
-            "http.route" = Empty,
-            "otel.name" = Empty,
+            "error.type" = ::tracing::field::Empty,
+            "http.response.status_code" = ::tracing::field::Empty,
+            "http.route" = ::tracing::field::Empty,
+            "otel.name" = ::tracing::field::Empty,
         )
     };
 }
@@ -30,12 +31,17 @@ pub(crate) use http_span;
 
 /// Finish setting attributes on the HTTP span.
 pub(crate) fn finalize_http_span(
-    response: Result<Response<HyperIncomingBody>>,
+    response: Result<Response<Body>>,
     method: String,
-) -> Result<Response<HyperIncomingBody>> {
+) -> Result<Response<Body>> {
     let span = tracing::Span::current();
     match response {
         Ok(response) => {
+            tracing::info!(
+                "Request finished, sending response with status code {}",
+                response.status()
+            );
+
             let matched_route = response.extensions().get::<MatchedRoute>();
             // Set otel.name and http.route
             if let Some(MatchedRoute { route }) = matched_route {
@@ -74,19 +80,16 @@ pub struct MatchedRoute {
 }
 
 impl MatchedRoute {
-    pub fn set_response_extension(
-        resp: &mut Response<HyperIncomingBody>,
-        route: impl Into<String>,
-    ) {
+    pub fn set_response_extension(resp: &mut Response<Body>, route: impl Into<String>) {
         resp.extensions_mut().insert(MatchedRoute {
             route: route.into(),
         });
     }
 
     pub fn with_response_extension(
-        mut resp: Response<HyperIncomingBody>,
+        mut resp: Response<Body>,
         route: impl Into<String>,
-    ) -> Response<HyperIncomingBody> {
+    ) -> Response<Body> {
         Self::set_response_extension(&mut resp, route);
         resp
     }

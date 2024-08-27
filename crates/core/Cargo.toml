@@ -9,25 +9,13 @@ anyhow = "1.0"
 async-trait = "0.1"
 tracing = { workspace = true }
 wasmtime = { workspace = true }
-wasmtime-wasi = { workspace = true }
-wasmtime-wasi-http = { workspace = true }
-wasi-common-preview1 = { workspace = true }
-system-interface = { version = "0.27.0", features = ["cap_std_impls"] }
-cap-std = "3.0.0"
-cap-primitives = "3.0.0"
-tokio = "1.0"
-bytes = "1.0"
-spin-telemetry = { path = "../telemetry" }
-http = "1.0"
-
-[target.'cfg(unix)'.dependencies]
-rustix = "0.37.19"
-
-[target.'cfg(windows)'.dependencies]
-io-extras = "0.18.0"
 
 [dev-dependencies]
-tempfile = "3"
-tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+serde_json = "1"
 spin-componentize = { workspace = true }
-futures = "0.3"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-factors-test = { path = "../factors-test" }
+spin-locked-app = { path = "../locked-app" }
+wasmtime-wasi = { workspace = true }

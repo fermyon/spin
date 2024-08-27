@@ -1,8 +1,8 @@
-use clap::{Args, CommandFactory};
+use clap::CommandFactory;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 
-use crate::{cli::TriggerExecutorCommand, TriggerExecutor};
+use crate::{cli::FactorsTriggerCommand, Trigger};
 
 /// Contains information about the trigger flags (and potentially
 /// in future configuration) that a consumer (such as `spin up`)
@@ -27,11 +27,8 @@ struct LaunchFlag {
 }
 
 impl LaunchMetadata {
-    pub fn infer<Executor: TriggerExecutor>() -> Self
-    where
-        Executor::RunConfig: Args,
-    {
-        let all_flags: Vec<_> = TriggerExecutorCommand::<Executor>::command()
+    pub fn infer<T: Trigger>() -> Self {
+        let all_flags: Vec<_> = FactorsTriggerCommand::<T>::command()
             .get_arguments()
             .map(LaunchFlag::infer)
             .collect();

@@ -5,6 +5,8 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use spin_locked_app::Variable;
 
+pub use async_trait;
+
 pub use provider::Provider;
 use template::Part;
 pub use template::Template;
@@ -251,13 +253,21 @@ impl<'a> Key<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a str> for Key<'a> {
+    type Error = Error;
+
+    fn try_from(value: &'a str) -> std::prelude::v1::Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
 impl<'a> AsRef<str> for Key<'a> {
     fn as_ref(&self) -> &str {
         self.0
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A variable resolution error.
 #[derive(Debug, thiserror::Error)]

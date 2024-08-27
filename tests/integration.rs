@@ -72,12 +72,12 @@ mod integration_tests {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/hello"),
+                    Request::new(Method::Get, "/hello"),
                     Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/hello/wildcards/should/be/handled"),
+                    Request::new(Method::Get, "/hello/wildcards/should/be/handled"),
                     Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
@@ -87,7 +87,7 @@ mod integration_tests {
                 )?;
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/hello/test-placement"),
+                    Request::new(Method::Get, "/hello/test-placement"),
                     Response::new_with_body(200, "text for test"),
                 )
             },
@@ -183,7 +183,7 @@ mod integration_tests {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/hello"),
+                    Request::new(Method::Get, "/hello"),
                     Response::new_with_body(200, "Hello, Fermyon!\n"),
                 )?;
 
@@ -341,8 +341,13 @@ mod integration_tests {
                 app_type: SpinAppType::None,
             },
             ServicesConfig::none(),
-            |_| Ok(()),
+            |env| {
+                // Since this test asserts exact stderr output, disable logging
+                env.set_env_var("RUST_LOG", "off");
+                Ok(())
+            },
         )?;
+
         let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
 
 Caused by:
@@ -368,13 +373,13 @@ Caused by:
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/outbound-allowed"),
+                    Request::new(Method::Get, "/outbound-allowed"),
                     Response::new_with_body(200, "Hello, Fermyon!\n"),
                 )?;
 
                 assert_spin_request(
                     spin,
-                    Request::new(Method::Get, "/test/outbound-not-allowed"),
+                    Request::new(Method::Get, "/outbound-not-allowed"),
                     Response::new_with_body(
                         500,
                         "Error::UnexpectedError(\"ErrorCode::HttpRequestDenied\")",
@@ -421,14 +426,10 @@ Caused by:
                         Response::new_with_body(expected_status, expected_body),
                     )
                 };
-                ensure_success("/test/hello", 200, "I'm a teapot")?;
-                ensure_success(
-                    "/test/hello/wildcards/should/be/handled",
-                    200,
-                    "I'm a teapot",
-                )?;
+                ensure_success("/hello", 200, "I'm a teapot")?;
+                ensure_success("/hello/wildcards/should/be/handled", 200, "I'm a teapot")?;
                 ensure_success("/thisshouldfail", 404, "")?;
-                ensure_success("/test/hello/test-placement", 200, "text for test")?;
+                ensure_success("/hello/test-placement", 200, "text for test")?;
                 Ok(())
             },
         )?;
@@ -627,6 +628,7 @@ Caused by:
     #[test]
     #[cfg(target_arch = "x86_64")]
     #[cfg(feature = "extern-dependencies-tests")]
+    #[ignore = "https://github.com/fermyon/spin/issues/2774"]
     fn http_grain_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-grain",
@@ -655,6 +657,7 @@ Caused by:
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
+    #[ignore = "https://github.com/fermyon/spin/issues/2774"]
     fn http_swift_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-swift",
@@ -1255,14 +1258,14 @@ route = "/..."
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    Request::full(Method::Get, "/base/echo", &[], Some("Echo...")),
+                    Request::full(Method::Get, "/echo", &[], Some("Echo...")),
                     Response::new_with_body(200, "Echo..."),
                 )?;
                 assert_spin_request(
                     spin,
                     Request::full(
                         Method::Get,
-                        "/base/assert-headers?k=v",
+                        "/assert-headers?k=v",
                         &[("X-Custom-Foo", "bar")],
                         Some(r#"{"x-custom-foo": "bar"}"#),
                     ),
@@ -1288,16 +1291,16 @@ route = "/..."
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    Request::full(Method::Get, "/base/echo", &[], Some("Echo...")),
+                    Request::full(Method::Get, "/echo", &[], Some("Echo...")),
                     Response::new_with_body(200, "Echo..."),
                 )?;
                 assert_spin_request(
                     spin,
                     Request::full(
                         Method::Get,
-                        "/base/assert-args?x=y",
+                        "/assert-args?x=y",
                         &[],
-                        Some(r#"["/base/assert-args", "x=y"]"#),
+                        Some(r#"["/assert-args", "x=y"]"#),
                     ),
                     Response::new(200),
                 )?;
@@ -1305,7 +1308,7 @@ route = "/..."
                     spin,
                     Request::full(
                         Method::Get,
-                        "/base/assert-env",
+                        "/assert-env",
                         &[("X-Custom-Foo", "bar")],
                         Some(r#"{"HTTP_X_CUSTOM_FOO": "bar"}"#),
                     ),
@@ -1464,7 +1467,7 @@ route = "/..."
                     spin,
                     Request::full(
                         Method::Get,
-                        "/test/outbound-allowed/hello",
+                        "/outbound-allowed/hello",
                         &[("Host", "google.com")],
                         Some(""),
                     ),

@@ -9,7 +9,7 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-tokio = { version = "1", features = ["macros", "sync"] }
+tokio = { version = "1", features = ["macros", "sync", "rt"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }

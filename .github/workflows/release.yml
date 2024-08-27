@@ -11,7 +11,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 env:
-  RUST_VERSION: 1.76
+  RUST_VERSION: 1.79
 
 jobs:
   build-and-sign:

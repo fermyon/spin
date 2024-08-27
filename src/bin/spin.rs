@@ -16,7 +16,7 @@ use spin_cli::commands::{
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger::cli::FactorsTriggerCommand;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
 
@@ -73,7 +73,10 @@ async fn _main() -> anyhow::Result<()> {
         }
     }
 
-    SpinApp::from_arg_matches(&matches)?.run(cmd).await
+    SpinApp::from_arg_matches(&matches)?
+        .run(cmd)
+        .await
+        .inspect_err(|err| tracing::debug!(?err))
 }
 
 fn print_error_chain(err: anyhow::Error) {
@@ -136,10 +139,10 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(TriggerExecutorCommand<HttpTrigger>),
-    Redis(TriggerExecutorCommand<RedisTrigger>),
+    Http(FactorsTriggerCommand<HttpTrigger>),
+    Redis(FactorsTriggerCommand<RedisTrigger>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
-    HelpArgsOnly(TriggerExecutorCommand<HelpArgsOnlyTrigger>),
+    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger>),
 }
 
 impl SpinApp {

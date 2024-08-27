@@ -1,0 +1,31 @@
+[package]
+name = "spin-factor-outbound-http"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+http = "1.1.0"
+http-body-util = "0.1"
+hyper = "1.4.1"
+reqwest = { version = "0.11", features = ["gzip"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factors = { path = "../factors" }
+spin-telemetry = { path = "../telemetry" }
+spin-world = { path = "../world" }
+terminal = { path = "../terminal" }
+tokio = { version = "1", features = ["macros", "rt"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12"] }
+tracing = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
+
+[dev-dependencies]
+spin-factor-variables = { path = "../factor-variables" }
+spin-factors-test = { path = "../factors-test" }
+
+[lints]
+workspace = true

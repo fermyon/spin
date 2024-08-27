@@ -9,8 +9,6 @@ anyhow = "1.0.68"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 futures = "0.3.25"
 serde = "1.0.188"
-spin-app = { path = "../../crates/app" }
-spin-core = { path = "../../crates/core" }
 spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.11", features = ["full"] }
 tokio-scoped = "0.2.0"

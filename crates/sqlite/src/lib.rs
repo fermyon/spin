@@ -1,12 +1,12 @@
-mod host_component;
+// TODO(factors): Code left for reference; remove after migration to factors
+// mod host_component;
 
-use spin_app::{async_trait, MetadataKey};
+use spin_app::MetadataKey;
 use spin_core::wasmtime::component::Resource;
+use spin_world::async_trait;
 use spin_world::v1::sqlite::Error as V1SqliteError;
 use spin_world::v2::sqlite;
 use std::{collections::HashSet, sync::Arc};
-
-pub use host_component::SqliteComponent;
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 

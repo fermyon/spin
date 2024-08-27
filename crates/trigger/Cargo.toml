@@ -1,68 +1,48 @@
 [package]
 name = "spin-trigger"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [features]
-llm = ["spin-llm-local"]
-llm-metal = ["llm", "spin-llm-local/metal"]
-llm-cublas = ["llm", "spin-llm-local/cublas"]
-# Enables loading AOT compiled components, a potentially unsafe operation. See
-# `<TriggerLoader as Loader>::::enable_loading_aot_compiled_components`
-# documentation for more information about the safety risks.
-unsafe-aot-compilation = []
+llm = ["spin-factor-llm/llm"]
+llm-metal = ["spin-factor-llm/llm-metal"]
+llm-cublas = ["spin-factor-llm/llm-cublas"]
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
-clap = { version = "3.1.15", features = ["derive", "env"] }
+anyhow = "1"
+clap = { version = "3.1.18", features = ["derive", "env"] }
 ctrlc = { version = "3.2", features = ["termination"] }
-dirs = "4"
 futures = "0.3"
-indexmap = "1"
-ipnet = "2.9.0"
-http = "1.0.0"
-outbound-http = { path = "../outbound-http" }
-outbound-redis = { path = "../outbound-redis" }
-outbound-mqtt = { path = "../outbound-mqtt" }
-outbound-pg = { path = "../outbound-pg" }
-outbound-mysql = { path = "../outbound-mysql" }
-rustls-pemfile = "2.1.2"
-rustls-pki-types = "1.7.0"
-spin-common = { path = "../common" }
-spin-expressions = { path = "../expressions" }
-spin-serde = { path = "../serde" }
-spin-key-value = { path = "../key-value" }
-spin-key-value-azure = { path = "../key-value-azure" }
-spin-key-value-redis = { path = "../key-value-redis" }
-spin-key-value-sqlite = { path = "../key-value-sqlite" }
-spin-outbound-networking = { path = "../outbound-networking" }
-spin-sqlite = { path = "../sqlite" }
-spin-sqlite-inproc = { path = "../sqlite-inproc" }
-spin-sqlite-libsql = { path = "../sqlite-libsql" }
-spin-world = { path = "../world" }
-spin-llm = { path = "../llm" }
-spin-llm-local = { path = "../llm-local", optional = true }
-spin-llm-remote-http = { path = "../llm-remote-http" }
-spin-telemetry = { path = "../telemetry" }
-sanitize-filename = "0.4"
-serde = "1.0.188"
-serde_json = "1.0"
+spin-runtime-config = { path = "../runtime-config" }
+sanitize-filename = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 spin-app = { path = "../app" }
+spin-common = { path = "../common" }
+spin-componentize = { path = "../componentize" }
 spin-core = { path = "../core" }
-spin-loader = { path = "../loader" }
-spin-manifest = { path = "../manifest" }
-spin-variables = { path = "../variables" }
-terminal = { path = "../terminal" }
+spin-factor-key-value = { path = "../factor-key-value" }
+spin-factor-outbound-http = { path = "../factor-outbound-http" }
+spin-factor-llm = { path = "../factor-llm" }
+spin-factor-outbound-mqtt = { path = "../factor-outbound-mqtt" }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-outbound-pg = { path = "../factor-outbound-pg" }
+spin-factor-outbound-mysql = { path = "../factor-outbound-mysql" }
+spin-factor-outbound-redis = { path = "../factor-outbound-redis" }
+spin-factor-sqlite = { path = "../factor-sqlite" }
+spin-factor-variables = { path = "../factor-variables" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-factors-executor = { path = "../factors-executor" }
+spin-telemetry = { path = "../telemetry" }
 tokio = { version = "1.23", features = ["fs"] }
-toml = "0.5.9"
-url = "2"
-spin-componentize = { workspace = true }
+terminal = { path = "../terminal" }
 tracing = { workspace = true }
-wasmtime = { workspace = true }
-wasmtime-wasi = { workspace = true }
-wasmtime-wasi-http = { workspace = true }
 
-[dev-dependencies]
-tempfile = "3.8.0"
+[lints]
+workspace = true

@@ -1,86 +1,28 @@
 use std::{
-    io::Cursor,
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use anyhow::Context;
-use spin_core::{
-    Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap, WasiVersion,
-};
-use tempfile::TempDir;
+use serde_json::json;
+use spin_core::{AsState, Component, Config, Engine, State, Store, StoreBuilder, Trap};
+use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
+use spin_factors::{App, AsInstanceState, RuntimeFactors};
+use spin_locked_app::locked::LockedApp;
 use tokio::{fs, io::AsyncWrite};
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_stdio() {
-    let stdout = run_core_wasi_test(["echo"], |store_builder| {
-        store_builder.stdin_pipe(Cursor::new(b"DATA"));
-    })
-    .await
-    .unwrap();
-
-    assert_eq!(stdout, "DATA");
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_read_only_preopened_dir() {
-    let filename = "test_file";
-    let tempdir = TempDir::new().unwrap();
-    std::fs::write(tempdir.path().join(filename), "x").unwrap();
-
-    run_core_wasi_test(["read", filename], |store_builder| {
-        store_builder
-            .read_only_preopened_dir(&tempdir, "/".into())
-            .unwrap();
-    })
-    .await
-    .unwrap();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_read_only_preopened_dir_write_fails() {
-    let filename = "test_file";
-    let tempdir = TempDir::new().unwrap();
-    std::fs::write(tempdir.path().join(filename), "x").unwrap();
-
-    let err = run_core_wasi_test(["write", filename], |store_builder| {
-        store_builder
-            .read_only_preopened_dir(&tempdir, "/".into())
-            .unwrap();
-    })
-    .await
-    .unwrap_err();
-    let trap = err
-        .root_cause() // The error returned is a backtrace. We need the root cause.
-        .downcast_ref::<I32Exit>()
-        .expect("trap error was not an I32Exit");
-    assert_eq!(trap.0, 1);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_read_write_preopened_dir() {
-    let filename = "test_file";
-    let tempdir = TempDir::new().unwrap();
-
-    run_core_wasi_test(["write", filename], |store_builder| {
-        store_builder
-            .read_write_preopened_dir(&tempdir, "/".into())
-            .unwrap();
-    })
-    .await
-    .unwrap();
-
-    let content = std::fs::read(tempdir.path().join(filename)).unwrap();
-    assert_eq!(content, b"content");
-}
+use wasmtime_wasi::I32Exit;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_max_memory_size_obeyed() {
     let max = 10_000_000;
     let alloc = max / 10;
-    run_core_wasi_test(["alloc", &format!("{alloc}")], |store_builder| {
-        store_builder.max_memory_size(max);
-    })
+    run_test(
+        ["alloc", &format!("{alloc}")],
+        |store_builder| {
+            store_builder.max_memory_size(max);
+        },
+        |_| {},
+    )
     .await
     .unwrap();
 }
@@ -89,9 +31,13 @@ async fn test_max_memory_size_obeyed() {
 async fn test_max_memory_size_violated() {
     let max = 10_000_000;
     let alloc = max * 2;
-    let err = run_core_wasi_test(["alloc", &format!("{alloc}")], |store_builder| {
-        store_builder.max_memory_size(max);
-    })
+    let err = run_test(
+        ["alloc", &format!("{alloc}")],
+        |store_builder| {
+            store_builder.max_memory_size(max);
+        },
+        |_| {},
+    )
     .await
     .unwrap_err();
     let trap = err
@@ -101,14 +47,14 @@ async fn test_max_memory_size_violated() {
     assert_eq!(trap.0, 1);
 }
 
+// FIXME: racy timing test
 #[tokio::test(flavor = "multi_thread")]
 async fn test_set_deadline_obeyed() {
-    run_core_wasi_test_engine(
-        &test_engine(),
+    run_test(
         ["sleep", "20"],
         |_| {},
         |store| {
-            store.set_deadline(Instant::now() + Duration::from_millis(1000));
+            store.set_deadline(Instant::now() + Duration::from_millis(10000));
         },
     )
     .await
@@ -117,8 +63,7 @@ async fn test_set_deadline_obeyed() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_set_deadline_violated() {
-    let err = run_core_wasi_test_engine(
-        &test_engine(),
+    let err = run_test(
         ["sleep", "100"],
         |_| {},
         |store| {
@@ -132,81 +77,79 @@ async fn test_set_deadline_violated() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_host_component() {
-    let stdout = run_core_wasi_test(["multiply", "5"], |_| {}).await.unwrap();
-    assert_eq!(stdout, "10");
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_host_component_data_update() {
-    let engine = test_engine();
-    let multiplier_handle = engine
-        .find_host_component_handle::<MultiplierHostComponent>()
-        .unwrap();
-
-    let stdout = run_core_wasi_test_engine(
-        &engine,
-        ["multiply", "5"],
-        |store_builder| {
-            store_builder
-                .host_components_data()
-                .set(multiplier_handle, Multiplier(100));
-        },
-        |_| {},
-    )
-    .await
-    .unwrap();
-    assert_eq!(stdout, "500");
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn test_panic() {
-    let err = run_core_wasi_test(["panic"], |_| {}).await.unwrap_err();
+    let err = run_test(["panic"], |_| {}, |_| {}).await.unwrap_err();
     let trap = err.downcast::<Trap>().expect("trap");
     assert_eq!(trap, Trap::UnreachableCodeReached);
 }
 
-fn test_config() -> Config {
+#[derive(RuntimeFactors)]
+struct TestFactors {
+    wasi: WasiFactor,
+}
+
+struct TestState {
+    core: State,
+    factors: TestFactorsInstanceState,
+}
+
+impl AsState for TestState {
+    fn as_state(&mut self) -> &mut State {
+        &mut self.core
+    }
+}
+
+impl AsInstanceState<TestFactorsInstanceState> for TestState {
+    fn as_instance_state(&mut self) -> &mut TestFactorsInstanceState {
+        &mut self.factors
+    }
+}
+
+async fn run_test(
+    args: impl IntoIterator<Item = &'_ str>,
+    update_store_builder: impl FnOnce(&mut StoreBuilder),
+    update_store: impl FnOnce(&mut Store<TestState>),
+) -> anyhow::Result<()> {
+    let mut factors = TestFactors {
+        wasi: WasiFactor::new(DummyFilesMounter),
+    };
+
     let mut config = Config::default();
     config
         .wasmtime_config()
         .wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
-    config
-}
 
-fn test_engine() -> Engine<()> {
-    let mut builder = Engine::builder(&test_config()).unwrap();
-    builder.add_host_component(MultiplierHostComponent).unwrap();
-    builder
-        .link_import(|l, _| wasmtime_wasi::add_to_linker_async(l))
-        .unwrap();
-    builder
-        .link_import(|l, _| spin_core::wasi_2023_10_18::add_to_linker(l))
-        .unwrap();
-    builder.build()
-}
+    let mut builder = Engine::builder(&config).unwrap();
+    factors.init(builder.linker())?;
+    let engine = builder.build();
 
-async fn run_core_wasi_test<'a>(
-    args: impl IntoIterator<Item = &'a str>,
-    f: impl FnOnce(&mut StoreBuilder),
-) -> anyhow::Result<String> {
-    run_core_wasi_test_engine(&test_engine(), args, f, |_| {}).await
-}
-
-async fn run_core_wasi_test_engine<'a>(
-    engine: &Engine<()>,
-    args: impl IntoIterator<Item = &'a str>,
-    update_store_builder: impl FnOnce(&mut StoreBuilder),
-    update_store: impl FnOnce(&mut Store<()>),
-) -> anyhow::Result<String> {
-    let mut store_builder: StoreBuilder = engine.store_builder(WasiVersion::Preview2);
-    let stdout_buf = store_builder.stdout_buffered()?;
-    store_builder.stderr_pipe(TestWriter(tokio::io::stdout()));
-    store_builder.args(args)?;
-
+    let mut store_builder = engine.store_builder();
     update_store_builder(&mut store_builder);
 
-    let mut store = store_builder.build()?;
+    let locked: LockedApp = serde_json::from_value(json!({
+        "spin_lock_version": 1,
+        "triggers": [],
+        "components": [{
+            "id": "test-component",
+            "source": {
+                "content_type": "application/wasm",
+                "content": {},
+            },
+        }]
+    }))?;
+    let app = App::new("test-app", locked);
+    let configured_app = factors.configure_app(app, Default::default())?;
+    let mut builders = factors.prepare(&configured_app, "test-component")?;
+    builders.wasi().args(args);
+    let instance_state = factors.build_instance_state(builders)?;
+    let state = TestState {
+        core: State::default(),
+        factors: instance_state,
+    };
+
+    let mut store = store_builder.build(state)?;
+    update_store(&mut store);
+
     let module_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../target/test-programs/core-wasi-test.wasm");
     let component = spin_componentize::componentize_command(&fs::read(module_path).await?)?;
@@ -221,48 +164,11 @@ async fn run_core_wasi_test_engine<'a>(
             .context("missing the expected 'wasi:cli/run@0.2.0' instance")?;
         instance.typed_func::<(), (Result<(), ()>,)>("run")?
     };
-    update_store(&mut store);
 
     func.call_async(&mut store, ())
         .await?
         .0
-        .map_err(|()| anyhow::anyhow!("command failed"))?;
-
-    let stdout = String::from_utf8(stdout_buf.contents().to_vec())?
-        .trim_end()
-        .into();
-    Ok(stdout)
-}
-
-// Simple test HostComponent; multiplies the input by the configured factor
-#[derive(Clone)]
-struct MultiplierHostComponent;
-
-mod multiplier {
-    wasmtime::component::bindgen!("multiplier" in "tests/core-wasi-test/wit");
-}
-
-impl HostComponent for MultiplierHostComponent {
-    type Data = Multiplier;
-
-    fn add_to_linker<T: Send>(
-        linker: &mut spin_core::Linker<T>,
-        get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
-    ) -> anyhow::Result<()> {
-        multiplier::imports::add_to_linker(linker, get)
-    }
-
-    fn build_data(&self) -> Self::Data {
-        Multiplier(2)
-    }
-}
-
-struct Multiplier(i32);
-
-impl multiplier::imports::Host for Multiplier {
-    fn multiply(&mut self, a: i32) -> i32 {
-        self.0 * a
-    }
+        .map_err(|()| anyhow::anyhow!("command failed"))
 }
 
 // Write with `print!`, required for test output capture

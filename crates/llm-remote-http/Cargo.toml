@@ -7,11 +7,8 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 http = "0.2"
-llm = { git = "https://github.com/rustformers/llm", rev = "2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663", default-features = false }
 serde = { version = "1.0.150", features = ["derive"] }
 serde_json = "1.0"
-spin-core = { path = "../core" }
-spin-llm = { path = "../llm" }
 spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 reqwest = { version = "0.11", features = ["gzip", "json"] }

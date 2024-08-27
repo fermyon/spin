@@ -7,6 +7,11 @@ edition = { workspace = true }
 [lib]
 doctest = false
 
+[features]
+llm = ["spin-trigger/llm"]
+llm-metal = ["spin-trigger/llm-metal"]
+llm-cublas = ["spin-trigger/llm-cublas"]
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
@@ -18,7 +23,6 @@ hyper = { workspace = true }
 hyper-util = { version = "0.1.2", features = ["tokio"] }
 http-body-util = { workspace = true }
 indexmap = "1"
-outbound-http = { path = "../outbound-http" }
 percent-encoding = "2"
 rustls = { version = "0.22.4" }
 rustls-pemfile = "2.1.2"
@@ -27,6 +31,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-factor-outbound-http = { path = "../factor-outbound-http" }
+spin-factor-wasi = { path = "../factor-wasi" }
 spin-http = { path = "../http" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-telemetry = { path = "../telemetry" }
@@ -41,22 +47,7 @@ tracing = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
-wasi-common-preview1 = { workspace = true }
 webpki-roots = { version = "0.26.0" }
-
-[dev-dependencies]
-criterion = { version = "0.3.5", features = ["async_tokio"] }
-num_cpus = "1"
-spin-testing = { path = "../testing" }
-
-[[bench]]
-name = "baseline"
-harness = false
-
-[features]
-llm = ["spin-trigger/llm"]
-llm-metal = ["llm", "spin-trigger/llm-metal"]
-llm-cublas = ["llm", "spin-trigger/llm-cublas"]
 
 [lints]
 workspace = true

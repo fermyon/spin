@@ -1,30 +1,25 @@
-use std::{io::Cursor, net::SocketAddr, sync::Arc};
+use std::{io::Cursor, net::SocketAddr};
 
-use crate::HttpInstance;
-use anyhow::{anyhow, ensure, Context, Result};
-use async_trait::async_trait;
+use anyhow::{ensure, Result};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
-use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
-use spin_trigger::TriggerAppEngine;
 use tracing::{instrument, Level};
-use wasi_common_preview1::{pipe::WritePipe, I32Exit};
+use wasmtime_wasi::pipe::MemoryOutputPipe;
+use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-use crate::{Body, HttpExecutor, HttpTrigger};
+use crate::{headers::compute_default_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {
     pub wagi_config: WagiTriggerConfig,
 }
 
-#[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
     #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", route_match.component_id())))]
     async fn execute(
         &self,
-        engine: Arc<TriggerAppEngine<HttpTrigger>>,
-        base: &str,
+        mut instance_builder: TriggerInstanceBuilder<'_>,
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
@@ -72,55 +67,39 @@ impl HttpExecutor for WagiHttpExecutor {
         // This sets the current environment variables Wagi expects (such as
         // `PATH_INFO`, or `X_FULL_URL`).
         // Note that this overrides any existing headers previously set by Wagi.
-        for (keys, val) in
-            crate::compute_default_headers(&parts.uri, base, host, route_match, client_addr)?
-        {
+        for (keys, val) in compute_default_headers(&parts.uri, host, route_match, client_addr)? {
             headers.insert(keys[1].to_string(), val);
         }
 
-        let stdout = WritePipe::new_in_memory();
+        let stdout = MemoryOutputPipe::new(usize::MAX);
 
-        let mut store_builder = engine.store_builder(component, WasiVersion::Preview1)?;
+        let wasi_builder = instance_builder.factor_builders().wasi();
+
         // Set up Wagi environment
-        store_builder.args(argv.split(' '))?;
-        store_builder.env(headers)?;
-        store_builder.stdin_pipe(Cursor::new(body));
-        store_builder.stdout(Box::new(stdout.clone()))?;
+        wasi_builder.args(argv.split(' '));
+        wasi_builder.env(headers);
+        wasi_builder.stdin_pipe(Cursor::new(body));
+        wasi_builder.stdout(stdout.clone());
 
-        let (instance, mut store) = engine
-            .prepare_instance_with_store(component, store_builder)
-            .await?;
+        let (instance, mut store) = instance_builder.instantiate(()).await?;
 
-        let HttpInstance::Module(instance) = instance else {
-            unreachable!()
-        };
+        let command = wasmtime_wasi::bindings::Command::new(&mut store, &instance)?;
 
-        let start = instance
-            .get_func(&mut store, &self.wagi_config.entrypoint)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No such function '{}' in {}",
-                    self.wagi_config.entrypoint,
-                    component
-                )
-            })?;
         tracing::trace!("Calling Wasm entry point");
-        start
-            .call_async(&mut store, &[], &mut [])
+        if let Err(()) = command
+            .wasi_cli_run()
+            .call_run(&mut store)
             .await
-            .or_else(ignore_successful_proc_exit_trap)
-            .with_context(|| {
-                anyhow!(
-                    "invoking {} for component {component}",
-                    self.wagi_config.entrypoint
-                )
-            })?;
-        tracing::info!("Module execution complete");
+            .or_else(ignore_successful_proc_exit_trap)?
+        {
+            tracing::error!("Wagi main function returned unsuccessful result");
+        }
+        tracing::info!("Wagi execution complete");
 
         // Drop the store so we're left with a unique reference to `stdout`:
         drop(store);
 
-        let stdout = stdout.try_into_inner().unwrap().into_inner();
+        let stdout = stdout.try_into_inner().unwrap();
         ensure!(
             !stdout.is_empty(),
             "The {component:?} component is configured to use the WAGI executor \
@@ -131,10 +110,13 @@ impl HttpExecutor for WagiHttpExecutor {
     }
 }
 
-fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<()> {
-    match guest_err.root_cause().downcast_ref::<I32Exit>() {
+fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<Result<(), ()>> {
+    match guest_err
+        .root_cause()
+        .downcast_ref::<wasmtime_wasi::I32Exit>()
+    {
         Some(trap) => match trap.0 {
-            0 => Ok(()),
+            0 => Ok(Ok(())),
             _ => Err(guest_err),
         },
         None => Err(guest_err),

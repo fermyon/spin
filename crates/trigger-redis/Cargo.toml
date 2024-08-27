@@ -12,19 +12,13 @@ anyhow = "1.0"
 async-trait = "0.1"
 futures = "0.3"
 serde = "1.0.188"
-spin-app = { path = "../app" }
-spin-common = { path = "../common" }
-spin-core = { path = "../core" }
-spin-expressions = { path = "../expressions" }
+spin-factor-variables = { path = "../factor-variables" }
+spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
-redis = { version = "0.21", features = ["tokio-comp"] }
+redis = { version = "0.26.1", features = ["tokio-comp"] }
 tracing = { workspace = true }
-tokio = { version = "1.23", features = ["full"] }
-spin-telemetry = { path = "../telemetry" }
-
-[dev-dependencies]
-spin-testing = { path = "../testing" }
+tokio = { version = "1.39.3", features = ["macros", "rt"] }
 
 [lints]
 workspace = true

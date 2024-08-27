@@ -6,13 +6,15 @@ use std::{
 
 use anyhow::{Context, Result};
 use spin_common::ui::quoted_path;
+use spin_factors_executor::ExecutorHooks;
 use tokio::io::AsyncWrite;
 
-use crate::{runtime_config::RuntimeConfig, TriggerHooks};
+use crate::factors::TriggerFactors;
 
 /// Which components should have their logs followed on stdout/stderr.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum FollowComponents {
+    #[default]
     /// No components should have their logs followed.
     None,
     /// Only the specified components should have their logs followed.
@@ -32,23 +34,17 @@ impl FollowComponents {
     }
 }
 
-impl Default for FollowComponents {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Implements TriggerHooks, writing logs to a log file and (optionally) stderr
-pub struct StdioLoggingTriggerHooks {
+pub struct StdioLoggingExecutorHooks {
     follow_components: FollowComponents,
     log_dir: Option<PathBuf>,
 }
 
-impl StdioLoggingTriggerHooks {
-    pub fn new(follow_components: FollowComponents) -> Self {
+impl StdioLoggingExecutorHooks {
+    pub fn new(follow_components: FollowComponents, log_dir: Option<PathBuf>) -> Self {
         Self {
             follow_components,
-            log_dir: None,
+            log_dir,
         }
     }
 
@@ -91,17 +87,12 @@ impl StdioLoggingTriggerHooks {
     }
 }
 
-impl TriggerHooks for StdioLoggingTriggerHooks {
-    fn app_loaded(
+impl<U> ExecutorHooks<TriggerFactors, U> for StdioLoggingExecutorHooks {
+    fn configure_app(
         &mut self,
-        app: &spin_app::App,
-        runtime_config: &RuntimeConfig,
-        _resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
+        configured_app: &spin_factors::ConfiguredApp<TriggerFactors>,
     ) -> anyhow::Result<()> {
-        self.log_dir = runtime_config.log_dir();
-
-        self.validate_follows(app)?;
-
+        self.validate_follows(configured_app.app())?;
         if let Some(dir) = &self.log_dir {
             // Ensure log dir exists if set
             std::fs::create_dir_all(dir)
@@ -109,26 +100,25 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
 
             println!("Logging component stdio to {}", quoted_path(dir.join("")))
         }
-
         Ok(())
     }
 
-    fn component_store_builder(
+    fn prepare_instance(
         &self,
-        component: &spin_app::AppComponent,
-        builder: &mut spin_core::StoreBuilder,
+        builder: &mut spin_factors_executor::FactorsInstanceBuilder<TriggerFactors, U>,
     ) -> anyhow::Result<()> {
-        builder.stdout_pipe(self.component_stdio_writer(
-            component.id(),
+        let component_id = builder.app_component().id().to_string();
+        let wasi_builder = builder.factor_builders().wasi();
+        wasi_builder.stdout_pipe(self.component_stdio_writer(
+            &component_id,
             "stdout",
             self.log_dir.as_deref(),
         )?);
-        builder.stderr_pipe(self.component_stdio_writer(
-            component.id(),
+        wasi_builder.stderr_pipe(self.component_stdio_writer(
+            &component_id,
             "stderr",
             self.log_dir.as_deref(),
         )?);
-
         Ok(())
     }
 }

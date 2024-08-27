@@ -1,0 +1,20 @@
+[package]
+name = "spin-factors-derive"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[features]
+expander = ["dep:expander"]
+
+[dependencies]
+expander = { version = "2.2.1", optional = true }
+proc-macro2 = "1.0.79"
+quote = "1.0.35"
+syn = "2.0.52"
+
+[lints]
+workspace = true

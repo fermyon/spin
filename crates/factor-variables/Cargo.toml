@@ -1,0 +1,26 @@
+[package]
+name = "spin-factor-variables"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+azure_security_keyvault = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4caa251c3903d5eae848b41bb1d02a4d65231c" }
+azure_core = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4caa251c3903d5eae848b41bb1d02a4d65231c" }
+azure_identity = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4caa251c3903d5eae848b41bb1d02a4d65231c" }
+dotenvy = "0.15"
+serde = { version = "1.0", features = ["rc"] }
+spin-expressions = { path = "../expressions" }
+spin-factors = { path = "../factors" }
+spin-world = { path = "../world" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+toml = "0.8"
+tracing = { workspace = true }
+vaultrs = "0.6.2"
+
+[dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints]
+workspace = true

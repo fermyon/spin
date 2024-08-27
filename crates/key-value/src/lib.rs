@@ -5,11 +5,13 @@ use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
-mod host_component;
+// TODO(factors): Code left for reference; remove after migration to factors
+// mod host_component;
 mod util;
 
-pub use host_component::{manager, KeyValueComponent};
-pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
+pub use util::{
+    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, EmptyStoreManager,
+};
 
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 
@@ -58,6 +60,10 @@ impl KeyValueDispatch {
 
     pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
         self.stores.get(store.rep()).context("invalid store")
+    }
+
+    pub fn allowed_stores(&self) -> &HashSet<String> {
+        &self.allowed_stores
     }
 }
 

@@ -10,8 +10,6 @@ use llm::{
 };
 use rand::SeedableRng;
 use spin_common::ui::quoted_path;
-use spin_core::async_trait;
-use spin_llm::{LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::v2::llm::{self as wasi_llm};
 use std::{
     collections::hash_map::Entry,
@@ -23,6 +21,8 @@ use std::{
 use tokenizers::PaddingParams;
 use tracing::{instrument, Level};
 
+const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
+
 #[derive(Clone)]
 pub struct LocalLlmEngine {
     registry: PathBuf,
@@ -31,10 +31,9 @@ pub struct LocalLlmEngine {
     embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
 }
 
-#[async_trait]
-impl LlmEngine for LocalLlmEngine {
+impl LocalLlmEngine {
     #[instrument(name = "spin_llm_local.infer", skip(self, prompt), err(level = Level::INFO))]
-    async fn infer(
+    pub async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
@@ -94,7 +93,7 @@ impl LlmEngine for LocalLlmEngine {
     }
 
     #[instrument(name = "spin_llm_local.generate_embeddings", skip(self, data), err(level = Level::INFO))]
-    async fn generate_embeddings(
+    pub async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
@@ -107,18 +106,13 @@ impl LlmEngine for LocalLlmEngine {
 }
 
 impl LocalLlmEngine {
-    pub async fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        let mut engine = Self {
+    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
+        Self {
             registry,
             use_gpu,
             inferencing_models: Default::default(),
             embeddings_models: Default::default(),
-        };
-
-        let _ = engine.inferencing_model("llama2-chat".into()).await;
-        let _ = engine.embeddings_model(MODEL_ALL_MINILM_L6_V2.into()).await;
-
-        engine
+        }
     }
 
     /// Get embeddings model from cache or load from disk

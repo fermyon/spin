@@ -309,11 +309,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
         let runtime_config_path = options.runtime_config_file;
-        let local_app_dir = options
-            .local_app_dir
-            .map(std::path::absolute)
-            .transpose()
-            .context("failed to resolve local app directory path to an absolute path")?;
+        let local_app_dir = options.local_app_dir.map(PathBuf::from);
         let state_dir = match options.state_dir {
             // Make sure `--state-dir=""` unsets the state dir
             Some("") => UserProvidedPath::Unset,

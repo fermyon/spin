@@ -11,7 +11,7 @@ use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
 pub use spin_app::App;
 
-/// Type alias for a [`FactorsConfiguredApp`] specialized to a [`Trigger`].
+/// Type alias for a [`FactorsExecutorApp`] specialized to a [`Trigger`].
 pub type TriggerApp<T> = FactorsExecutorApp<TriggerFactors, <T as Trigger>::InstanceState>;
 
 pub type TriggerInstanceBuilder<'a, T> =

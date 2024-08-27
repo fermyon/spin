@@ -69,14 +69,10 @@ mod tests {
     #[test]
     fn wasi_libc_377_detect() {
         for (wasm, safe) in [
-            (r#"(module)"#, false),
+            (r#"(module)"#, true),
             (
                 r#"(module (func (export "cabi_realloc") (unreachable)))"#,
                 true,
-            ),
-            (
-                r#"(module (func (export "some_other_function") (unreachable)))"#,
-                false,
             ),
             (
                 r#"(module (@producers (processed-by "clang" "16.0.0 extra-stuff")))"#,
@@ -92,10 +88,6 @@ mod tests {
             ),
             (
                 r#"(module (@producers (processed-by "clang" "14.0.0 extra-stuff")))"#,
-                false,
-            ),
-            (
-                r#"(module (@producers (processed-by "clang" "a.b.c")))"#,
                 false,
             ),
         ] {

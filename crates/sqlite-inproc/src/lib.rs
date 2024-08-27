@@ -16,6 +16,29 @@ pub enum InProcDatabaseLocation {
     Path(PathBuf),
 }
 
+impl InProcDatabaseLocation {
+    /// Convert an optional path to a database location.
+    ///
+    /// Ensures that the parent directory of the database exists.
+    pub fn from_path(path: Option<PathBuf>) -> anyhow::Result<Self> {
+        match path {
+            Some(path) => {
+                // Create the store's parent directory if necessary
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).with_context(|| {
+                        format!(
+                            "failed to create sqlite database directory '{}'",
+                            parent.display()
+                        )
+                    })?;
+                }
+                Ok(Self::Path(path))
+            }
+            None => Ok(Self::InMemory),
+        }
+    }
+}
+
 /// A connection to a sqlite database
 pub struct InProcConnection {
     location: InProcDatabaseLocation,

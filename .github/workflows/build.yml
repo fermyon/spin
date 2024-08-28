@@ -196,10 +196,9 @@ jobs:
         with:
           node-version: '20.x'
       - name: Install Swift
-        run: |
-          wget https://github.com/swiftwasm/swift/releases/download/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
-          tar -xf swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
-          echo "$PWD/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/usr/bin" >> $GITHUB_PATH
+        uses: swiftwasm/setup-swiftwasm@v1
+        with:
+          swift-version: "wasm-6.0-SNAPSHOT-2024-07-20-a"
       - name: Install Grain
         run: |
           wget https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64

@@ -1,4 +1,4 @@
-title = "SIP 0XX - Spin Factors"
+title = "SIP 021 - Spin Factors"
 template = "main"
 date = "2024-05-20T12:00:00Z"
 

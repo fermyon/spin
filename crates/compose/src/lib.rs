@@ -26,7 +26,7 @@ use wac_graph::{CompositionGraph, NodeId};
 /// dependent component. Finally, the composer will export all exports from the
 /// dependent component to its dependents. The composer will then encode the
 /// composition graph into a byte array and return it.
-pub async fn compose<'a, L: LockedComponentSourceLoader>(
+pub async fn compose<'a, L: ComponentSourceLoader>(
     loader: &'a L,
     component: &LockedComponent,
 ) -> Result<Vec<u8>, ComposeError> {
@@ -35,7 +35,7 @@ pub async fn compose<'a, L: LockedComponentSourceLoader>(
 
 /// This trait is used to load component source code from a locked component source across various embdeddings.
 #[async_trait::async_trait]
-pub trait LockedComponentSourceLoader {
+pub trait ComponentSourceLoader {
     async fn load_component_source(
         &self,
         source: &locked::LockedComponentSource,
@@ -97,7 +97,7 @@ struct Composer<'a, L> {
     loader: &'a L,
 }
 
-impl<'a, L: LockedComponentSourceLoader> Composer<'a, L> {
+impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
     async fn compose(mut self, component: &LockedComponent) -> Result<Vec<u8>, ComposeError> {
         let source = self
             .loader

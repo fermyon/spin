@@ -1,5 +1,6 @@
 use clap::CommandFactory;
 use serde::{Deserialize, Serialize};
+use spin_factors::RuntimeFactors;
 use std::ffi::OsString;
 
 use crate::{cli::FactorsTriggerCommand, Trigger};
@@ -27,8 +28,12 @@ struct LaunchFlag {
 }
 
 impl LaunchMetadata {
-    pub fn infer<T: Trigger>() -> Self {
-        let all_flags: Vec<_> = FactorsTriggerCommand::<T>::command()
+    pub fn infer<T: Trigger<F>, F: RuntimeFactors>() -> Self
+    where
+        F: Send + Sync,
+        F::AppState: Send + Sync,
+    {
+        let all_flags: Vec<_> = FactorsTriggerCommand::<T, F>::command()
             .get_arguments()
             .map(LaunchFlag::infer)
             .collect();

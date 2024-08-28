@@ -16,7 +16,8 @@ use spin_cli::commands::{
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger::cli::FactorsTriggerCommand;
+use spin_trigger::cli::{FactorsTriggerCommand, RuntimeFactorsBuilder, TriggerAppOptions};
+use spin_trigger::TriggerFactors;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
 
@@ -139,10 +140,10 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(FactorsTriggerCommand<HttpTrigger>),
-    Redis(FactorsTriggerCommand<RedisTrigger>),
+    Http(FactorsTriggerCommand<HttpTrigger, TriggerFactors>),
+    Redis(FactorsTriggerCommand<RedisTrigger, TriggerFactors>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
-    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger>),
+    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger, TriggerFactors>),
 }
 
 impl SpinApp {
@@ -157,14 +158,38 @@ impl SpinApp {
             Self::Login(cmd) => cmd.run(SpinApp::command()).await,
             Self::Registry(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
-            Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
-            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
-            Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
+            Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run::<Builder>().await,
+            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run::<Builder>().await,
+            Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run::<Builder>().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
         }
+    }
+}
+
+struct Builder;
+
+impl RuntimeFactorsBuilder for Builder {
+    type Options = TriggerAppOptions;
+    type Factors = TriggerFactors;
+
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Builder
+    }
+
+    fn build(
+        self,
+        options: Self::Options,
+    ) -> anyhow::Result<(
+        Self::Factors,
+        <Self::Factors as spin_factors::RuntimeFactors>::RuntimeConfig,
+    )> {
+        todo!()
     }
 }
 

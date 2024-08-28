@@ -108,17 +108,17 @@ impl<U> ExecutorHooks<TriggerFactors, U> for StdioLoggingExecutorHooks {
         builder: &mut spin_factors_executor::FactorsInstanceBuilder<TriggerFactors, U>,
     ) -> anyhow::Result<()> {
         let component_id = builder.app_component().id().to_string();
-        let wasi_builder = builder.factor_builders().wasi();
-        wasi_builder.stdout_pipe(self.component_stdio_writer(
-            &component_id,
-            "stdout",
-            self.log_dir.as_deref(),
-        )?);
-        wasi_builder.stderr_pipe(self.component_stdio_writer(
-            &component_id,
-            "stderr",
-            self.log_dir.as_deref(),
-        )?);
+        // let wasi_builder = builder.factor_builders().wasi();
+        // wasi_builder.stdout_pipe(self.component_stdio_writer(
+        //     &component_id,
+        //     "stdout",
+        //     self.log_dir.as_deref(),
+        // )?);
+        // wasi_builder.stderr_pipe(self.component_stdio_writer(
+        //     &component_id,
+        //     "stderr",
+        //     self.log_dir.as_deref(),
+        // )?);
         Ok(())
     }
 }

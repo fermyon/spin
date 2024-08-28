@@ -20,6 +20,7 @@ use anyhow::{bail, Context};
 use clap::Args;
 use serde::Deserialize;
 use spin_app::App;
+use spin_factors::RuntimeFactors;
 use spin_trigger::Trigger;
 use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
 
@@ -29,8 +30,9 @@ pub use tls::TlsConfig;
 
 pub(crate) use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-pub(crate) type TriggerApp = spin_trigger::TriggerApp<HttpTrigger>;
-pub(crate) type TriggerInstanceBuilder<'a> = spin_trigger::TriggerInstanceBuilder<'a, HttpTrigger>;
+pub(crate) type TriggerApp<F> = spin_trigger::TriggerApp<HttpTrigger, F>;
+pub(crate) type TriggerInstanceBuilder<'a, F> =
+    spin_trigger::TriggerInstanceBuilder<'a, HttpTrigger, F>;
 
 #[derive(Args)]
 pub struct CliArgs {
@@ -70,7 +72,12 @@ pub struct HttpTrigger {
     tls_config: Option<TlsConfig>,
 }
 
-impl Trigger for HttpTrigger {
+impl<F> Trigger<F> for HttpTrigger
+where
+    F: RuntimeFactors + Send + Sync,
+    F::AppState: Send + Sync,
+    F::InstanceBuilders: Send + Sync,
+{
     const TYPE: &'static str = "http";
 
     type CliArgs = CliArgs;
@@ -80,7 +87,7 @@ impl Trigger for HttpTrigger {
         Self::new(app, cli_args.address, cli_args.into_tls_config())
     }
 
-    async fn run(self, trigger_app: TriggerApp) -> anyhow::Result<()> {
+    async fn run(self, trigger_app: TriggerApp<F>) -> anyhow::Result<()> {
         let server = self.into_server(trigger_app)?;
 
         server.serve().await?;
@@ -109,7 +116,12 @@ impl HttpTrigger {
     }
 
     /// Turn this [`HttpTrigger`] into an [`HttpServer`].
-    pub fn into_server(self, trigger_app: TriggerApp) -> anyhow::Result<Arc<HttpServer>> {
+    pub fn into_server<F>(self, trigger_app: TriggerApp<F>) -> anyhow::Result<Arc<HttpServer<F>>>
+    where
+        F: RuntimeFactors + Send + Sync,
+        F::AppState: Send + Sync,
+        F::InstanceBuilders: Send + Sync,
+    {
         let Self {
             listen_addr,
             tls_config,

@@ -17,7 +17,7 @@ use spin_runtime_config::TomlRuntimeConfigSource;
 
 #[derive(RuntimeFactors)]
 pub struct TriggerFactors {
-    pub wasi: WasiFactor,
+    // pub wasi: WasiFactor,
     pub variables: VariablesFactor,
     pub key_value: KeyValueFactor,
     pub outbound_networking: OutboundNetworkingFactor,
@@ -40,7 +40,7 @@ impl TriggerFactors {
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            wasi: wasi_factor(working_dir, allow_transient_writes),
+            // wasi: wasi_factor(working_dir, allow_transient_writes),
             variables: VariablesFactor::default(),
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
             outbound_networking: outbound_networking_factor(),

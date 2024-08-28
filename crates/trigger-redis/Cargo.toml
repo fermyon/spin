@@ -12,6 +12,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 futures = "0.3"
 serde = "1.0.188"
+spin-factors = { path = "../factors" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }

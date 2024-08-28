@@ -1,12 +1,13 @@
 use std::{collections::HashSet, sync::Arc};
 
-use spin_factor_sqlite::{runtime_config::spin::RuntimeConfigResolver, SqliteFactor};
+use spin_factor_sqlite::SqliteFactor;
 use spin_factors::{
     anyhow::{self, bail, Context},
     runtime_config::toml::TomlKeyTracker,
     Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
 };
 use spin_factors_test::{toml, TestEnvironment};
+use spin_sqlite::RuntimeConfigResolver;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {

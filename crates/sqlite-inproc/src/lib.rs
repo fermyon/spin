@@ -3,8 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
+use async_trait::async_trait;
 use once_cell::sync::OnceCell;
+use spin_factor_sqlite::Connection;
 use spin_world::v2::sqlite;
 use tracing::{instrument, Level};
 
@@ -94,6 +96,21 @@ impl InProcConnection {
         .await?
         .context("failed to spawn blocking task")?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl Connection for InProcConnection {
+    async fn query(
+        &self,
+        query: &str,
+        parameters: Vec<sqlite::Value>,
+    ) -> Result<sqlite::QueryResult, sqlite::Error> {
+        self.query(query, parameters).await
+    }
+
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        self.execute_batch(statements).await
     }
 }
 

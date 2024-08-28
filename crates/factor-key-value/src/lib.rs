@@ -119,6 +119,12 @@ pub struct AppState {
     component_allowed_stores: HashMap<String, HashSet<String>>,
 }
 
+impl AppState {
+    pub fn store_summary(&self, label: &str) -> Option<String> {
+        self.store_manager.summary(label)
+    }
+}
+
 pub struct InstanceBuilder {
     /// The store manager for the app.
     ///

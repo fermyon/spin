@@ -1,4 +1,5 @@
 mod launch_metadata;
+mod summary;
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -12,6 +13,7 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use spin_core::async_trait;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
+use summary::KeyValueDefaultStoreSummaryHook;
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -415,7 +417,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         ));
         // TODO:
         // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
-        // builder.hooks(KeyValuePersistenceMessageHook);
+        executor.add_hooks(KeyValueDefaultStoreSummaryHook);
         // builder.hooks(SqlitePersistenceMessageHook);
 
         let configured_app = {

@@ -47,6 +47,11 @@ impl StoreManager for KeyValueRedis {
     fn is_defined(&self, _store_name: &str) -> bool {
         true
     }
+
+    fn summary(&self, _store_name: &str) -> Option<String> {
+        let redis::ConnectionInfo { addr, .. } = self.database_url.as_str().parse().ok()?;
+        Some(format!("Redis at {addr}"))
+    }
 }
 
 struct RedisStore {

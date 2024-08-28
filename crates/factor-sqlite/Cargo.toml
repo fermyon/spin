@@ -13,13 +13,13 @@ async-trait = "0.1"
 serde = { version = "1.0", features = ["rc"] }
 spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
+spin-sqlite = { path = "../sqlite", optional = true }
+spin-sqlite-inproc = { path = "../sqlite-inproc", optional = true }
+spin-sqlite-libsql = { path = "../sqlite-libsql", optional = true }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = "1"
 toml = "0.8"
-spin-sqlite = { path = "../sqlite", optional = true }
-spin-sqlite-inproc = { path = "../sqlite-inproc", optional = true }
-spin-sqlite-libsql = { path = "../sqlite-libsql", optional = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
@@ -29,9 +29,9 @@ tokio = { version = "1", features = ["macros", "rt"] }
 default = ["spin-cli"]
 # Includes the runtime configuration handling used by the Spin CLI
 spin-cli = [
-    "dep:spin-sqlite",
-    "dep:spin-sqlite-inproc",
-    "dep:spin-sqlite-libsql",
+  "dep:spin-sqlite",
+  "dep:spin-sqlite-inproc",
+  "dep:spin-sqlite-libsql",
 ]
 
 [lints]

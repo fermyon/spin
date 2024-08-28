@@ -6,19 +6,19 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
+redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp", "aio"] }
+spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
-spin-core = { path = "../core" }
 spin-world = { path = "../world" }
-tracing = { workspace = true }
 table = { path = "../table" }
-redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp", "aio"] }
+tracing = { workspace = true }
 
 
 [dev-dependencies]
+spin-factor-variables = { path = "../factor-variables" }
 spin-factors-test = { path = "../factors-test" }
 tokio = { version = "1", features = ["macros", "rt"] }
-spin-factor-variables = { path = "../factor-variables" }
 
 # wasmtime-wasi-http = { workspace = true }
 [lints]

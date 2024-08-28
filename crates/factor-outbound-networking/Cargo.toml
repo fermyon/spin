@@ -33,7 +33,7 @@ wasmtime-wasi = { workspace = true }
 default = ["spin-cli"]
 # Includes the runtime configuration handling used by the Spin CLI
 spin-cli = [
-    "dep:rustls-pemfile",
+  "dep:rustls-pemfile",
 ]
 [lints]
 workspace = true

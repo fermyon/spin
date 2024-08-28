@@ -1,0 +1,15 @@
+exclude = [
+  ".git/**/*.toml",
+  "**/tests/**/*.toml",
+  "templates/**/*.toml",
+]
+
+[formatting]
+array_auto_collapse = false
+array_auto_expand = false
+
+[[rule]]
+include = ["Cargo.toml", "**/Cargo.toml"]
+keys = ["dependencies", "workspace.dependencies", "dev-dependencies"]
+[rule.formatting]
+reorder_keys = true

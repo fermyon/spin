@@ -355,7 +355,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         struct SimpleComponentLoader;
 
         #[async_trait]
-        impl spin_compose::LockedComponentSourceLoader for SimpleComponentLoader {
+        impl spin_compose::ComponentSourceLoader for SimpleComponentLoader {
             async fn load_component_source(
                 &self,
                 source: &spin_app::locked::LockedComponentSource,
@@ -399,7 +399,10 @@ impl<T: Trigger> TriggerAppBuilder<T> {
                 let composed = spin_compose::compose(self, component.locked)
                     .await
                     .with_context(|| {
-                        format!("failed to compose component {:?}", component.locked.id)
+                        format!(
+                            "failed to resolve dependencies for component {:?}",
+                            component.locked.id
+                        )
                     })?;
 
                 spin_core::Component::new(engine, composed)

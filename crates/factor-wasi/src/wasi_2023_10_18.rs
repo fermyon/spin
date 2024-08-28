@@ -22,6 +22,8 @@ mod bindings {
         "#,
         async: {
             only_imports: [
+                "[drop]output-stream",
+                "[drop]input-stream",
                 "[method]descriptor.access-at",
                 "[method]descriptor.advise",
                 "[method]descriptor.change-directory-permissions-at",
@@ -54,12 +56,9 @@ mod bindings {
                 "[method]descriptor.unlink-file-at",
                 "[method]descriptor.unlock",
                 "[method]descriptor.write",
-                "[method]input-stream.read",
                 "[method]input-stream.blocking-read",
                 "[method]input-stream.blocking-skip",
-                "[method]input-stream.skip",
                 "[method]output-stream.forward",
-                "[method]output-stream.splice",
                 "[method]output-stream.blocking-splice",
                 "[method]output-stream.blocking-flush",
                 "[method]output-stream.blocking-write",
@@ -676,12 +675,12 @@ impl<T> wasi::io::streams::HostInputStream for WasiImpl<T>
 where
     T: WasiView,
 {
-    async fn read(
+    fn read(
         &mut self,
         self_: Resource<InputStream>,
         len: u64,
     ) -> wasmtime::Result<Result<Vec<u8>, StreamError>> {
-        let result = latest::io::streams::HostInputStream::read(self, self_, len).await;
+        let result = latest::io::streams::HostInputStream::read(self, self_, len);
         convert_stream_result(self, result)
     }
 
@@ -694,12 +693,12 @@ where
         convert_stream_result(self, result)
     }
 
-    async fn skip(
+    fn skip(
         &mut self,
         self_: Resource<InputStream>,
         len: u64,
     ) -> wasmtime::Result<Result<u64, StreamError>> {
-        let result = latest::io::streams::HostInputStream::skip(self, self_, len).await;
+        let result = latest::io::streams::HostInputStream::skip(self, self_, len);
         convert_stream_result(self, result)
     }
 
@@ -716,8 +715,8 @@ where
         latest::io::streams::HostInputStream::subscribe(self, self_)
     }
 
-    fn drop(&mut self, rep: Resource<InputStream>) -> wasmtime::Result<()> {
-        latest::io::streams::HostInputStream::drop(self, rep)
+    async fn drop(&mut self, rep: Resource<InputStream>) -> wasmtime::Result<()> {
+        latest::io::streams::HostInputStream::drop(self, rep).await
     }
 }
 
@@ -795,13 +794,13 @@ where
         convert_stream_result(self, result)
     }
 
-    async fn splice(
+    fn splice(
         &mut self,
         self_: Resource<OutputStream>,
         src: Resource<InputStream>,
         len: u64,
     ) -> wasmtime::Result<Result<u64, StreamError>> {
-        let result = latest::io::streams::HostOutputStream::splice(self, self_, src, len).await;
+        let result = latest::io::streams::HostOutputStream::splice(self, self_, src, len);
         convert_stream_result(self, result)
     }
 
@@ -824,8 +823,8 @@ where
         anyhow::bail!("forward API no longer supported")
     }
 
-    fn drop(&mut self, rep: Resource<OutputStream>) -> wasmtime::Result<()> {
-        latest::io::streams::HostOutputStream::drop(self, rep)
+    async fn drop(&mut self, rep: Resource<OutputStream>) -> wasmtime::Result<()> {
+        latest::io::streams::HostOutputStream::drop(self, rep).await
     }
 }
 

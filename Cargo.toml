@@ -151,12 +151,12 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.26", default-features = false, features = ["metrics"] }
 url = "2"
 
-wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [
+wasi-common-preview1 = { version = "25.0.0", package = "wasi-common", features = [
   "tokio",
 ] }
-wasmtime = "22.0.0"
-wasmtime-wasi = "22.0.0"
-wasmtime-wasi-http = "22.0.0"
+wasmtime = "25.0.0"
+wasmtime-wasi = "25.0.0"
+wasmtime-wasi-http = "25.0.0"
 
 spin-componentize = { path = "crates/componentize" }
 

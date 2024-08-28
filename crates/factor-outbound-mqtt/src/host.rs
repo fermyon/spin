@@ -113,7 +113,7 @@ impl v2::HostConnection for InstanceState {
         Ok(())
     }
 
-    fn drop(&mut self, connection: Resource<Connection>) -> anyhow::Result<()> {
+    async fn drop(&mut self, connection: Resource<Connection>) -> anyhow::Result<()> {
         self.connections.remove(connection.rep());
         Ok(())
     }

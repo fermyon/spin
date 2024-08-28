@@ -195,7 +195,7 @@ impl v2::HostConnection for crate::InstanceState {
             .map_err(other_error)
     }
 
-    fn drop(&mut self, connection: Resource<RedisConnection>) -> anyhow::Result<()> {
+    async fn drop(&mut self, connection: Resource<RedisConnection>) -> anyhow::Result<()> {
         self.connections.remove(connection.rep());
         Ok(())
     }

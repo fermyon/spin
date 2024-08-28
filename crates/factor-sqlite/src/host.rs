@@ -101,7 +101,7 @@ impl v2::HostConnection for InstanceState {
         conn.query(&query, parameters).await
     }
 
-    fn drop(&mut self, connection: Resource<v2::Connection>) -> anyhow::Result<()> {
+    async fn drop(&mut self, connection: Resource<v2::Connection>) -> anyhow::Result<()> {
         let _ = self.connections.remove(connection.rep());
         Ok(())
     }
@@ -132,7 +132,7 @@ impl v1::Host for InstanceState {
     }
 
     async fn close(&mut self, connection: u32) -> anyhow::Result<()> {
-        <Self as v2::HostConnection>::drop(self, Resource::new_own(connection))
+        <Self as v2::HostConnection>::drop(self, Resource::new_own(connection)).await
     }
 
     fn convert_error(&mut self, error: v1::Error) -> anyhow::Result<v1::Error> {

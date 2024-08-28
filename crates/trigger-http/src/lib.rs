@@ -22,7 +22,7 @@ use serde::Deserialize;
 use spin_app::App;
 use spin_factors::RuntimeFactors;
 use spin_trigger::Trigger;
-use wasmtime_wasi_http::bindings::wasi::http::types::ErrorCode;
+use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 
 pub use server::HttpServer;
 

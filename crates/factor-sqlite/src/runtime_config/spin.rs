@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use serde::Deserialize;
 use spin_factors::{
     anyhow::{self, Context as _},
@@ -119,18 +120,18 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Connection for spin_sqlite_inproc::InProcConnection {
     async fn query(
         &self,
         query: &str,
         parameters: Vec<v2::Value>,
     ) -> Result<v2::QueryResult, v2::Error> {
-        <Self as spin_sqlite::Connection>::query(self, query, parameters).await
+        self.query(query, parameters).await
     }
 
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        <Self as spin_sqlite::Connection>::execute_batch(self, statements).await
+        self.execute_batch(statements).await
     }
 }
 
@@ -165,7 +166,7 @@ impl LibSqlConnection {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Connection for LibSqlConnection {
     async fn query(
         &self,
@@ -173,18 +174,12 @@ impl Connection for LibSqlConnection {
         parameters: Vec<v2::Value>,
     ) -> Result<v2::QueryResult, v2::Error> {
         let client = self.get_client().await?;
-        <spin_sqlite_libsql::LibsqlClient as spin_sqlite::Connection>::query(
-            client, query, parameters,
-        )
-        .await
+        client.query(query, parameters).await
     }
 
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         let client = self.get_client().await?;
-        <spin_sqlite_libsql::LibsqlClient as spin_sqlite::Connection>::execute_batch(
-            client, statements,
-        )
-        .await
+        client.execute_batch(statements).await
     }
 }
 

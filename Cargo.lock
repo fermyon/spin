@@ -7897,7 +7897,6 @@ dependencies = [
  "async-trait",
  "libsql",
  "rusqlite",
- "spin-sqlite",
  "spin-world",
  "sqlparser",
  "tokio",

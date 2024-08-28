@@ -4,9 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use async_trait::async_trait;
 use once_cell::sync::OnceCell;
-use spin_sqlite::Connection;
 use spin_world::v2::sqlite;
 use tracing::{instrument, Level};
 
@@ -68,10 +66,9 @@ impl InProcConnection {
     }
 }
 
-#[async_trait]
-impl Connection for InProcConnection {
+impl InProcConnection {
     #[instrument(name = "spin_sqlite_inproc.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
-    async fn query(
+    pub async fn query(
         &self,
         query: &str,
         parameters: Vec<sqlite::Value>,
@@ -86,7 +83,7 @@ impl Connection for InProcConnection {
     }
 
     #[instrument(name = "spin_sqlite_inproc.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+    pub async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         let connection = self.db_connection()?;
         let statements = statements.to_owned();
         tokio::task::spawn_blocking(move || {

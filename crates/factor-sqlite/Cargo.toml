@@ -29,9 +29,9 @@ tokio = { version = "1", features = ["macros", "rt"] }
 default = ["spin-cli"]
 # Includes the runtime configuration handling used by the Spin CLI
 spin-cli = [
-  "dep:spin-sqlite",
-  "dep:spin-sqlite-inproc",
-  "dep:spin-sqlite-libsql",
+    "dep:spin-sqlite",
+    "dep:spin-sqlite-inproc",
+    "dep:spin-sqlite-libsql",
 ]
 
 [lints]

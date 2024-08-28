@@ -13,9 +13,9 @@ base64 = "0.21"
 chrono = "0.4"
 # Fork with updated auth to support ACR login
 # Ref https://github.com/camallo/dkregistry-rs/pull/263
+dirs = "4.0"
 dkregistry = { git = "https://github.com/fermyon/dkregistry-rs", rev = "161cf2b66996ed97c7abaf046e38244484814de3" }
 docker_credential = "1.0"
-dirs = "4.0"
 futures-util = "0.3"
 itertools = "0.12.1"
 oci-distribution = { git = "https://github.com/fermyon/oci-distribution", rev = "7e4ce9be9bcd22e78a28f06204931f10c44402ba" }

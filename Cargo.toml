@@ -21,8 +21,8 @@ bytes = "1.1"
 chrono = "0.4"
 clap = { version = "3.2.24", features = ["derive", "env"] }
 clearscreen = "2.0.1"
-command-group = "2.1"
 comfy-table = "5.0"
+command-group = "2.1"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
@@ -35,8 +35,6 @@ itertools = "0.11.0"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
-spin-key-value = { path = "crates/key-value" }
-spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 path-absolutize = "3.0.11"
 rand = "0.8"
 regex = "1.5.5"
@@ -46,13 +44,14 @@ semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 sha2 = "0.10.2"
-terminal = { path = "crates/terminal" }
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
 spin-doctor = { path = "crates/doctor" }
 spin-expressions = { path = "crates/expressions" }
 spin-http = { path = "crates/http" }
+spin-key-value = { path = "crates/key-value" }
+spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 spin-loader = { path = "crates/loader" }
 spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
@@ -65,7 +64,9 @@ spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 spin-trigger-http = { path = "crates/trigger-http" }
 spin-trigger-redis = { path = "crates/trigger-redis" }
+terminal = { path = "crates/terminal" }
 
+subprocess = "0.2.9"
 tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
 toml = "0.6"
@@ -75,7 +76,6 @@ uuid = { version = "^1.0", features = ["v4"] }
 wasmtime = { workspace = true }
 watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
 watchexec-filterer-globset = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
-subprocess = "0.2.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
@@ -84,20 +84,20 @@ openssl = { version = "0.10" }
 
 [dev-dependencies]
 anyhow = { workspace = true, features = ["backtrace"] }
+conformance = { path = "tests/conformance-tests" }
+conformance-tests = { workspace = true }
 hex = "0.4.3"
-hyper = { workspace = true }
-sha2 = "0.10.1"
-which = "4.2.5"
 http-body-util = { workspace = true }
-testing-framework = { path = "tests/testing-framework" }
+hyper = { workspace = true }
 hyper-util = { version = "0.1.2", features = ["tokio"] }
 redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
-test-components = { path = "tests/test-components" }
+sha2 = "0.10.1"
 test-codegen-macro = { path = "crates/test-codegen-macro" }
+test-components = { path = "tests/test-components" }
 test-environment = { workspace = true }
-conformance-tests = { workspace = true }
-conformance = { path = "tests/conformance-tests" }
+testing-framework = { path = "tests/testing-framework" }
+which = "4.2.5"
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "482f269eceb7b1a7e8fc618bf8c082dd24979cf1" }
@@ -127,12 +127,12 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1.0.75"
+conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 http-body-util = "0.1.0"
 hyper = { version = "1.0.0", features = ["full"] }
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
-tracing = { version = "0.1", features = ["log"] }
-conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+tracing = { version = "0.1", features = ["log"] }
 
 wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [
   "tokio",

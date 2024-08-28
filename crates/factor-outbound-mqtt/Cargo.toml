@@ -7,9 +7,9 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 rumqttc = { version = "0.24", features = ["url"] }
+spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
-spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1.0", features = ["sync"] }

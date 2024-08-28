@@ -16,7 +16,6 @@ indexmap = { version = "1" }
 itertools = "0.10.3"
 lazy_static = "1.4.0"
 mime_guess = { version = "2.0" }
-spin-outbound-networking = { path = "../outbound-networking" }
 path-absolutize = { version = "3.0.11", features = ["use_unix_paths_on_wasm"] }
 regex = "1.5.4"
 reqwest = "0.11.9"
@@ -25,9 +24,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.8"
 shellexpand = "3.1"
-spin-locked-app = { path = "../locked-app" }
 spin-common = { path = "../common" }
+spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
+spin-outbound-networking = { path = "../outbound-networking" }
 spin-serde = { path = "../serde" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }

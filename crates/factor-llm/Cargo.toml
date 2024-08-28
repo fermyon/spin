@@ -22,9 +22,9 @@ spin-llm-local = { path = "../llm-local", optional = true }
 spin-llm-remote-http = { path = "../llm-remote-http" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
-tracing = { workspace = true }
 tokio = { version = "1", features = ["sync"] }
 toml = "0.8"
+tracing = { workspace = true }
 url = { version = "2", features = ["serde"] }
 
 [dev-dependencies]

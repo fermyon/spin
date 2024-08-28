@@ -11,23 +11,23 @@ rust-version.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 tracing = "0.1"
-wasmparser = "0.200.0"
 wasm-encoder = "0.200.0"
 wasm-metadata = "0.200.0"
+wasmparser = "0.200.0"
 wit-component = "0.200.0"
 wit-parser = "0.200.0"
 
 [dev-dependencies]
-wasmtime = { workspace = true }
-wasmtime-wasi = { workspace = true }
-tokio = { version = "1.36.0", features = ["macros", "rt", "fs"] }
 async-trait = "0.1.77"
 cap-std = "2.0.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 serde = { version = "1.0.197", features = ["derive"] }
-tempfile = "3.10.0"
-toml = "0.8.10"
 serde_json = "1.0"
+tempfile = "3.10.0"
+tokio = { version = "1.36.0", features = ["macros", "rt", "fs"] }
+toml = "0.8.10"
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
 wat = "1.200.0"

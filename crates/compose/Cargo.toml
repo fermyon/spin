@@ -12,10 +12,10 @@ rust-version.workspace = true
 anyhow = { workspace = true }
 async-trait = "0.1"
 indexmap = "2.2.6"
-spin-app = { path = "../app" }
-spin-serde = { path = "../serde" }
-spin-componentize = { workspace = true }
 semver = "1"
+spin-app = { path = "../app" }
+spin-componentize = { workspace = true }
+spin-serde = { path = "../serde" }
 thiserror = "1"
 tokio = { version = "1.23", features = ["fs"] }
 wac-graph = "0.5.0"

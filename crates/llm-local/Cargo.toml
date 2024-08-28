@@ -10,8 +10,8 @@ candle = { git = "https://github.com/huggingface/candle", rev = "b80348d22f8f0da
 candle-nn = { git = "https://github.com/huggingface/candle", rev = "b80348d22f8f0dadb6cc4101bde031d5de69a9a5" }
 chrono = "0.4.26"
 llm = { git = "https://github.com/rustformers/llm", rev = "2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663", features = [
-    "tokenizers-remote",
-    "llama",
+  "tokenizers-remote",
+  "llama",
 ], default-features = false }
 lru = "0.9.0"
 num_cpus = "1"

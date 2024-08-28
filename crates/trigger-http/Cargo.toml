@@ -19,9 +19,9 @@ clap = "3"
 futures = "0.3"
 futures-util = "0.3.8"
 http = "1.0.0"
+http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { version = "0.1.2", features = ["tokio"] }
-http-body-util = { workspace = true }
 indexmap = "1"
 percent-encoding = "2"
 rustls = { version = "0.22.4" }
@@ -42,8 +42,8 @@ terminal = { path = "../terminal" }
 tls-listener = { version = "0.10.0", features = ["rustls"] }
 tokio = { version = "1.23", features = ["full"] }
 tokio-rustls = { version = "0.25.0" }
-url = "2.4.1"
 tracing = { workspace = true }
+url = "2.4.1"
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }

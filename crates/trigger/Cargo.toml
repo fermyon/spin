@@ -42,7 +42,7 @@ spin-factors-executor = { path = "../factors-executor" }
 spin-runtime-config = { path = "../runtime-config" }
 spin-telemetry = { path = "../telemetry" }
 terminal = { path = "../terminal" }
-tokio = { version = "1.23", features = ["fs"] }
+tokio = { version = "1.23", features = ["fs", "rt"] }
 tracing = { workspace = true }
 
 [lints]

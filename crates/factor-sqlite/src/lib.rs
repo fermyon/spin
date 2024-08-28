@@ -149,11 +149,27 @@ pub trait DefaultLabelResolver: Send + Sync {
     fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>>;
 }
 
+#[derive(Clone)]
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
     /// A function for mapping from database name to a connection creator.
     get_connection_creator: host::ConnectionCreatorGetter,
+}
+
+impl AppState {
+    /// Get a connection for a given database label.
+    ///
+    /// Returns `None` if there is no connection creator for the given label.
+    pub async fn get_connection(
+        &self,
+        label: &str,
+    ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
+        let connection = (self.get_connection_creator)(label)?
+            .create_connection()
+            .await;
+        Some(connection)
+    }
 }
 
 /// A creator of a connections for a particular SQLite database.

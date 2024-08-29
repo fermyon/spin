@@ -19,8 +19,8 @@ use spin_cli::commands::{
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger::cli::{FactorsTriggerCommand, RuntimeFactorsBuilder, TriggerAppOptions};
-use spin_trigger::{TriggerFactors, TriggerFactorsRuntimeConfig};
+use spin_trigger::cli::{CommonTriggerOptions, FactorsTriggerCommand, RuntimeFactorsBuilder};
+use spin_trigger::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
 
@@ -143,10 +143,10 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(FactorsTriggerCommand<HttpTrigger, TriggerFactors>),
-    Redis(FactorsTriggerCommand<RedisTrigger, TriggerFactors>),
+    Http(FactorsTriggerCommand<HttpTrigger, Builder>),
+    Redis(FactorsTriggerCommand<RedisTrigger, Builder>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
-    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger, TriggerFactors>),
+    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger, Builder>),
 }
 
 impl SpinApp {
@@ -161,9 +161,9 @@ impl SpinApp {
             Self::Login(cmd) => cmd.run(SpinApp::command()).await,
             Self::Registry(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
-            Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run::<Builder>().await,
-            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run::<Builder>().await,
-            Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run::<Builder>().await,
+            Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
+            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
+            Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
@@ -178,30 +178,22 @@ impl RuntimeFactorsBuilder for Builder {
     type Options = TriggerAppOptions;
     type Factors = TriggerFactors;
 
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Builder
-    }
-
     fn build(
-        self,
-        working_dir: PathBuf,
+        common_options: CommonTriggerOptions,
         options: Self::Options,
     ) -> anyhow::Result<(
         Self::Factors,
         <Self::Factors as spin_factors::RuntimeFactors>::RuntimeConfig,
     )> {
-        let runtime_config_path = options.runtime_config_file;
-        let local_app_dir = options.local_app_dir.map(PathBuf::from);
-        let state_dir = match options.state_dir {
+        let runtime_config_path = common_options.runtime_config_file;
+        let local_app_dir = common_options.local_app_dir.map(PathBuf::from);
+        let state_dir = match common_options.state_dir {
             // Make sure `--state-dir=""` unsets the state dir
             Some(s) if s.is_empty() => UserProvidedPath::Unset,
             Some(s) => UserProvidedPath::Provided(PathBuf::from(s)),
             None => UserProvidedPath::Default,
         };
-        let log_dir = match &options.log_dir {
+        let log_dir = match &common_options.log_dir {
             // Make sure `--log-dir=""` unsets the log dir
             Some(p) if p.as_os_str().is_empty() => UserProvidedPath::Unset,
             Some(p) => UserProvidedPath::Provided(p.clone()),
@@ -225,7 +217,7 @@ impl RuntimeFactorsBuilder for Builder {
         let log_dir = runtime_config.log_dir();
         let factors = TriggerFactors::new(
             runtime_config.state_dir(),
-            working_dir,
+            common_options.working_dir,
             options.allow_transient_write,
             runtime_config.key_value_resolver,
             runtime_config.sqlite_resolver,

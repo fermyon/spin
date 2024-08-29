@@ -81,10 +81,7 @@ impl Factor for SqliteFactor {
             get_connection_creator(label).is_some()
         })?;
 
-        Ok(AppState {
-            allowed_databases,
-            get_connection_creator,
-        })
+        Ok(AppState::new(allowed_databases, get_connection_creator))
     }
 
     fn prepare<T: spin_factors::RuntimeFactors>(
@@ -149,6 +146,7 @@ pub trait DefaultLabelResolver: Send + Sync {
     fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>>;
 }
 
+#[derive(Clone)]
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
@@ -156,21 +154,43 @@ pub struct AppState {
     get_connection_creator: host::ConnectionCreatorGetter,
 }
 
+impl AppState {
+    /// Create a new `AppState`
+    pub fn new(
+        allowed_databases: HashMap<String, Arc<HashSet<String>>>,
+        get_connection_creator: host::ConnectionCreatorGetter,
+    ) -> Self {
+        Self {
+            allowed_databases,
+            get_connection_creator,
+        }
+    }
+
+    /// Get a connection for a given database label.
+    ///
+    /// Returns `None` if there is no connection creator for the given label.
+    pub async fn get_connection(
+        &self,
+        label: &str,
+    ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
+        let connection = (self.get_connection_creator)(label)?.create_connection();
+        Some(connection)
+    }
+}
+
 /// A creator of a connections for a particular SQLite database.
-#[async_trait]
 pub trait ConnectionCreator: Send + Sync {
     /// Get a *new* [`Connection`]
     ///
     /// The connection should be a new connection, not a reused one.
-    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
+    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
 }
 
-#[async_trait::async_trait]
 impl<F> ConnectionCreator for F
 where
     F: Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
 {
-    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
         (self)().map_err(|_| v2::Error::InvalidConnection)
     }
 }

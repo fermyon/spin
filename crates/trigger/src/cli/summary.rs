@@ -1,3 +1,4 @@
+use spin_core::async_trait;
 use spin_factor_key_value::KeyValueFactor;
 use spin_factors_executor::ExecutorHooks;
 
@@ -5,8 +6,9 @@ use crate::factors::TriggerFactors;
 
 pub struct KeyValueDefaultStoreSummaryHook;
 
+#[async_trait]
 impl<U> ExecutorHooks<TriggerFactors, U> for KeyValueDefaultStoreSummaryHook {
-    fn configure_app(
+    async fn configure_app(
         &mut self,
         configured_app: &spin_factors::ConfiguredApp<TriggerFactors>,
     ) -> anyhow::Result<()> {

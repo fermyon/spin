@@ -1,4 +1,5 @@
 mod launch_metadata;
+mod sqlite_statements;
 mod summary;
 
 use std::future::Future;
@@ -13,6 +14,7 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use spin_core::async_trait;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
+use sqlite_statements::SqlStatementExecutorHook;
 use summary::KeyValueDefaultStoreSummaryHook;
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
@@ -198,6 +200,7 @@ impl<T: Trigger> FactorsTriggerCommand<T> {
                     state_dir: self.state_dir.as_deref(),
                     local_app_dir: local_app_dir.as_deref(),
                     initial_key_values: self.key_values,
+                    sqlite_statements: self.sqlite_statements,
                     allow_transient_write: self.allow_transient_write,
                     follow_components,
                     log_dir: self.log,
@@ -277,6 +280,8 @@ pub struct TriggerAppOptions<'a> {
     local_app_dir: Option<&'a str>,
     /// Initial key/value pairs to set in the app's default store.
     initial_key_values: Vec<(String, String)>,
+    /// SQLite statements to run.
+    sqlite_statements: Vec<String>,
     /// Whether to allow transient writes to mounted files
     allow_transient_write: bool,
     /// Which components should have their logs followed.
@@ -351,8 +356,6 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         )
         .context("failed to create factors")?;
 
-        // TODO(factors): handle: self.sqlite_statements
-
         // TODO: port the rest of the component loader logic
         struct SimpleComponentLoader;
 
@@ -421,6 +424,7 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         // TODO:
         // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
+        executor.add_hooks(SqlStatementExecutorHook::new(options.sqlite_statements));
         // builder.hooks(SqlitePersistenceMessageHook);
 
         let configured_app = {

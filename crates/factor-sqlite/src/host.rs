@@ -66,15 +66,12 @@ impl v2::HostConnection for InstanceState {
         if !self.allowed_databases.contains(&database) {
             return Err(v2::Error::AccessDenied);
         }
-        (self.get_connection_creator)(&database)
+        let conn = (self.get_connection_creator)(&database)
             .ok_or(v2::Error::NoSuchDatabase)?
-            .create_connection()
-            .await
-            .and_then(|conn| {
-                self.connections
-                    .push(conn)
-                    .map_err(|()| v2::Error::Io("too many connections opened".to_string()))
-            })
+            .create_connection()?;
+        self.connections
+            .push(conn)
+            .map_err(|()| v2::Error::Io("too many connections opened".to_string()))
             .map(Resource::new_own)
     }
 

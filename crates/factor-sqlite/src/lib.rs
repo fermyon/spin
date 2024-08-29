@@ -169,12 +169,16 @@ impl AppState {
     /// Get a connection for a given database label.
     ///
     /// Returns `None` if there is no connection creator for the given label.
-    pub async fn get_connection(
-        &self,
-        label: &str,
-    ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
+    pub fn get_connection(&self, label: &str) -> Option<Result<Box<dyn Connection>, v2::Error>> {
         let connection = (self.get_connection_creator)(label)?.create_connection();
         Some(connection)
+    }
+
+    /// Returns true if the given database label is used by any component.
+    pub fn database_is_used(&self, label: &str) -> bool {
+        self.allowed_databases
+            .values()
+            .any(|stores| stores.contains(label))
     }
 }
 
@@ -205,4 +209,11 @@ pub trait Connection: Send + Sync {
     ) -> Result<v2::QueryResult, v2::Error>;
 
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
+
+    /// A human-readable summary of the connection's configuration
+    ///
+    /// Example: "libSQL at libsql://example.com"
+    fn summary(&self) -> Option<String> {
+        None
+    }
 }

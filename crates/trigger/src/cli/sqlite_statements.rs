@@ -31,7 +31,6 @@ impl SqlStatementExecutorHook {
         let get_database = |label| async move {
             sqlite
                 .get_connection(label)
-                .await
                 .transpose()
                 .with_context(|| format!("failed connect to database with label '{label}'"))
         };

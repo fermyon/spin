@@ -120,8 +120,16 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Returns the [`StoreManager::summary`] for the given store label.
     pub fn store_summary(&self, label: &str) -> Option<String> {
         self.store_manager.summary(label)
+    }
+
+    /// Returns true if the given store label is used by any component.
+    pub fn store_is_used(&self, label: &str) -> bool {
+        self.component_allowed_stores
+            .values()
+            .any(|stores| stores.contains(label))
     }
 }
 

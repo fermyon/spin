@@ -15,7 +15,7 @@ use spin_core::async_trait;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 use sqlite_statements::SqlStatementExecutorHook;
-use summary::KeyValueDefaultStoreSummaryHook;
+use summary::{KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook};
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -424,8 +424,8 @@ impl<T: Trigger> TriggerAppBuilder<T> {
         // TODO:
         // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
+        executor.add_hooks(SqliteDefaultStoreSummaryHook);
         executor.add_hooks(SqlStatementExecutorHook::new(options.sqlite_statements));
-        // builder.hooks(SqlitePersistenceMessageHook);
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();

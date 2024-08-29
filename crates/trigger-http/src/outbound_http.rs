@@ -8,25 +8,28 @@ use spin_factor_outbound_http::{
     HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request,
 };
 use spin_factor_outbound_networking::parse_service_chaining_target;
+use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
 use wasmtime_wasi_http::types::IncomingResponse;
 
 use crate::HttpServer;
 
 /// An outbound HTTP interceptor that handles service chaining requests.
-pub struct OutboundHttpInterceptor {
-    server: Arc<HttpServer>,
+pub struct OutboundHttpInterceptor<F: RuntimeFactors> {
+    server: Arc<HttpServer<F>>,
 }
 
-impl OutboundHttpInterceptor {
-    pub fn new(server: Arc<HttpServer>) -> Self {
+impl<F: RuntimeFactors> OutboundHttpInterceptor<F> {
+    pub fn new(server: Arc<HttpServer<F>>) -> Self {
         Self { server }
     }
 }
 
 const CHAINED_CLIENT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
 
-impl spin_factor_outbound_http::OutboundHttpInterceptor for OutboundHttpInterceptor {
+impl<F: RuntimeFactors> spin_factor_outbound_http::OutboundHttpInterceptor
+    for OutboundHttpInterceptor<F>
+{
     fn intercept(
         &self,
         request: &mut Request,

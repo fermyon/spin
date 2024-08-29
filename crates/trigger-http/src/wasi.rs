@@ -6,6 +6,7 @@ use http::{HeaderName, HeaderValue};
 use hyper::{Request, Response};
 use spin_factor_outbound_http::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_10_18;
 use spin_factor_outbound_http::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
+use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
 use tokio::{sync::oneshot, task};
 use tracing::{instrument, Instrument, Level};
@@ -25,9 +26,9 @@ pub struct WasiHttpExecutor {
 
 impl HttpExecutor for WasiHttpExecutor {
     #[instrument(name = "spin_trigger_http.execute_wasm", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", route_match.component_id())))]
-    async fn execute(
+    async fn execute<F: RuntimeFactors>(
         &self,
-        instance_builder: TriggerInstanceBuilder<'_>,
+        instance_builder: TriggerInstanceBuilder<'_, F>,
         route_match: &RouteMatch,
         mut req: Request<Body>,
         client_addr: SocketAddr,

@@ -7984,6 +7984,7 @@ dependencies = [
  "tempfile",
  "terminal",
  "tokio",
+ "toml 0.8.14",
  "tracing",
 ]
 

@@ -43,6 +43,7 @@ spin-runtime-config = { path = "../runtime-config" }
 spin-telemetry = { path = "../telemetry" }
 terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs", "rt"] }
+toml = "0.8"
 tracing = { workspace = true }
 
 [dev-dependencies]

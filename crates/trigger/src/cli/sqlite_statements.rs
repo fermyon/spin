@@ -31,7 +31,6 @@ impl SqlStatementExecutorHook {
         let get_database = |label| async move {
             sqlite
                 .get_connection(label)
-                .await
                 .transpose()
                 .with_context(|| format!("failed connect to database with label '{label}'"))
         };
@@ -69,7 +68,6 @@ impl SqlStatementExecutorHook {
 impl<F, U> ExecutorHooks<F, U> for SqlStatementExecutorHook
 where
     F: RuntimeFactors,
-    F::AppState: Sync,
 {
     async fn configure_app(
         &mut self,

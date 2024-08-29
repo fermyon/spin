@@ -17,7 +17,7 @@ pub trait Factor: Any + Sized {
     /// The application state of this factor.
     ///
     /// This state *may* be cached by the runtime across multiple requests.
-    type AppState;
+    type AppState: Sync;
 
     /// The builder of instance state for this factor.
     type InstanceBuilder: FactorInstanceBuilder;

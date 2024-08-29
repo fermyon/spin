@@ -112,6 +112,13 @@ impl Connection for InProcConnection {
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         self.execute_batch(statements).await
     }
+
+    fn summary(&self) -> Option<String> {
+        Some(match &self.location {
+            InProcDatabaseLocation::InMemory => "a temporary in-memory database".to_string(),
+            InProcDatabaseLocation::Path(path) => format!("\"{}\"", path.display()),
+        })
+    }
 }
 
 fn execute_query(

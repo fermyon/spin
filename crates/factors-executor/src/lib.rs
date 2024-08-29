@@ -34,10 +34,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     }
 }
 
-impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U>
-where
-    T::AppState: Sync,
-{
+impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     /// Adds the given [`ExecutorHooks`] to this executor.
     ///
     /// Hooks are run in the order they are added.
@@ -84,7 +81,6 @@ where
 pub trait ExecutorHooks<T, U>: Send + Sync
 where
     T: RuntimeFactors,
-    T::AppState: Sync,
 {
     /// Configure app hooks run immediately after [`RuntimeFactors::configure_app`].
     async fn configure_app(&mut self, configured_app: &ConfiguredApp<T>) -> anyhow::Result<()> {
@@ -143,10 +139,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
     }
 }
 
-impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U>
-where
-    T::AppState: Sync,
-{
+impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
     /// Returns an instance builder for the given component ID.
     pub fn prepare(&self, component_id: &str) -> anyhow::Result<FactorsInstanceBuilder<T, U>> {
         let app_component = self

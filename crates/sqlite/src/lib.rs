@@ -166,6 +166,10 @@ impl Connection for LibSqlConnection {
         let client = self.get_client().await?;
         client.execute_batch(statements).await
     }
+
+    fn summary(&self) -> Option<String> {
+        Some(format!("libSQL at {}", self.url))
+    }
 }
 
 /// Configuration for a local SQLite database.

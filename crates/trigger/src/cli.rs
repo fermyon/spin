@@ -5,6 +5,7 @@ mod summary;
 use std::future::Future;
 use std::path::PathBuf;
 
+pub use crate::stdio::StdioLoggingExecutorHooks;
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use spin_app::App;
@@ -14,12 +15,10 @@ use spin_common::url::parse_file_url;
 use spin_core::async_trait;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use sqlite_statements::SqlStatementExecutorHook;
-use summary::{
-    summarize_runtime_config, KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook,
-};
+pub use sqlite_statements::SqlStatementExecutorHook;
+pub use summary::KeyValueDefaultStoreSummaryHook;
 
-use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
+use crate::stdio::FollowComponents;
 use crate::{Trigger, TriggerApp};
 pub use launch_metadata::LaunchMetadata;
 
@@ -315,7 +314,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
-        let (factors, runtime_config) = B::build(common_options, options)?;
+        let (factors, runtime_config) = B::build(&common_options, &options)?;
 
         // TODO: port the rest of the component loader logic
         struct SimpleComponentLoader;
@@ -377,19 +376,12 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         }
 
         let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
-
-        executor.add_hooks(StdioLoggingExecutorHooks::new(
-            options.follow_components,
-            log_dir,
-        ));
-        executor.add_hooks(KeyValueDefaultStoreSummaryHook);
-        executor.add_hooks(SqliteDefaultStoreSummaryHook);
-        executor.add_hooks(SqlStatementExecutorHook::new(options.sqlite_statements));
+        B::configure_app(&mut executor, &runtime_config, &common_options, &options)?;
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
             executor
-                .load_app(app, runtime_config, SimpleComponentLoader)
+                .load_app(app, runtime_config.into(), SimpleComponentLoader)
                 .await?
         };
 
@@ -411,14 +403,22 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
 pub trait RuntimeFactorsBuilder {
     type Options: clap::Args;
     type Factors: RuntimeFactors;
+    type RuntimeConfig: Into<<Self::Factors as RuntimeFactors>::RuntimeConfig>;
 
     fn build(
-        common_options: CommonTriggerOptions,
-        options: Self::Options,
-    ) -> anyhow::Result<(
-        Self::Factors,
-        <Self::Factors as RuntimeFactors>::RuntimeConfig,
-    )>;
+        common_options: &CommonTriggerOptions,
+        options: &Self::Options,
+    ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)>;
+
+    fn configure_app<U: Send + 'static>(
+        executor: &mut FactorsExecutor<Self::Factors, U>,
+        runtime_config: &Self::RuntimeConfig,
+        common_options: &CommonTriggerOptions,
+        options: &Self::Options,
+    ) -> anyhow::Result<()> {
+        let _ = (executor, runtime_config, common_options, options);
+        Ok(())
+    }
 }
 
 pub mod help {

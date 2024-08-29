@@ -32,7 +32,12 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
             hooks: Default::default(),
         })
     }
+}
 
+impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U>
+where
+    T::AppState: Sync,
+{
     /// Adds the given [`ExecutorHooks`] to this executor.
     ///
     /// Hooks are run in the order they are added.
@@ -53,7 +58,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
             .context("failed to configure app")?;
 
         for hooks in &mut self.hooks {
-            hooks.configure_app(&configured_app)?;
+            hooks.configure_app(&configured_app).await?;
         }
 
         let mut component_instance_pres = HashMap::new();
@@ -75,9 +80,14 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
     }
 }
 
-pub trait ExecutorHooks<T: RuntimeFactors, U>: Send + Sync {
+#[async_trait]
+pub trait ExecutorHooks<T, U>: Send + Sync
+where
+    T: RuntimeFactors,
+    T::AppState: Sync,
+{
     /// Configure app hooks run immediately after [`RuntimeFactors::configure_app`].
-    fn configure_app(&mut self, configured_app: &ConfiguredApp<T>) -> anyhow::Result<()> {
+    async fn configure_app(&mut self, configured_app: &ConfiguredApp<T>) -> anyhow::Result<()> {
         let _ = configured_app;
         Ok(())
     }
@@ -131,7 +141,12 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
             .with_context(|| format!("no such component {component_id:?}"))?;
         Ok(instance_pre.component())
     }
+}
 
+impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U>
+where
+    T::AppState: Sync,
+{
     /// Returns an instance builder for the given component ID.
     pub fn prepare(&self, component_id: &str) -> anyhow::Result<FactorsInstanceBuilder<T, U>> {
         let app_component = self

@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use spin_common::ui::quoted_path;
+use spin_core::async_trait;
 use spin_factors_executor::ExecutorHooks;
 use tokio::io::AsyncWrite;
 
@@ -87,8 +88,9 @@ impl StdioLoggingExecutorHooks {
     }
 }
 
+#[async_trait]
 impl<U> ExecutorHooks<TriggerFactors, U> for StdioLoggingExecutorHooks {
-    fn configure_app(
+    async fn configure_app(
         &mut self,
         configured_app: &spin_factors::ConfiguredApp<TriggerFactors>,
     ) -> anyhow::Result<()> {

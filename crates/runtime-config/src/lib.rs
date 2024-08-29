@@ -12,7 +12,6 @@ use spin_factor_outbound_networking::runtime_config::spin::SpinTlsRuntimeConfig;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_outbound_pg::OutboundPgFactor;
 use spin_factor_outbound_redis::OutboundRedisFactor;
-use spin_factor_sqlite::runtime_config::spin as sqlite;
 use spin_factor_sqlite::SqliteFactor;
 use spin_factor_variables::{spin_cli as variables, VariablesFactor};
 use spin_factor_wasi::WasiFactor;
@@ -20,6 +19,7 @@ use spin_factors::runtime_config::toml::GetTomlValue as _;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
+use spin_sqlite as sqlite;
 
 /// The default state directory for the trigger.
 pub const DEFAULT_STATE_DIR: &str = ".spin";

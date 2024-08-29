@@ -15,10 +15,9 @@ impl LibsqlClient {
     }
 }
 
-#[async_trait::async_trait]
-impl spin_sqlite::Connection for LibsqlClient {
+impl LibsqlClient {
     #[instrument(name = "spin_sqlite_libsql.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
-    async fn query(
+    pub async fn query(
         &self,
         query: &str,
         parameters: Vec<sqlite::Value>,
@@ -38,7 +37,7 @@ impl spin_sqlite::Connection for LibsqlClient {
     }
 
     #[instrument(name = "spin_sqlite_libsql.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+    pub async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         self.inner.execute_batch(statements).await?;
 
         Ok(())

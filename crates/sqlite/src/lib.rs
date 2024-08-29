@@ -1,195 +1,242 @@
-// TODO(factors): Code left for reference; remove after migration to factors
-// mod host_component;
+//! Spin's default handling of the runtime configuration for SQLite databases.
 
-use spin_app::MetadataKey;
-use spin_core::wasmtime::component::Resource;
-use spin_world::async_trait;
-use spin_world::v1::sqlite::Error as V1SqliteError;
-use spin_world::v2::sqlite;
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
+use async_trait::async_trait;
+use serde::Deserialize;
+use spin_factor_sqlite::{Connection, ConnectionCreator, DefaultLabelResolver};
+use spin_factors::{
+    anyhow::{self, Context as _},
+    runtime_config::toml::GetTomlValue,
+};
+use spin_sqlite_inproc::InProcDatabaseLocation;
+use spin_world::v2::sqlite as v2;
+use tokio::sync::OnceCell;
 
-/// A store of connections for all accessible databases for an application
-#[async_trait]
-pub trait ConnectionsStore: Send + Sync {
-    /// Get a `Connection` for a specific database
-    async fn get_connection(
-        &self,
-        database: &str,
-    ) -> Result<Option<Arc<dyn Connection + 'static>>, sqlite::Error>;
-
-    fn has_connection_for(&self, database: &str) -> bool;
+/// Spin's default resolution of runtime configuration for SQLite databases.
+///
+/// This type implements how Spin CLI's SQLite implementation is configured
+/// through the runtime config toml as well as the behavior of the "default" label.
+pub struct RuntimeConfigResolver {
+    default_database_dir: Option<PathBuf>,
+    local_database_dir: PathBuf,
 }
 
-/// A trait abstracting over operations to a SQLite database
+impl RuntimeConfigResolver {
+    /// Create a new `SpinSqliteRuntimeConfig`
+    ///
+    /// This takes as arguments:
+    /// * the directory to use as the default location for SQLite databases.
+    ///   Usually this will be the path to the `.spin` state directory. If
+    ///   `None`, the default database will be in-memory.
+    /// * the path to the directory from which relative paths to
+    ///   local SQLite databases are resolved.  (this should most likely be the
+    ///   path to the runtime-config file or the current working dir).
+    pub fn new(default_database_dir: Option<PathBuf>, local_database_dir: PathBuf) -> Self {
+        Self {
+            default_database_dir,
+            local_database_dir,
+        }
+    }
+
+    /// Get the runtime configuration for SQLite databases from a TOML table.
+    ///
+    /// Expects table to be in the format:
+    /// ````toml
+    /// [sqlite_database.$database-label]
+    /// type = "$database-type"
+    /// ... extra type specific configuration ...
+    /// ```
+    pub fn resolve_from_toml(
+        &self,
+        table: &impl GetTomlValue,
+    ) -> anyhow::Result<Option<spin_factor_sqlite::runtime_config::RuntimeConfig>> {
+        let Some(table) = table.get("sqlite_database") else {
+            return Ok(None);
+        };
+        let config: std::collections::HashMap<String, TomlRuntimeConfig> =
+            table.clone().try_into()?;
+        let connection_creators = config
+            .into_iter()
+            .map(|(k, v)| Ok((k, self.get_connection_creator(v)?)))
+            .collect::<anyhow::Result<_>>()?;
+        Ok(Some(spin_factor_sqlite::runtime_config::RuntimeConfig {
+            connection_creators,
+        }))
+    }
+
+    /// Get a connection creator for a given runtime configuration.
+    pub fn get_connection_creator(
+        &self,
+        config: TomlRuntimeConfig,
+    ) -> anyhow::Result<Arc<dyn ConnectionCreator>> {
+        let database_kind = config.type_.as_str();
+        match database_kind {
+            "spin" => {
+                let config: LocalDatabase = config.config.try_into()?;
+                Ok(Arc::new(
+                    config.connection_creator(&self.local_database_dir)?,
+                ))
+            }
+            "libsql" => {
+                let config: LibSqlDatabase = config.config.try_into()?;
+                Ok(Arc::new(config.connection_creator()?))
+            }
+            _ => anyhow::bail!("Unknown database kind: {database_kind}"),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct TomlRuntimeConfig {
+    #[serde(rename = "type")]
+    pub type_: String,
+    #[serde(flatten)]
+    pub config: toml::Table,
+}
+
+impl DefaultLabelResolver for RuntimeConfigResolver {
+    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>> {
+        // Only default the database labeled "default".
+        if label != "default" {
+            return None;
+        }
+
+        let path = self
+            .default_database_dir
+            .as_deref()
+            .map(|p| p.join(DEFAULT_SQLITE_DB_FILENAME));
+        let factory = move || {
+            let location = InProcDatabaseLocation::from_path(path.clone())?;
+            let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
+            Ok(Box::new(connection) as _)
+        };
+        Some(Arc::new(factory))
+    }
+}
+
+const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
+
+/// A wrapper around a libSQL connection that implements the [`Connection`] trait.
+struct LibSqlConnection {
+    url: String,
+    token: String,
+    // Since the libSQL client can only be created asynchronously, we wait until
+    // we're in the `Connection` implementation to create. Since we only want to do
+    // this once, we use a `OnceCell` to store it.
+    inner: OnceCell<spin_sqlite_libsql::LibsqlClient>,
+}
+
+impl LibSqlConnection {
+    fn new(url: String, token: String) -> Self {
+        Self {
+            url,
+            token,
+            inner: OnceCell::new(),
+        }
+    }
+
+    async fn get_client(&self) -> Result<&spin_sqlite_libsql::LibsqlClient, v2::Error> {
+        self.inner
+            .get_or_try_init(|| async {
+                spin_sqlite_libsql::LibsqlClient::create(self.url.clone(), self.token.clone())
+                    .await
+                    .context("failed to create SQLite client")
+            })
+            .await
+            .map_err(|_| v2::Error::InvalidConnection)
+    }
+}
+
 #[async_trait]
-pub trait Connection: Send + Sync {
+impl Connection for LibSqlConnection {
     async fn query(
         &self,
         query: &str,
-        parameters: Vec<sqlite::Value>,
-    ) -> Result<sqlite::QueryResult, sqlite::Error>;
-
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
-}
-
-/// An implementation of the SQLite host
-pub struct SqliteDispatch {
-    allowed_databases: HashSet<String>,
-    connections: table::Table<Arc<dyn Connection>>,
-    connections_store: Arc<dyn ConnectionsStore>,
-}
-
-impl SqliteDispatch {
-    pub fn new(connections_store: Arc<dyn ConnectionsStore>) -> Self {
-        Self {
-            connections: table::Table::new(256),
-            allowed_databases: HashSet::new(),
-            connections_store,
-        }
+        parameters: Vec<v2::Value>,
+    ) -> Result<v2::QueryResult, v2::Error> {
+        let client = self.get_client().await?;
+        client.query(query, parameters).await
     }
 
-    /// (Re-)initialize dispatch for a give app
-    pub fn component_init(
-        &mut self,
-        allowed_databases: HashSet<String>,
-        connections_store: Arc<dyn ConnectionsStore>,
-    ) {
-        self.allowed_databases = allowed_databases;
-        self.connections_store = connections_store;
-    }
-
-    fn get_connection(
-        &self,
-        connection: Resource<sqlite::Connection>,
-    ) -> Result<&Arc<dyn Connection>, sqlite::Error> {
-        self.connections
-            .get(connection.rep())
-            .ok_or(sqlite::Error::InvalidConnection)
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        let client = self.get_client().await?;
+        client.execute_batch(statements).await
     }
 }
 
-#[async_trait]
-impl sqlite::Host for SqliteDispatch {
-    fn convert_error(&mut self, error: sqlite::Error) -> anyhow::Result<sqlite::Error> {
-        Ok(error)
-    }
+/// Configuration for a local SQLite database.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocalDatabase {
+    pub path: Option<PathBuf>,
 }
 
-#[async_trait]
-impl sqlite::HostConnection for SqliteDispatch {
-    async fn open(
-        &mut self,
-        database: String,
-    ) -> Result<Resource<sqlite::Connection>, sqlite::Error> {
-        if !self.allowed_databases.contains(&database) {
-            return Err(sqlite::Error::AccessDenied);
-        }
-        self.connections_store
-            .get_connection(&database)
-            .await
-            .and_then(|conn| conn.ok_or(sqlite::Error::NoSuchDatabase))
-            .and_then(|conn| {
-                self.connections
-                    .push(conn)
-                    .map_err(|()| sqlite::Error::Io("too many connections opened".to_string()))
-            })
-            .map(Resource::new_own)
-    }
-
-    async fn execute(
-        &mut self,
-        connection: Resource<sqlite::Connection>,
-        query: String,
-        parameters: Vec<sqlite::Value>,
-    ) -> Result<sqlite::QueryResult, sqlite::Error> {
-        let conn = match self.get_connection(connection) {
-            Ok(c) => c,
-            Err(err) => return Err(err),
+impl LocalDatabase {
+    /// Get a new connection creator for a local database.
+    ///
+    /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
+    fn connection_creator(self, base_dir: &Path) -> anyhow::Result<impl ConnectionCreator> {
+        let path = self
+            .path
+            .as_ref()
+            .map(|p| resolve_relative_path(p, base_dir));
+        let location = InProcDatabaseLocation::from_path(path)?;
+        let factory = move || {
+            let connection = spin_sqlite_inproc::InProcConnection::new(location.clone())?;
+            Ok(Box::new(connection) as _)
         };
-        conn.query(&query, parameters).await
-    }
-
-    fn drop(&mut self, connection: Resource<sqlite::Connection>) -> anyhow::Result<()> {
-        let _ = self.connections.remove(connection.rep());
-        Ok(())
+        Ok(factory)
     }
 }
 
-#[async_trait]
-impl spin_world::v1::sqlite::Host for SqliteDispatch {
-    async fn open(&mut self, database: String) -> Result<u32, V1SqliteError> {
-        let result = <Self as sqlite::HostConnection>::open(self, database).await;
-        result.map_err(to_legacy_error).map(|s| s.rep())
+/// Resolve a relative path against a base dir.
+///
+/// If the path is absolute, it is returned as is. Otherwise, it is resolved against the base dir.
+fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
+    if path.is_absolute() {
+        return path.to_owned();
     }
-
-    async fn execute(
-        &mut self,
-        connection: u32,
-        query: String,
-        parameters: Vec<spin_world::v1::sqlite::Value>,
-    ) -> Result<spin_world::v1::sqlite::QueryResult, V1SqliteError> {
-        let this = Resource::new_borrow(connection);
-        let result = <Self as sqlite::HostConnection>::execute(
-            self,
-            this,
-            query,
-            parameters.into_iter().map(from_legacy_value).collect(),
-        )
-        .await;
-        result.map_err(to_legacy_error).map(to_legacy_query_result)
-    }
-
-    async fn close(&mut self, connection: u32) -> anyhow::Result<()> {
-        <Self as sqlite::HostConnection>::drop(self, Resource::new_own(connection))
-    }
-
-    fn convert_error(&mut self, error: V1SqliteError) -> anyhow::Result<V1SqliteError> {
-        Ok(error)
-    }
+    base_dir.join(path)
 }
-use spin_world::v1::sqlite as v1;
 
-fn to_legacy_error(error: sqlite::Error) -> v1::Error {
-    match error {
-        sqlite::Error::NoSuchDatabase => v1::Error::NoSuchDatabase,
-        sqlite::Error::AccessDenied => v1::Error::AccessDenied,
-        sqlite::Error::InvalidConnection => v1::Error::InvalidConnection,
-        sqlite::Error::DatabaseFull => v1::Error::DatabaseFull,
-        sqlite::Error::Io(s) => v1::Error::Io(s),
+/// Configuration for a libSQL database.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LibSqlDatabase {
+    url: String,
+    token: String,
+}
+
+impl LibSqlDatabase {
+    /// Get a new connection creator for a libSQL database.
+    fn connection_creator(self) -> anyhow::Result<impl ConnectionCreator> {
+        let url = check_url(&self.url)
+            .with_context(|| {
+                format!(
+                    "unexpected libSQL URL '{}' in runtime config file ",
+                    self.url
+                )
+            })?
+            .to_owned();
+        let factory = move || {
+            let connection = LibSqlConnection::new(url.clone(), self.token.clone());
+            Ok(Box::new(connection) as _)
+        };
+        Ok(factory)
     }
 }
 
-fn to_legacy_query_result(result: sqlite::QueryResult) -> v1::QueryResult {
-    v1::QueryResult {
-        columns: result.columns,
-        rows: result.rows.into_iter().map(to_legacy_row_result).collect(),
-    }
-}
-
-fn to_legacy_row_result(result: sqlite::RowResult) -> v1::RowResult {
-    v1::RowResult {
-        values: result.values.into_iter().map(to_legacy_value).collect(),
-    }
-}
-
-fn to_legacy_value(value: sqlite::Value) -> v1::Value {
-    match value {
-        sqlite::Value::Integer(i) => v1::Value::Integer(i),
-        sqlite::Value::Real(r) => v1::Value::Real(r),
-        sqlite::Value::Text(t) => v1::Value::Text(t),
-        sqlite::Value::Blob(b) => v1::Value::Blob(b),
-        sqlite::Value::Null => v1::Value::Null,
-    }
-}
-
-fn from_legacy_value(value: v1::Value) -> sqlite::Value {
-    match value {
-        v1::Value::Integer(i) => sqlite::Value::Integer(i),
-        v1::Value::Real(r) => sqlite::Value::Real(r),
-        v1::Value::Text(t) => sqlite::Value::Text(t),
-        v1::Value::Blob(b) => sqlite::Value::Blob(b),
-        v1::Value::Null => sqlite::Value::Null,
+// Checks an incoming url is in the shape we expect
+fn check_url(url: &str) -> anyhow::Result<&str> {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        Ok(url)
+    } else {
+        Err(anyhow::anyhow!(
+            "URL does not start with 'https://' or 'http://'. Spin currently only supports talking to libSQL databases over HTTP(S)"
+        ))
     }
 }

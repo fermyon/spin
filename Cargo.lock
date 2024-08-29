@@ -7480,8 +7480,6 @@ dependencies = [
  "spin-factors-test",
  "spin-locked-app",
  "spin-sqlite",
- "spin-sqlite-inproc",
- "spin-sqlite-libsql",
  "spin-world",
  "table",
  "tokio",
@@ -7846,6 +7844,7 @@ dependencies = [
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-sqlite",
  "toml 0.8.14",
 ]
 
@@ -7864,14 +7863,17 @@ dependencies = [
 name = "spin-sqlite"
 version = "2.8.0-pre0"
 dependencies = [
- "anyhow",
  "async-trait",
- "spin-app",
- "spin-core",
+ "serde 1.0.197",
+ "spin-factor-sqlite",
+ "spin-factors",
+ "spin-locked-app",
+ "spin-sqlite-inproc",
+ "spin-sqlite-libsql",
  "spin-world",
  "table",
  "tokio",
- "tracing",
+ "toml 0.8.14",
 ]
 
 [[package]]
@@ -7883,7 +7885,7 @@ dependencies = [
  "once_cell",
  "rand 0.8.5",
  "rusqlite",
- "spin-sqlite",
+ "spin-factor-sqlite",
  "spin-world",
  "tokio",
  "tracing",
@@ -7897,7 +7899,6 @@ dependencies = [
  "async-trait",
  "libsql",
  "rusqlite",
- "spin-sqlite",
  "spin-world",
  "sqlparser",
  "tokio",

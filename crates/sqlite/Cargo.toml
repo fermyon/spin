@@ -5,11 +5,14 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1.68"
-spin-app = { path = "../app" }
-spin-core = { path = "../core" }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["rc"] }
+spin-factor-sqlite = { path = "../factor-sqlite" }
+spin-factors = { path = "../factors" }
+spin-locked-app = { path = "../locked-app" }
+spin-sqlite-inproc = { path = "../sqlite-inproc" }
+spin-sqlite-libsql = { path = "../sqlite-libsql" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = "1"
-tracing = { workspace = true }
+toml = "0.8"

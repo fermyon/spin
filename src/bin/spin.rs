@@ -17,7 +17,7 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
+use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::{CommonTriggerOptions, FactorsTriggerCommand, RuntimeFactorsBuilder};
 use spin_trigger::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
@@ -187,26 +187,14 @@ impl RuntimeFactorsBuilder for Builder {
     )> {
         let runtime_config_path = common_options.runtime_config_file;
         let local_app_dir = common_options.local_app_dir.map(PathBuf::from);
-        let state_dir = match common_options.state_dir {
-            // Make sure `--state-dir=""` unsets the state dir
-            Some(s) if s.is_empty() => UserProvidedPath::Unset,
-            Some(s) => UserProvidedPath::Provided(PathBuf::from(s)),
-            None => UserProvidedPath::Default,
-        };
-        let log_dir = match &common_options.log_dir {
-            // Make sure `--log-dir=""` unsets the log dir
-            Some(p) if p.as_os_str().is_empty() => UserProvidedPath::Unset,
-            Some(p) => UserProvidedPath::Provided(p.clone()),
-            None => UserProvidedPath::Default,
-        };
         // Hardcode `use_gpu` to true for now
         let use_gpu = true;
         let runtime_config =
             ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_optional_file(
                 runtime_config_path.as_deref(),
                 local_app_dir,
-                state_dir,
-                log_dir,
+                common_options.state_dir,
+                common_options.log_dir,
                 use_gpu,
             )?;
 

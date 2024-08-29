@@ -14,7 +14,6 @@ use spin_factor_sqlite::SqliteFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{spin::SpinFilesMounter, WasiFactor};
 use spin_factors::RuntimeFactors;
-use spin_runtime_config::TomlRuntimeConfigSource;
 
 #[derive(RuntimeFactors)]
 pub struct TriggerFactors {
@@ -80,14 +79,6 @@ fn outbound_networking_factor() -> OutboundNetworkingFactor {
     let mut factor = OutboundNetworkingFactor::new();
     factor.set_disallowed_host_handler(disallowed_host_handler);
     factor
-}
-
-impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
-        Self::from_source(value)
-    }
 }
 
 /// Options for building a [`TriggerFactors`].

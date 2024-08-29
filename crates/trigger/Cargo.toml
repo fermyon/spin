@@ -39,7 +39,6 @@ spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-factors-executor = { path = "../factors-executor" }
-spin-runtime-config = { path = "../runtime-config" }
 spin-telemetry = { path = "../telemetry" }
 terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs", "rt"] }

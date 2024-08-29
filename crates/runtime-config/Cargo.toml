@@ -26,6 +26,7 @@ spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-sqlite = { path = "../sqlite" }
+spin-trigger = { path = "../trigger" }
 toml = "0.8"
 
 [lints]

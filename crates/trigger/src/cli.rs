@@ -14,7 +14,6 @@ use spin_common::url::parse_file_url;
 use spin_core::async_trait;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 use sqlite_statements::SqlStatementExecutorHook;
 use summary::{
     summarize_runtime_config, KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook,
@@ -134,7 +133,7 @@ pub struct CommonTriggerOptions {
     /// Path to the runtime config file.
     pub runtime_config_file: Option<PathBuf>,
     /// Path to the state directory.
-    pub state_dir: Option<String>,
+    pub state_dir: UserProvidedPath,
     /// Path to the local app directory.
     pub local_app_dir: Option<String>,
     /// Whether to allow transient writes to mounted files
@@ -142,7 +141,7 @@ pub struct CommonTriggerOptions {
     /// Which components should have their logs followed.
     pub follow_components: FollowComponents,
     /// Log directory for component stdout/stderr.
-    pub log_dir: Option<PathBuf>,
+    pub log_dir: UserProvidedPath,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -205,14 +204,26 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> FactorsTriggerCommand<T, 
             config.disable_pooling();
         }
 
+        let state_dir = match &self.state_dir {
+            // Make sure `--state-dir=""` unsets the state dir
+            Some(s) if s.is_empty() => UserProvidedPath::Unset,
+            Some(s) => UserProvidedPath::Provided(PathBuf::from(s)),
+            None => UserProvidedPath::Default,
+        };
+        let log_dir = match &self.log {
+            // Make sure `--log-dir=""` unsets the log dir
+            Some(p) if p.as_os_str().is_empty() => UserProvidedPath::Unset,
+            Some(p) => UserProvidedPath::Provided(p.clone()),
+            None => UserProvidedPath::Default,
+        };
         let common_options = CommonTriggerOptions {
             working_dir: PathBuf::from(working_dir),
             runtime_config_file: self.runtime_config_file.clone(),
-            state_dir: self.state_dir.clone(),
+            state_dir,
             local_app_dir: local_app_dir.clone(),
             allow_transient_write: self.allow_transient_write,
             follow_components,
-            log_dir: self.log,
+            log_dir,
         };
         let run_fut = builder.run(app, common_options, self.builder_args).await?;
 
@@ -430,4 +441,15 @@ pub mod help {
             Ok(())
         }
     }
+}
+
+/// A user provided option which be either be provided, default, or explicitly none.
+#[derive(Clone, Debug)]
+pub enum UserProvidedPath {
+    /// Use the explicitly provided directory.
+    Provided(PathBuf),
+    /// Use the default.
+    Default,
+    /// Explicitly unset.
+    Unset,
 }

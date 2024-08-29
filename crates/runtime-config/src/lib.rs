@@ -20,6 +20,7 @@ use spin_factors::{
 };
 use spin_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_sqlite as sqlite;
+use spin_trigger::cli::UserProvidedPath;
 
 /// The default state directory for the trigger.
 pub const DEFAULT_STATE_DIR: &str = ".spin";
@@ -453,13 +454,10 @@ fn sqlite_config_resolver(
     ))
 }
 
-/// A user provided option which be either be provided, default, or explicitly none.
-#[derive(Clone, Debug)]
-pub enum UserProvidedPath {
-    /// Use the explicitly provided directory.
-    Provided(PathBuf),
-    /// Use the default.
-    Default,
-    /// Explicitly unset.
-    Unset,
+impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for spin_trigger::TriggerFactorsRuntimeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
+        Self::from_source(value)
+    }
 }

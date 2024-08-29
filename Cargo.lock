@@ -7787,6 +7787,7 @@ dependencies = [
  "spin-key-value-redis",
  "spin-key-value-spin",
  "spin-sqlite",
+ "spin-trigger",
  "toml 0.8.14",
 ]
 
@@ -7929,7 +7930,6 @@ dependencies = [
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-executor",
- "spin-runtime-config",
  "spin-telemetry",
  "spin-world",
  "tempfile",

@@ -15,7 +15,9 @@ use spin_core::async_trait;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 use sqlite_statements::SqlStatementExecutorHook;
-use summary::{KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook};
+use summary::{
+    summarize_runtime_config, KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook,
+};
 
 use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
@@ -341,6 +343,8 @@ impl<T: Trigger> TriggerAppBuilder<T> {
                 use_gpu,
             )?;
 
+        summarize_runtime_config(&runtime_config, runtime_config_path);
+
         runtime_config
             .set_initial_key_values(&options.initial_key_values)
             .await?;
@@ -421,8 +425,6 @@ impl<T: Trigger> TriggerAppBuilder<T> {
             options.follow_components,
             log_dir,
         ));
-        // TODO:
-        // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
         executor.add_hooks(SqliteDefaultStoreSummaryHook);
         executor.add_hooks(SqlStatementExecutorHook::new(options.sqlite_statements));

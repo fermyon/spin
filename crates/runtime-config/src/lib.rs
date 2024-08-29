@@ -42,6 +42,8 @@ pub struct ResolvedRuntimeConfig<T> {
     ///
     /// `None` is used for an "unset" log directory.
     pub log_dir: Option<PathBuf>,
+    /// The input TOML, for informational summaries.
+    pub toml: toml::Table,
 }
 
 impl<T> ResolvedRuntimeConfig<T>
@@ -140,6 +142,7 @@ where
             sqlite_resolver: sqlite_config_resolver,
             state_dir: toml_resolver.state_dir()?,
             log_dir: toml_resolver.log_dir()?,
+            toml,
         })
     }
 

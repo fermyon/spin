@@ -69,7 +69,6 @@ impl SqlStatementExecutorHook {
 impl<F, U> ExecutorHooks<F, U> for SqlStatementExecutorHook
 where
     F: RuntimeFactors,
-    F::AppState: Sync,
 {
     async fn configure_app(
         &mut self,

@@ -32,7 +32,7 @@ use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor};
 /// ```
 pub trait RuntimeFactors: Sized + 'static {
     /// The per application state of all the factors.
-    type AppState;
+    type AppState: Sync;
     /// The per instance state of the factors.
     type InstanceState: RuntimeFactorsInstanceState;
     /// The collection of all the `InstanceBuilder`s of the factors.

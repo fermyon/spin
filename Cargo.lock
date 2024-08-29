@@ -2108,12 +2108,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
-name = "dunce"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
-
-[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7106,7 +7100,6 @@ dependencies = [
  "ctrlc",
  "dialoguer 0.10.4",
  "dirs 4.0.0",
- "dunce",
  "futures",
  "glob",
  "hex",
@@ -7166,7 +7159,6 @@ dependencies = [
  "watchexec",
  "watchexec-filterer-globset",
  "which",
- "wit-component 0.19.1",
 ]
 
 [[package]]
@@ -7694,7 +7686,6 @@ dependencies = [
  "async-trait",
  "bytes",
  "dirs 4.0.0",
- "dunce",
  "futures",
  "glob",
  "indexmap 1.9.3",

@@ -464,10 +464,6 @@ criteria = "safe-to-deploy"
 version = "0.15.6"
 criteria = "safe-to-deploy"
 
-[[exemptions.dunce]]
-version = "1.0.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.ed25519]]
 version = "1.5.3"
 criteria = "safe-to-deploy"

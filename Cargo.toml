@@ -26,7 +26,6 @@ command-group = "2.1"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
-dunce = "1.0"
 futures = "0.3"
 glob = "0.3.1"
 indicatif = "0.17.3"
@@ -107,7 +106,6 @@ vergen = { version = "^8.2.1", default-features = false, features = [
   "gitcl",
   "cargo",
 ] }
-wit-component = "0.19.0"
 
 [features]
 default = ["llm"]

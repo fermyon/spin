@@ -78,7 +78,7 @@ where
         let Some(sqlite) = configured_app.app_state::<SqliteFactor>().ok() else {
             return Ok(());
         };
-        self.execute(&sqlite).await?;
+        self.execute(sqlite).await?;
         Ok(())
     }
 }
@@ -86,12 +86,137 @@ where
 /// Parses a @{file:label} sqlite statement
 fn parse_file_and_label(config: &str) -> anyhow::Result<(&str, &str)> {
     let config = config.trim();
+    if config.is_empty() {
+        anyhow::bail!("database configuration is empty in the '@{config}' sqlite statement");
+    }
     let (file, label) = match config.split_once(':') {
         Some((_, label)) if label.trim().is_empty() => {
             anyhow::bail!("database label is empty in the '@{config}' sqlite statement")
+        }
+        Some((file, _)) if file.trim().is_empty() => {
+            anyhow::bail!("file path is empty in the '@{config}' sqlite statement")
         }
         Some((file, label)) => (file.trim(), label.trim()),
         None => (config, "default"),
     };
     Ok((file, label))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::{collections::VecDeque, sync::mpsc::Sender};
+
+    use spin_core::async_trait;
+    use spin_factor_sqlite::{Connection, ConnectionCreator};
+    use spin_world::v2::sqlite as v2;
+    use tempfile::NamedTempFile;
+
+    use super::*;
+
+    #[test]
+    fn test_parse_file_and_label() {
+        assert_eq!(
+            parse_file_and_label("file:label").unwrap(),
+            ("file", "label")
+        );
+        assert!(parse_file_and_label("file:").is_err());
+        assert_eq!(parse_file_and_label("file").unwrap(), ("file", "default"));
+        assert!(parse_file_and_label(":label").is_err());
+        assert!(parse_file_and_label("").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute() {
+        let sqlite_file = NamedTempFile::new().unwrap();
+        std::fs::write(&sqlite_file, "select 2;").unwrap();
+
+        let hook = SqlStatementExecutorHook::new(vec![
+            "SELECT 1;".to_string(),
+            format!("@{path}:label", path = sqlite_file.path().display()),
+        ]);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let creator = Arc::new(MockCreator { tx });
+        let creator2 = creator.clone();
+        let get_creator = Arc::new(move |label: &str| {
+            creator.push(label);
+            Some(creator2.clone() as _)
+        });
+        let sqlite = spin_factor_sqlite::AppState::new(Default::default(), get_creator);
+        let result = hook.execute(&sqlite).await;
+        assert!(result.is_ok());
+
+        let mut expected: VecDeque<Action> = vec![
+            Action::CreateConnection("default".to_string()),
+            Action::Query("SELECT 1;".to_string()),
+            Action::CreateConnection("label".to_string()),
+            Action::Execute("select 2;".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        while let Ok(action) = rx.try_recv() {
+            assert_eq!(action, expected.pop_front().unwrap(), "unexpected action");
+        }
+
+        assert!(
+            expected.is_empty(),
+            "Expected actions were never seen: {:?}",
+            expected
+        );
+    }
+
+    struct MockCreator {
+        tx: Sender<Action>,
+    }
+
+    impl MockCreator {
+        fn push(&self, label: &str) {
+            self.tx
+                .send(Action::CreateConnection(label.to_string()))
+                .unwrap();
+        }
+    }
+
+    #[async_trait]
+    impl ConnectionCreator for MockCreator {
+        async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+            Ok(Box::new(MockConnection {
+                tx: self.tx.clone(),
+            }))
+        }
+    }
+
+    struct MockConnection {
+        tx: Sender<Action>,
+    }
+
+    #[async_trait]
+    impl Connection for MockConnection {
+        async fn query(
+            &self,
+            query: &str,
+            parameters: Vec<v2::Value>,
+        ) -> Result<v2::QueryResult, v2::Error> {
+            self.tx.send(Action::Query(query.to_string())).unwrap();
+            let _ = parameters;
+            Ok(v2::QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+            })
+        }
+
+        async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+            self.tx
+                .send(Action::Execute(statements.to_string()))
+                .unwrap();
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum Action {
+        CreateConnection(String),
+        Query(String),
+        Execute(String),
+    }
 }

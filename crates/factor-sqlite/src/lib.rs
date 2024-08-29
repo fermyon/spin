@@ -81,10 +81,7 @@ impl Factor for SqliteFactor {
             get_connection_creator(label).is_some()
         })?;
 
-        Ok(AppState {
-            allowed_databases,
-            get_connection_creator,
-        })
+        Ok(AppState::new(allowed_databases, get_connection_creator))
     }
 
     fn prepare<T: spin_factors::RuntimeFactors>(
@@ -158,6 +155,17 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Create a new `AppState`
+    pub fn new(
+        allowed_databases: HashMap<String, Arc<HashSet<String>>>,
+        get_connection_creator: host::ConnectionCreatorGetter,
+    ) -> Self {
+        Self {
+            allowed_databases,
+            get_connection_creator,
+        }
+    }
+
     /// Get a connection for a given database label.
     ///
     /// Returns `None` if there is no connection creator for the given label.

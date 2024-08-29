@@ -45,5 +45,9 @@ terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs", "rt"] }
 tracing = { workspace = true }
 
+[dev-dependencies]
+spin-world = { path = "../world" }
+tempfile = "3.12"
+
 [lints]
 workspace = true

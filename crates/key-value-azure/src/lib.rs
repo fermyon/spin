@@ -102,6 +102,14 @@ impl StoreManager for KeyValueAzureCosmos {
     fn is_defined(&self, _store_name: &str) -> bool {
         true
     }
+
+    fn summary(&self, _store_name: &str) -> Option<String> {
+        let database = self.client.database_client().database_name();
+        let collection = self.client.collection_name();
+        Some(format!(
+            "Azure CosmosDB database: {database}, collection: {collection}"
+        ))
+    }
 }
 
 struct AzureCosmosStore {

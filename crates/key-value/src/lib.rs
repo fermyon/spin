@@ -23,6 +23,14 @@ pub use key_value::Error;
 pub trait StoreManager: Sync + Send {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error>;
     fn is_defined(&self, store_name: &str) -> bool;
+
+    /// A human-readable summary of the given store's configuration
+    ///
+    /// Example: "Redis at localhost:1234"
+    fn summary(&self, store_name: &str) -> Option<String> {
+        let _ = store_name;
+        None
+    }
 }
 
 #[async_trait]

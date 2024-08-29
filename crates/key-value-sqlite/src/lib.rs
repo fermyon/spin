@@ -68,6 +68,13 @@ impl StoreManager for KeyValueSqlite {
     fn is_defined(&self, _store_name: &str) -> bool {
         true
     }
+
+    fn summary(&self, _store_name: &str) -> Option<String> {
+        Some(match &self.location {
+            DatabaseLocation::InMemory => "a temporary in-memory store".into(),
+            DatabaseLocation::Path(path) => format!("\"{}\"", path.display()),
+        })
+    }
 }
 
 struct SqliteStore {

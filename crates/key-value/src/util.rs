@@ -66,6 +66,10 @@ impl StoreManager for DelegatingStoreManager {
     fn is_defined(&self, store_name: &str) -> bool {
         self.delegates.contains_key(store_name)
     }
+
+    fn summary(&self, store_name: &str) -> Option<String> {
+        (self.default_manager)(store_name)?.summary(store_name)
+    }
 }
 
 /// Wrap each `Store` produced by the inner `StoreManager` in an asynchronous, write-behind cache.
@@ -121,6 +125,10 @@ impl<T: StoreManager> StoreManager for CachingStoreManager<T> {
 
     fn is_defined(&self, store_name: &str) -> bool {
         self.inner.is_defined(store_name)
+    }
+
+    fn summary(&self, store_name: &str) -> Option<String> {
+        self.inner.summary(store_name)
     }
 }
 

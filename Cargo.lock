@@ -7130,6 +7130,7 @@ dependencies = [
  "spin-doctor",
  "spin-expressions",
  "spin-factors",
+ "spin-factors-executor",
  "spin-http",
  "spin-key-value",
  "spin-key-value-sqlite",

@@ -52,77 +52,45 @@ where
     T: for<'a, 'b> TryFrom<TomlRuntimeConfigSource<'a, 'b>>,
     for<'a, 'b> <T as TryFrom<TomlRuntimeConfigSource<'a, 'b>>>::Error: Into<anyhow::Error>,
 {
-    /// Creates a new resolved runtime configuration from an optional runtime config source TOML file.
-    pub fn from_optional_file(
-        runtime_config_path: Option<&Path>,
-        local_app_dir: Option<PathBuf>,
-        provided_state_dir: UserProvidedPath,
-        provided_log_dir: UserProvidedPath,
-        use_gpu: bool,
-    ) -> anyhow::Result<Self> {
-        match runtime_config_path {
-            Some(runtime_config_path) => Self::from_file(
-                runtime_config_path,
-                local_app_dir,
-                provided_state_dir,
-                provided_log_dir,
-                use_gpu,
-            ),
-            None => Self::new(
-                Default::default(),
-                None,
-                local_app_dir,
-                provided_state_dir,
-                provided_log_dir,
-                use_gpu,
-            ),
-        }
-    }
-
     /// Creates a new resolved runtime configuration from a runtime config source TOML file.
     ///
     /// `provided_state_dir` is the explicitly provided state directory, if any.
     pub fn from_file(
-        runtime_config_path: &Path,
-        local_app_dir: Option<PathBuf>,
-        provided_state_dir: UserProvidedPath,
-        provided_log_dir: UserProvidedPath,
-        use_gpu: bool,
-    ) -> anyhow::Result<Self> {
-        let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
-            format!(
-                "failed to read runtime config file '{}'",
-                runtime_config_path.display()
-            )
-        })?;
-        let toml = toml::from_str(&file).with_context(|| {
-            format!(
-                "failed to parse runtime config file '{}' as toml",
-                runtime_config_path.display()
-            )
-        })?;
-
-        Self::new(
-            toml,
-            Some(runtime_config_path),
-            local_app_dir,
-            provided_state_dir,
-            provided_log_dir,
-            use_gpu,
-        )
-    }
-
-    /// Creates a new resolved runtime configuration from a TOML table.
-    pub fn new(
-        toml: toml::Table,
         runtime_config_path: Option<&Path>,
         local_app_dir: Option<PathBuf>,
         provided_state_dir: UserProvidedPath,
         provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
+        let toml = match runtime_config_path {
+            Some(runtime_config_path) => {
+                let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
+                    format!(
+                        "failed to read runtime config file '{}'",
+                        runtime_config_path.display()
+                    )
+                })?;
+                toml::from_str(&file).with_context(|| {
+                    format!(
+                        "failed to parse runtime config file '{}' as toml",
+                        runtime_config_path.display()
+                    )
+                })?
+            }
+            None => Default::default(),
+        };
         let toml_resolver =
             TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
+
+        Self::new(toml_resolver, runtime_config_path, use_gpu)
+    }
+
+    /// Creates a new resolved runtime configuration from a TOML table.
+    pub fn new(
+        toml_resolver: TomlResolver<'_>,
+        runtime_config_path: Option<&Path>,
+        use_gpu: bool,
+    ) -> anyhow::Result<Self> {
         let tls_resolver = runtime_config_path.map(SpinTlsRuntimeConfig::new);
         let key_value_config_resolver = key_value_config_resolver(toml_resolver.state_dir()?);
         let sqlite_config_resolver = sqlite_config_resolver(toml_resolver.state_dir()?)
@@ -182,6 +150,14 @@ where
     /// The fully resolved state directory.
     pub fn log_dir(&self) -> Option<PathBuf> {
         self.log_dir.clone()
+    }
+}
+
+impl From<ResolvedRuntimeConfig<spin_trigger::TriggerFactorsRuntimeConfig>>
+    for spin_trigger::TriggerFactorsRuntimeConfig
+{
+    fn from(value: ResolvedRuntimeConfig<spin_trigger::TriggerFactorsRuntimeConfig>) -> Self {
+        value.runtime_config
     }
 }
 

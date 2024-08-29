@@ -92,10 +92,10 @@ pub struct TriggerAppOptions {
     /// default store. Any existing value will be overwritten.
     /// Can be used multiple times.
     #[clap(long = "key-value", parse(try_from_str = parse_kv))]
-    key_values: Vec<(String, String)>,
+    pub key_values: Vec<(String, String)>,
 
     /// Run a SQLite statement such as a migration against the default database.
     /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
     #[clap(long = "sqlite")]
-    sqlite_statements: Vec<String>,
+    pub sqlite_statements: Vec<String>,
 }

@@ -30,13 +30,13 @@ use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor};
 /// // Instantiate the component
 /// let instance = linker.instantiate_async(&mut store, &component).await?;
 /// ```
-pub trait RuntimeFactors: Sized + 'static {
+pub trait RuntimeFactors: Send + Sync + Sized + 'static {
     /// The per application state of all the factors.
-    type AppState: Sync;
+    type AppState: Sync + Send;
     /// The per instance state of the factors.
     type InstanceState: RuntimeFactorsInstanceState;
     /// The collection of all the `InstanceBuilder`s of the factors.
-    type InstanceBuilders;
+    type InstanceBuilders: Send;
     /// The runtime configuration of all the factors.
     type RuntimeConfig: Default;
 

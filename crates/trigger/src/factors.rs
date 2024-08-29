@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use spin_common::arg_parser::parse_kv;
 use spin_factor_key_value::KeyValueFactor;
 use spin_factor_llm::LlmFactor;
 use spin_factor_outbound_http::OutboundHttpFactor;
@@ -87,4 +88,23 @@ impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
     fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
         Self::from_source(value)
     }
+}
+
+/// Options for building a [`TriggerFactors`].
+#[derive(Default, clap::Args)]
+pub struct TriggerAppOptions {
+    /// Set the static assets of the components in the temporary directory as writable.
+    #[clap(long = "allow-transient-write")]
+    pub allow_transient_write: bool,
+
+    /// Set a key/value pair (key=value) in the application's
+    /// default store. Any existing value will be overwritten.
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    key_values: Vec<(String, String)>,
+
+    /// Run a SQLite statement such as a migration against the default database.
+    /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
+    #[clap(long = "sqlite")]
+    sqlite_statements: Vec<String>,
 }

@@ -1,9 +1,10 @@
 use clap::CommandFactory;
 use serde::{Deserialize, Serialize};
-use spin_factors::RuntimeFactors;
 use std::ffi::OsString;
 
 use crate::{cli::FactorsTriggerCommand, Trigger};
+
+use super::RuntimeFactorsBuilder;
 
 /// Contains information about the trigger flags (and potentially
 /// in future configuration) that a consumer (such as `spin up`)
@@ -28,8 +29,8 @@ struct LaunchFlag {
 }
 
 impl LaunchMetadata {
-    pub fn infer<T: Trigger<F>, F: RuntimeFactors>() -> Self {
-        let all_flags: Vec<_> = FactorsTriggerCommand::<T, F>::command()
+    pub fn infer<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder>() -> Self {
+        let all_flags: Vec<_> = FactorsTriggerCommand::<T, B>::command()
             .get_arguments()
             .map(LaunchFlag::infer)
             .collect();

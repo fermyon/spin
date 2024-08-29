@@ -3,14 +3,14 @@ mod sqlite_statements;
 mod summary;
 
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use spin_app::App;
+use spin_common::sloth;
 use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
-use spin_common::{arg_parser::parse_kv, sloth};
 use spin_core::async_trait;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
@@ -20,7 +20,6 @@ use summary::{
     summarize_runtime_config, KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook,
 };
 
-use crate::factors::{TriggerFactors, TriggerFactorsRuntimeConfig};
 use crate::stdio::{FollowComponents, StdioLoggingExecutorHooks};
 use crate::{Trigger, TriggerApp};
 pub use launch_metadata::LaunchMetadata;
@@ -40,9 +39,9 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 #[derive(Parser, Debug)]
 #[clap(
     usage = "spin [COMMAND] [OPTIONS]",
-    next_help_heading = help_heading::<T, F>()
+    next_help_heading = help_heading::<T, B::Factors>()
 )]
-pub struct FactorsTriggerCommand<T: Trigger<F>, F: RuntimeFactors> {
+pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> {
     /// Log directory for the stdout and stderr of components. Setting to
     /// the empty string disables logging to disk.
     #[clap(
@@ -117,16 +116,8 @@ pub struct FactorsTriggerCommand<T: Trigger<F>, F: RuntimeFactors> {
     #[clap(flatten)]
     pub trigger_args: T::CliArgs,
 
-    /// Set a key/value pair (key=value) in the application's
-    /// default store. Any existing value will be overwritten.
-    /// Can be used multiple times.
-    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
-    key_values: Vec<(String, String)>,
-
-    /// Run a SQLite statement such as a migration against the default database.
-    /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
-    #[clap(long = "sqlite")]
-    sqlite_statements: Vec<String>,
+    #[clap(flatten)]
+    pub builder_args: B::Options,
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
@@ -135,16 +126,33 @@ pub struct FactorsTriggerCommand<T: Trigger<F>, F: RuntimeFactors> {
     pub launch_metadata_only: bool,
 }
 
+/// Configuration options that are common to all triggers.
+#[derive(Debug)]
+pub struct CommonTriggerOptions {
+    /// The Spin working directory.
+    pub working_dir: PathBuf,
+    /// Path to the runtime config file.
+    pub runtime_config_file: Option<PathBuf>,
+    /// Path to the state directory.
+    pub state_dir: Option<String>,
+    /// Path to the local app directory.
+    pub local_app_dir: Option<String>,
+    /// Whether to allow transient writes to mounted files
+    pub allow_transient_write: bool,
+    /// Which components should have their logs followed.
+    pub follow_components: FollowComponents,
+    /// Log directory for component stdout/stderr.
+    pub log_dir: Option<PathBuf>,
+}
+
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
 /// for executors that do not need additional CLI args.
 #[derive(Args)]
 pub struct NoCliArgs;
 
-impl<T: Trigger<F>, F: RuntimeFactors> FactorsTriggerCommand<T, F> {
+impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> FactorsTriggerCommand<T, B> {
     /// Create a new TriggerExecutorBuilder from this TriggerExecutorCommand.
-    pub async fn run<B: RuntimeFactorsBuilder<Factors = F, Options = TriggerAppOptions>>(
-        self,
-    ) -> Result<()> {
+    pub async fn run(self) -> Result<()> {
         // Handle --help-args-only
         if self.help_args_only {
             Self::command()
@@ -156,7 +164,7 @@ impl<T: Trigger<F>, F: RuntimeFactors> FactorsTriggerCommand<T, F> {
 
         // Handle --launch-metadata-only
         if self.launch_metadata_only {
-            let lm = LaunchMetadata::infer::<T, F>();
+            let lm = LaunchMetadata::infer::<T, B>();
             let json = serde_json::to_string_pretty(&lm)?;
             eprintln!("{json}");
             return Ok(());
@@ -185,8 +193,7 @@ impl<T: Trigger<F>, F: RuntimeFactors> FactorsTriggerCommand<T, F> {
         }
 
         let trigger = T::new(self.trigger_args, &app)?;
-        let mut builder: TriggerAppBuilder<T, B> =
-            TriggerAppBuilder::new(trigger, PathBuf::from(working_dir));
+        let mut builder: TriggerAppBuilder<T, B> = TriggerAppBuilder::new(trigger);
         let config = builder.engine_config();
 
         // Apply --cache / --disable-cache
@@ -198,21 +205,16 @@ impl<T: Trigger<F>, F: RuntimeFactors> FactorsTriggerCommand<T, F> {
             config.disable_pooling();
         }
 
-        let run_fut = builder
-            .run(
-                app,
-                TriggerAppOptions {
-                    runtime_config_file: self.runtime_config_file.clone(),
-                    state_dir: self.state_dir.clone(),
-                    local_app_dir: local_app_dir.clone(),
-                    initial_key_values: self.key_values,
-                    sqlite_statements: self.sqlite_statements,
-                    allow_transient_write: self.allow_transient_write,
-                    follow_components,
-                    log_dir: self.log,
-                },
-            )
-            .await?;
+        let common_options = CommonTriggerOptions {
+            working_dir: PathBuf::from(working_dir),
+            runtime_config_file: self.runtime_config_file.clone(),
+            state_dir: self.state_dir.clone(),
+            local_app_dir: local_app_dir.clone(),
+            allow_transient_write: self.allow_transient_write,
+            follow_components,
+            log_dir: self.log,
+        };
+        let run_fut = builder.run(app, common_options, self.builder_args).await?;
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
         ctrlc::set_handler(move || abort_handle.abort())?;
@@ -271,37 +273,14 @@ fn help_heading<T: Trigger<F>, F: RuntimeFactors>() -> Option<&'static str> {
 /// A builder for a [`TriggerApp`].
 pub struct TriggerAppBuilder<T, F> {
     engine_config: spin_core::Config,
-    working_dir: PathBuf,
     pub trigger: T,
     _factors: std::marker::PhantomData<F>,
 }
 
-/// Options for building a [`TriggerApp`].
-#[derive(Default)]
-pub struct TriggerAppOptions {
-    /// Path to the runtime config file.
-    pub runtime_config_file: Option<PathBuf>,
-    /// Path to the state directory.
-    pub state_dir: Option<String>,
-    /// Path to the local app directory.
-    pub local_app_dir: Option<String>,
-    /// Initial key/value pairs to set in the app's default store.
-    pub initial_key_values: Vec<(String, String)>,
-    /// SQLite statements to run.
-    pub sqlite_statements: Vec<String>,
-    /// Whether to allow transient writes to mounted files
-    pub allow_transient_write: bool,
-    /// Which components should have their logs followed.
-    pub follow_components: FollowComponents,
-    /// Log directory for component stdout/stderr.
-    pub log_dir: Option<PathBuf>,
-}
-
-impl<T: Trigger<F::Factors>, F: RuntimeFactorsBuilder> TriggerAppBuilder<T, F> {
-    pub fn new(trigger: T, working_dir: PathBuf) -> Self {
+impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
+    pub fn new(trigger: T) -> Self {
         Self {
             engine_config: spin_core::Config::default(),
-            working_dir,
             trigger,
             _factors: Default::default(),
         }
@@ -315,8 +294,9 @@ impl<T: Trigger<F::Factors>, F: RuntimeFactorsBuilder> TriggerAppBuilder<T, F> {
     pub async fn build(
         &mut self,
         app: App,
-        options: F::Options,
-    ) -> anyhow::Result<TriggerApp<T, F::Factors>> {
+        common_options: CommonTriggerOptions,
+        options: B::Options,
+    ) -> anyhow::Result<TriggerApp<T, B::Factors>> {
         let mut core_engine_builder = {
             self.trigger.update_core_config(&mut self.engine_config)?;
 
@@ -324,7 +304,7 @@ impl<T: Trigger<F::Factors>, F: RuntimeFactorsBuilder> TriggerAppBuilder<T, F> {
         };
         self.trigger.add_to_linker(core_engine_builder.linker())?;
 
-        let (factors, runtime_config) = F::new().build(self.working_dir.clone(), options)?;
+        let (factors, runtime_config) = B::build(common_options, options)?;
 
         // TODO: port the rest of the component loader logic
         struct SimpleComponentLoader;
@@ -409,24 +389,20 @@ impl<T: Trigger<F::Factors>, F: RuntimeFactorsBuilder> TriggerAppBuilder<T, F> {
     pub async fn run(
         mut self,
         app: App,
-        options: F::Options,
+        common_options: CommonTriggerOptions,
+        options: B::Options,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<()>>> {
-        let configured_app = self.build(app, options).await?;
+        let configured_app = self.build(app, common_options, options).await?;
         Ok(self.trigger.run(configured_app))
     }
 }
 
 pub trait RuntimeFactorsBuilder {
-    type Options;
+    type Options: clap::Args;
     type Factors: RuntimeFactors;
 
-    fn new() -> Self
-    where
-        Self: Sized;
-
     fn build(
-        self,
-        working_dir: PathBuf,
+        common_options: CommonTriggerOptions,
         options: Self::Options,
     ) -> anyhow::Result<(
         Self::Factors,

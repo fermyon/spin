@@ -143,9 +143,8 @@ impl spin_factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
 /// A connection creator that always returns an error.
 struct InvalidConnectionCreator;
 
-#[async_trait::async_trait]
 impl spin_factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
-    async fn create_connection(
+    fn create_connection(
         &self,
     ) -> Result<Box<dyn spin_factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error>
     {

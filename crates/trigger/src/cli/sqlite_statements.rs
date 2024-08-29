@@ -177,9 +177,8 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl ConnectionCreator for MockCreator {
-        async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+        fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
             Ok(Box::new(MockConnection {
                 tx: self.tx.clone(),
             }))

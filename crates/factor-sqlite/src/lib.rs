@@ -173,28 +173,24 @@ impl AppState {
         &self,
         label: &str,
     ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
-        let connection = (self.get_connection_creator)(label)?
-            .create_connection()
-            .await;
+        let connection = (self.get_connection_creator)(label)?.create_connection();
         Some(connection)
     }
 }
 
 /// A creator of a connections for a particular SQLite database.
-#[async_trait]
 pub trait ConnectionCreator: Send + Sync {
     /// Get a *new* [`Connection`]
     ///
     /// The connection should be a new connection, not a reused one.
-    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
+    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
 }
 
-#[async_trait::async_trait]
 impl<F> ConnectionCreator for F
 where
     F: Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
 {
-    async fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
         (self)().map_err(|_| v2::Error::InvalidConnection)
     }
 }

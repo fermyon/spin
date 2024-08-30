@@ -8336,6 +8336,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.7",
  "spin-app",
+ "spin-cli",
  "spin-factors-executor",
  "spin-http",
  "spin-loader",

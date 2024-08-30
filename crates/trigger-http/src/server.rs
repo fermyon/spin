@@ -13,8 +13,8 @@ use hyper::{
 };
 use hyper_util::rt::TokioIo;
 use spin_app::{APP_DESCRIPTION_KEY, APP_NAME_KEY};
-use spin_factor_outbound_http::SelfRequestOrigin;
-use spin_factors::RuntimeFactors;
+use spin_factor_outbound_http::{OutboundHttpFactor, SelfRequestOrigin};
+use spin_factors::{HasInstanceBuilder, RuntimeFactors};
 use spin_http::{
     app_info::AppInfo,
     body,
@@ -236,11 +236,14 @@ impl<F: RuntimeFactors> HttpServer<F> {
         let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
         // Set up outbound HTTP request origin and service chaining
-        // TODO: bring back once outbound networking is refactored
-        // let outbound_http = instance_builder.factor_builders().outbound_http();
-        // let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
-        // outbound_http.set_self_request_origin(origin);
-        // outbound_http.set_request_interceptor(OutboundHttpInterceptor::new(self.clone()))?;
+        if let Some(outbound_http) = instance_builder
+            .factor_builders()
+            .for_factor::<OutboundHttpFactor>()
+        {
+            let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
+            outbound_http.set_self_request_origin(origin);
+            outbound_http.set_request_interceptor(OutboundHttpInterceptor::new(self.clone()))?;
+        }
 
         // Prepare HTTP executor
         let trigger_config = self.component_trigger_configs.get(component_id).unwrap();

@@ -628,7 +628,6 @@ Caused by:
     #[test]
     #[cfg(target_arch = "x86_64")]
     #[cfg(feature = "extern-dependencies-tests")]
-    #[ignore = "https://github.com/fermyon/spin/issues/2774"]
     fn http_grain_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-grain",
@@ -652,21 +651,6 @@ Caused by:
             |_| Ok(()),
             HashMap::default(),
             "Hello World!\n",
-        )
-    }
-
-    #[test]
-    #[cfg(feature = "extern-dependencies-tests")]
-    #[ignore = "https://github.com/fermyon/spin/issues/2774"]
-    fn http_swift_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template(
-            "http-swift",
-            None,
-            None,
-            &[],
-            |_| Ok(()),
-            HashMap::default(),
-            "Hello from WAGI/1!\n",
         )
     }
 

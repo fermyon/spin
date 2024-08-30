@@ -3879,7 +3879,6 @@ dependencies = [
  "spin-expressions",
  "spin-factor-outbound-networking",
  "spin-factors",
- "spin-outbound-networking",
  "spin-world",
  "table",
  "tokio",
@@ -3899,12 +3898,16 @@ dependencies = [
  "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "serde",
+ "spin-expressions",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
- "spin-outbound-networking",
+ "spin-locked-app",
  "spin-serde",
+ "terminal",
  "tracing",
+ "url",
+ "urlencoding",
  "webpki-roots 0.26.3",
 ]
 
@@ -4100,20 +4103,6 @@ dependencies = [
  "serde_json",
  "spin-serde",
  "thiserror",
-]
-
-[[package]]
-name = "spin-outbound-networking"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "http 1.1.0",
- "ipnet",
- "spin-expressions",
- "spin-locked-app",
- "terminal",
- "url",
- "urlencoding",
 ]
 
 [[package]]

@@ -3,8 +3,8 @@ use std::{net::SocketAddr, str, str::FromStr};
 use anyhow::Result;
 use http::Uri;
 use hyper::Request;
+use spin_factor_outbound_networking::is_service_chaining_host;
 use spin_http::routes::RouteMatch;
-use spin_outbound_networking::is_service_chaining_host;
 
 use crate::Body;
 

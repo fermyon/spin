@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use futures::{future::try_join_all, StreamExt};
 use reqwest::Url;
 use spin_common::{paths::parent_dir, sloth, ui::quoted_path};
+use spin_factor_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIX;
 use spin_locked_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentDependency,
@@ -12,7 +13,6 @@ use spin_locked_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
-use spin_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIX;
 use spin_serde::DependencyName;
 use std::collections::BTreeMap;
 use tokio::{io::AsyncWriteExt, sync::Semaphore};
@@ -147,7 +147,7 @@ impl LocalLoader {
         let allowed_outbound_hosts = component
             .normalized_allowed_outbound_hosts()
             .context("`allowed_http_hosts` is malformed")?;
-        spin_outbound_networking::AllowedHostsConfig::validate(&allowed_outbound_hosts)
+        spin_factor_outbound_networking::AllowedHostsConfig::validate(&allowed_outbound_hosts)
             .context("`allowed_outbound_hosts` is malformed")?;
 
         let metadata = ValuesMapBuilder::new()
@@ -784,7 +784,7 @@ fn requires_service_chaining(component: &spin_manifest::schema::v2::Component) -
 }
 
 fn is_chaining_host(pattern: &str) -> bool {
-    use spin_outbound_networking::{AllowedHostConfig, HostConfig};
+    use spin_factor_outbound_networking::{AllowedHostConfig, HostConfig};
 
     let Ok(allowed) = AllowedHostConfig::parse(pattern) else {
         return false;

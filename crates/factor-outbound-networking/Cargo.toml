@@ -13,13 +13,16 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rustls-pemfile = { version = "2.1.2", optional = true }
 rustls-pki-types = "1.7.0"
 serde = { version = "1", features = ["derive"] }
+spin-expressions = { path = "../expressions" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
-# TODO: merge with this crate
-spin-outbound-networking = { path = "../outbound-networking" }
+spin-locked-app = { path = "../locked-app" }
 spin-serde = { path = "../serde" }
+terminal = { path = "../terminal" }
 tracing = { workspace = true }
+url = "2.4.1"
+urlencoding = "2.1"
 webpki-roots = "0.26"
 
 [dev-dependencies]

@@ -1,7 +1,9 @@
+mod config;
 pub mod runtime_config;
 
 use std::{collections::HashMap, sync::Arc};
 
+use config::ALLOWED_HOSTS_KEY;
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
@@ -14,9 +16,11 @@ use spin_factors::{
     ConfigureAppContext, Error, Factor, FactorInstanceBuilder, InstanceBuilders, PrepareContext,
     RuntimeFactors,
 };
-use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
-pub use spin_outbound_networking::OutboundUrl;
+pub use config::{
+    is_service_chaining_host, parse_service_chaining_target, AllowedHostConfig, AllowedHostsConfig,
+    HostConfig, OutboundUrl, SERVICE_CHAINING_DOMAIN_SUFFIX,
+};
 
 pub use runtime_config::ComponentTlsConfigs;
 

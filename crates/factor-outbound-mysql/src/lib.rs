@@ -33,7 +33,7 @@ impl<C: Send + Sync + Client + 'static> Factor for OutboundMysqlFactor<C> {
     fn prepare<T: spin_factors::RuntimeFactors>(
         &self,
         _ctx: spin_factors::PrepareContext<Self>,
-        builders: &mut spin_factors::InstanceBuilders<T>,
+        builders: &mut spin_factors::PreparedInstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
         let allowed_hosts = builders
             .get_mut::<OutboundNetworkingFactor>()?

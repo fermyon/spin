@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use spin_runtime_factors::{FactorsBuilder, TriggerAppOptions, TriggerFactors};
+use spin_runtime_factors::{FactorsBuilder, TriggerAppArgs, TriggerFactors};
 use spin_trigger::cli::TriggerAppBuilder;
 use spin_trigger_http::{HttpServer, HttpTrigger};
 use test_environment::{
@@ -109,8 +109,8 @@ async fn initialize_trigger(
     let trigger_app = builder
         .build(
             app,
-            spin_trigger::cli::CommonTriggerOptions::default(),
-            TriggerAppOptions::default(),
+            spin_trigger::cli::FactorsConfig::default(),
+            TriggerAppArgs::default(),
         )
         .await?;
     let server = builder.trigger.into_server(trigger_app)?;

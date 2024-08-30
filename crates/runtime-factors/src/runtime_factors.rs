@@ -1,15 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use super::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
+use super::{TriggerAppArgs, TriggerFactors, TriggerFactorsRuntimeConfig};
 
 use anyhow::Context as _;
 use spin_common::ui::quoted_path;
 use spin_factors_executor::FactorsExecutor;
 use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_trigger::cli::{
-    CommonTriggerOptions, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook,
-    RuntimeFactorsBuilder, SqlStatementExecutorHook, SqliteDefaultStoreSummaryHook,
-    StdioLoggingExecutorHooks,
+    FactorsConfig, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook, RuntimeFactorsBuilder,
+    SqlStatementExecutorHook, SqliteDefaultStoreSummaryHook, StdioLoggingExecutorHooks,
 };
 use toml::Value;
 
@@ -17,33 +16,30 @@ use toml::Value;
 pub struct FactorsBuilder;
 
 impl RuntimeFactorsBuilder for FactorsBuilder {
-    type Options = TriggerAppOptions;
+    type CliArgs = TriggerAppArgs;
     type Factors = TriggerFactors;
     type RuntimeConfig = ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>;
 
     fn build(
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
+        config: &FactorsConfig,
+        args: &Self::CliArgs,
     ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)> {
         // Hardcode `use_gpu` to true for now
         let use_gpu = true;
         let runtime_config = ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-            common_options.runtime_config_file.clone().as_deref(),
-            common_options.local_app_dir.clone().map(PathBuf::from),
-            common_options.state_dir.clone(),
-            common_options.log_dir.clone(),
+            config.runtime_config_file.clone().as_deref(),
+            config.local_app_dir.clone().map(PathBuf::from),
+            config.state_dir.clone(),
+            config.log_dir.clone(),
             use_gpu,
         )?;
 
-        summarize_runtime_config(
-            &runtime_config,
-            common_options.runtime_config_file.as_deref(),
-        );
+        summarize_runtime_config(&runtime_config, config.runtime_config_file.as_deref());
 
         let factors = TriggerFactors::new(
             runtime_config.state_dir(),
-            common_options.working_dir.clone(),
-            options.allow_transient_write,
+            config.working_dir.clone(),
+            args.allow_transient_write,
             runtime_config.key_value_resolver.clone(),
             runtime_config.sqlite_resolver.clone(),
             use_gpu,
@@ -55,17 +51,17 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
     fn configure_app<U: Send + 'static>(
         executor: &mut FactorsExecutor<Self::Factors, U>,
         runtime_config: &Self::RuntimeConfig,
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
+        config: &FactorsConfig,
+        args: &Self::CliArgs,
     ) -> anyhow::Result<()> {
         executor.add_hooks(StdioLoggingExecutorHooks::new(
-            common_options.follow_components.clone(),
+            config.follow_components.clone(),
             runtime_config.log_dir(),
         ));
         executor.add_hooks(SqlStatementExecutorHook::new(
-            options.sqlite_statements.clone(),
+            args.sqlite_statements.clone(),
         ));
-        executor.add_hooks(InitialKvSetterHook::new(options.key_values.clone()));
+        executor.add_hooks(InitialKvSetterHook::new(args.key_values.clone()));
         executor.add_hooks(SqliteDefaultStoreSummaryHook);
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
         Ok(())

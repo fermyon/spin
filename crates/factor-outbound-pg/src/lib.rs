@@ -4,7 +4,7 @@ mod host;
 use client::Client;
 use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
+    anyhow, ConfigureAppContext, Factor, PrepareContext, PreparedInstanceBuilders, RuntimeFactors,
     SelfInstanceBuilder,
 };
 use tokio_postgres::Client as PgClient;
@@ -37,7 +37,7 @@ impl<C: Send + Sync + Client + 'static> Factor for OutboundPgFactor<C> {
     fn prepare<T: RuntimeFactors>(
         &self,
         _ctx: PrepareContext<Self>,
-        builders: &mut InstanceBuilders<T>,
+        builders: &mut PreparedInstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
         let allowed_hosts = builders
             .get_mut::<OutboundNetworkingFactor>()?

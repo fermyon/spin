@@ -114,7 +114,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
     pub trigger_args: T::CliArgs,
 
     #[clap(flatten)]
-    pub builder_args: B::Options,
+    pub builder_args: B::CliArgs,
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
@@ -125,7 +125,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
 
 /// Configuration options that are common to all triggers.
 #[derive(Debug, Default)]
-pub struct CommonTriggerOptions {
+pub struct FactorsConfig {
     /// The Spin working directory.
     pub working_dir: PathBuf,
     /// Path to the runtime config file.
@@ -212,7 +212,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> FactorsTriggerCommand<T, 
             Some(p) => UserProvidedPath::Provided(p.clone()),
             None => UserProvidedPath::Default,
         };
-        let common_options = CommonTriggerOptions {
+        let common_options = FactorsConfig {
             working_dir: PathBuf::from(working_dir),
             runtime_config_file: self.runtime_config_file.clone(),
             state_dir,
@@ -300,8 +300,8 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
     pub async fn build(
         &mut self,
         app: App,
-        common_options: CommonTriggerOptions,
-        options: B::Options,
+        common_options: FactorsConfig,
+        options: B::CliArgs,
     ) -> anyhow::Result<TriggerApp<T, B::Factors>> {
         let mut core_engine_builder = {
             self.trigger.update_core_config(&mut self.engine_config)?;
@@ -388,8 +388,8 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
     pub async fn run(
         mut self,
         app: App,
-        common_options: CommonTriggerOptions,
-        options: B::Options,
+        common_options: FactorsConfig,
+        options: B::CliArgs,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<()>>> {
         let configured_app = self.build(app, common_options, options).await?;
         Ok(self.trigger.run(configured_app))
@@ -400,25 +400,25 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
 pub trait RuntimeFactorsBuilder {
     /// The factors type to build.
     type Factors: RuntimeFactors;
-    /// CLI arguments not included in [`CommonTriggerOptions`] needed  to build the [`RuntimeFactors`].
-    type Options: clap::Args;
+    /// CLI arguments not included in [`FactorsConfig`] needed  to build the [`RuntimeFactors`].
+    type CliArgs: clap::Args;
     /// The wrapped runtime config type.
     type RuntimeConfig: Into<<Self::Factors as RuntimeFactors>::RuntimeConfig>;
 
     /// Build the factors and runtime config from the given options.
     fn build(
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
+        config: &FactorsConfig,
+        args: &Self::CliArgs,
     ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)>;
 
     /// Configure the factors in the executor.
     fn configure_app<U: Send + 'static>(
         executor: &mut FactorsExecutor<Self::Factors, U>,
         runtime_config: &Self::RuntimeConfig,
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
+        config: &FactorsConfig,
+        args: &Self::CliArgs,
     ) -> anyhow::Result<()> {
-        let _ = (executor, runtime_config, common_options, options);
+        let _ = (executor, runtime_config, config, args);
         Ok(())
     }
 }

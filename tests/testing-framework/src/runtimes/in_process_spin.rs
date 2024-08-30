@@ -3,8 +3,9 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use spin_cli::Builder;
-use spin_trigger::{cli::TriggerAppBuilder, TriggerAppOptions, TriggerFactors};
+use spin_cli::runtime_factors::FactorsBuilder;
+use spin_runtime_factors::{TriggerAppOptions, TriggerFactors};
+use spin_trigger::cli::TriggerAppBuilder;
 use spin_trigger_http::{HttpServer, HttpTrigger};
 use test_environment::{
     http::{Request, Response},
@@ -105,7 +106,7 @@ async fn initialize_trigger(
 
     let app = spin_app::App::new("my-app", locked_app);
     let trigger = HttpTrigger::new(&app, "127.0.0.1:80".parse().unwrap(), None)?;
-    let mut builder = TriggerAppBuilder::<_, Builder>::new(trigger);
+    let mut builder = TriggerAppBuilder::<_, FactorsBuilder>::new(trigger);
     let trigger_app = builder
         .build(
             app,

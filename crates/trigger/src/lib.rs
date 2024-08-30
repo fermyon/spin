@@ -1,6 +1,4 @@
 pub mod cli;
-mod factors;
-mod stdio;
 
 use std::future::Future;
 
@@ -9,7 +7,6 @@ use spin_core::Linker;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
-pub use factors::*;
 pub use spin_app::App;
 
 /// Type alias for a [`FactorsExecutorApp`] specialized to a [`Trigger`].

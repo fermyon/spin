@@ -1,5 +1,5 @@
 [package]
-name = "spin-runtime-config"
+name = "spin-runtime-factors"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -8,12 +8,16 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+llm = ["spin-factor-llm/llm"]
+llm-metal = ["spin-factor-llm/llm-metal"]
+llm-cublas = ["spin-factor-llm/llm-cublas"]
+
 [dependencies]
-anyhow = { workspace = true }
+anyhow = "1"
+clap = { version = "3.1.18", features = ["derive", "env"] }
+spin-common = { path = "../common" }
 spin-factor-key-value = { path = "../factor-key-value" }
-spin-key-value-azure = { path = "../key-value-azure" }
-spin-key-value-redis = { path = "../key-value-redis" }
-spin-key-value-spin = { path = "../key-value-spin" }
 spin-factor-llm = { path = "../factor-llm" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-mqtt = { path = "../factor-outbound-mqtt" }
@@ -25,10 +29,9 @@ spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
-spin-runtime-factors = { path = "../runtime-factors" }
-spin-sqlite = { path = "../sqlite" }
-spin-trigger = { path = "../trigger" }
-toml = "0.8"
+spin-telemetry = { path = "../telemetry" }
+terminal = { path = "../terminal" }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

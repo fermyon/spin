@@ -4,6 +4,7 @@ use spin_common::ui::quoted_path;
 use spin_core::async_trait;
 use spin_factor_key_value::KeyValueFactor;
 use spin_factor_sqlite::SqliteFactor;
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::ExecutorHooks;
 use spin_runtime_config::ResolvedRuntimeConfig;
 use toml::Value;
@@ -51,10 +52,10 @@ pub fn summarize_runtime_config<T>(
 pub struct KeyValueDefaultStoreSummaryHook;
 
 #[async_trait]
-impl<U> ExecutorHooks<TriggerFactors, U> for KeyValueDefaultStoreSummaryHook {
+impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for KeyValueDefaultStoreSummaryHook {
     async fn configure_app(
         &mut self,
-        configured_app: &spin_factors::ConfiguredApp<TriggerFactors>,
+        configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         let Ok(kv_app_state) = configured_app.app_state::<KeyValueFactor>() else {
             return Ok(());

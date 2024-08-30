@@ -1,11 +1,11 @@
 mod launch_metadata;
 mod sqlite_statements;
+mod stdio;
 mod summary;
 
 use std::future::Future;
 use std::path::PathBuf;
 
-pub use crate::stdio::StdioLoggingExecutorHooks;
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use spin_app::App;
@@ -15,12 +15,13 @@ use spin_common::url::parse_file_url;
 use spin_core::async_trait;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
-pub use sqlite_statements::SqlStatementExecutorHook;
-pub use summary::KeyValueDefaultStoreSummaryHook;
 
-use crate::stdio::FollowComponents;
 use crate::{Trigger, TriggerApp};
 pub use launch_metadata::LaunchMetadata;
+pub use sqlite_statements::SqlStatementExecutorHook;
+use stdio::FollowComponents;
+pub use stdio::StdioLoggingExecutorHooks;
+pub use summary::KeyValueDefaultStoreSummaryHook;
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";

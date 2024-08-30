@@ -1,3 +1,7 @@
+mod runtime_factors;
+
+pub use runtime_factors::FactorsBuilder;
+
 use std::path::PathBuf;
 
 use anyhow::Context as _;
@@ -14,6 +18,7 @@ use spin_factor_sqlite::SqliteFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{spin::SpinFilesMounter, WasiFactor};
 use spin_factors::RuntimeFactors;
+use spin_runtime_config::{ResolvedRuntimeConfig, TomlRuntimeConfigSource};
 
 #[derive(RuntimeFactors)]
 pub struct TriggerFactors {
@@ -98,4 +103,18 @@ pub struct TriggerAppOptions {
     /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
     #[clap(long = "sqlite")]
     pub sqlite_statements: Vec<String>,
+}
+
+impl From<ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>> for TriggerFactorsRuntimeConfig {
+    fn from(value: ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>) -> Self {
+        value.runtime_config
+    }
+}
+
+impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
+        Self::from_source(value)
+    }
 }

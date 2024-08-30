@@ -160,12 +160,6 @@ where
     }
 }
 
-impl From<ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>> for TriggerFactorsRuntimeConfig {
-    fn from(value: ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>) -> Self {
-        value.runtime_config
-    }
-}
-
 #[derive(Clone, Debug)]
 /// Resolves runtime configuration from a TOML file.
 pub struct TomlResolver<'a> {
@@ -433,12 +427,4 @@ fn sqlite_config_resolver(
         default_database_dir,
         local_database_dir,
     ))
-}
-
-impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
-        Self::from_source(value)
-    }
 }

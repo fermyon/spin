@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
 
+use super::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
+
 use anyhow::Context as _;
 use spin_common::ui::quoted_path;
 use spin_factors_executor::FactorsExecutor;
 use spin_runtime_config::ResolvedRuntimeConfig;
-use spin_runtime_factors::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
 use spin_trigger::cli::{
     CommonTriggerOptions, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook,
     RuntimeFactorsBuilder, SqlStatementExecutorHook, SqliteDefaultStoreSummaryHook,
@@ -12,6 +13,7 @@ use spin_trigger::cli::{
 };
 use toml::Value;
 
+/// A [`RuntimeFactorsBuilder`] for [`TriggerFactors`].
 pub struct FactorsBuilder;
 
 impl RuntimeFactorsBuilder for FactorsBuilder {

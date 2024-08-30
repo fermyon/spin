@@ -1,3 +1,7 @@
-print("content-type: text/plain")
-print("")
-print("Hello, World")
+module Main
+
+provide let _start = () => {
+  print("content-type: text/plain")
+  print("")
+  print("Hello, World")
+}

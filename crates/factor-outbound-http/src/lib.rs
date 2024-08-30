@@ -14,8 +14,7 @@ use spin_factor_outbound_networking::{
     ComponentTlsConfigs, OutboundAllowedHosts, OutboundNetworkingFactor,
 };
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, PrepareContext, PreparedInstanceBuilders, RuntimeFactors,
-    SelfInstanceBuilder,
+    anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use wasmtime_wasi_http::WasiHttpCtx;
 
@@ -59,10 +58,9 @@ impl Factor for OutboundHttpFactor {
 
     fn prepare<T: RuntimeFactors>(
         &self,
-        _ctx: PrepareContext<Self>,
-        builders: &mut PreparedInstanceBuilders<T>,
+        mut ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
-        let outbound_networking = builders.get_mut::<OutboundNetworkingFactor>()?;
+        let outbound_networking = ctx.instance_builder::<OutboundNetworkingFactor>()?;
         let allowed_hosts = outbound_networking.allowed_hosts();
         let component_tls_configs = outbound_networking.component_tls_configs().clone();
         Ok(InstanceState {

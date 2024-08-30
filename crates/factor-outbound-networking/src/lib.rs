@@ -13,8 +13,7 @@ use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{SocketAddrUse, WasiFactor};
 use spin_factors::{
     anyhow::{self, Context},
-    ConfigureAppContext, Error, Factor, FactorInstanceBuilder, PrepareContext,
-    PreparedInstanceBuilders, RuntimeFactors,
+    ConfigureAppContext, Error, Factor, FactorInstanceBuilder, PrepareContext, RuntimeFactors,
 };
 
 pub use config::{
@@ -82,8 +81,7 @@ impl Factor for OutboundNetworkingFactor {
 
     fn prepare<T: RuntimeFactors>(
         &self,
-        ctx: PrepareContext<Self>,
-        builders: &mut PreparedInstanceBuilders<T>,
+        mut ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
         let hosts = ctx
             .app_state()
@@ -91,8 +89,8 @@ impl Factor for OutboundNetworkingFactor {
             .get(ctx.app_component().id())
             .cloned()
             .context("missing component allowed hosts")?;
-        let resolver = builders
-            .get_mut::<VariablesFactor>()?
+        let resolver = ctx
+            .instance_builder::<VariablesFactor>()?
             .expression_resolver()
             .clone();
         let allowed_hosts_future = async move {
@@ -103,7 +101,7 @@ impl Factor for OutboundNetworkingFactor {
         .boxed()
         .shared();
 
-        match builders.get_mut::<WasiFactor>() {
+        match ctx.instance_builder::<WasiFactor>() {
             Ok(wasi_builder) => {
                 // Update Wasi socket allowed ports
                 let allowed_hosts = OutboundAllowedHosts {

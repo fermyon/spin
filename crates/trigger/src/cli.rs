@@ -1,3 +1,4 @@
+mod initial_kv_setter;
 mod launch_metadata;
 mod sqlite_statements;
 mod stdio;
@@ -17,6 +18,7 @@ use spin_factors::RuntimeFactors;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 
 use crate::{Trigger, TriggerApp};
+pub use initial_kv_setter::InitialKvSetterHook;
 pub use launch_metadata::LaunchMetadata;
 pub use sqlite_statements::SqlStatementExecutorHook;
 use stdio::FollowComponents;

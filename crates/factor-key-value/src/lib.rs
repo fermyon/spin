@@ -133,6 +133,11 @@ impl AppState {
             .values()
             .any(|stores| stores.contains(label))
     }
+
+    /// Get a store by label.
+    pub async fn get_store(&self, label: &str) -> Option<Arc<dyn Store>> {
+        self.store_manager.get(label).await.ok()
+    }
 }
 
 pub struct InstanceBuilder {

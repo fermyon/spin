@@ -5,8 +5,8 @@ use spin_factors_executor::FactorsExecutor;
 use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_runtime_factors::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
 use spin_trigger::cli::{
-    CommonTriggerOptions, KeyValueDefaultStoreSummaryHook, RuntimeFactorsBuilder,
-    SqlStatementExecutorHook, StdioLoggingExecutorHooks,
+    CommonTriggerOptions, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook,
+    RuntimeFactorsBuilder, SqlStatementExecutorHook, StdioLoggingExecutorHooks,
 };
 
 pub struct FactorsBuilder;
@@ -56,10 +56,7 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
             runtime_config.log_dir(),
         ));
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
-        // TODO: implement initial key values as a hook
-        // runtime_config
-        //     .set_initial_key_values(&options.initial_key_values)
-        //     .await?;
+        executor.add_hooks(InitialKvSetterHook::new(options.key_values.clone()));
         // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
         // builder.hooks(SqlitePersistenceMessageHook);
         Ok(())

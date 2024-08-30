@@ -1,6 +1,7 @@
 use anyhow::Error;
-use spin_trigger::cli::FactorsTriggerCommand;
+use clap::Parser;
 use spin_cli::runtime_factors::FactorsBuilder;
+use spin_trigger::cli::FactorsTriggerCommand;
 
 use trigger_timer::TimerTrigger;
 

@@ -88,7 +88,7 @@ fn outbound_networking_factor() -> OutboundNetworkingFactor {
 
 /// Options for building a [`TriggerFactors`].
 #[derive(Default, clap::Args)]
-pub struct TriggerAppOptions {
+pub struct TriggerAppArgs {
     /// Set the static assets of the components in the temporary directory as writable.
     #[clap(long = "allow-transient-write")]
     pub allow_transient_write: bool,

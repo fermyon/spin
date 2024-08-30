@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anyhow::Context;
 use spin_app::{App, AppComponent};
 use spin_core::{async_trait, Component};
-use spin_factors::{AsInstanceState, ConfiguredApp, RuntimeFactors, RuntimeFactorsInstanceState};
+use spin_factors::{
+    AsInstanceState, ConfiguredApp, Factor, HasInstanceBuilder, RuntimeFactors,
+    RuntimeFactorsInstanceState,
+};
 
 /// A FactorsExecutor manages execution of a Spin app.
 ///
@@ -203,6 +206,11 @@ impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
     pub fn factor_builders(&mut self) -> &mut T::InstanceBuilders {
         &mut self.factor_builders
     }
+
+    /// Returns the specific instance builder for the given factor.
+    pub fn factor_builder<F: Factor>(&mut self) -> Option<&mut F::InstanceBuilder> {
+        self.factor_builders().for_factor::<F>()
+    }
 }
 
 impl<'a, T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'a, T, U> {
@@ -300,9 +308,7 @@ mod tests {
         instance_builder.store_builder().max_memory_size(1_000_000);
 
         instance_builder
-            .factor_builders()
-            .wasi
-            .as_mut()
+            .factor_builder::<WasiFactor>()
             .unwrap()
             .args(["foo"]);
 

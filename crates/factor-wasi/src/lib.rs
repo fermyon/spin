@@ -12,8 +12,8 @@ use std::{
 
 use io::{PipeReadStream, PipedWriteStream};
 use spin_factors::{
-    anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors, RuntimeFactorsInstanceState,
+    anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, PrepareContext,
+    PreparedInstanceBuilders, RuntimeFactors, RuntimeFactorsInstanceState,
 };
 use wasmtime_wasi::{
     DirPerms, FilePerms, ResourceTable, StdinStream, StdoutStream, WasiCtx, WasiCtxBuilder,
@@ -110,7 +110,7 @@ impl Factor for WasiFactor {
     fn prepare<T: RuntimeFactors>(
         &self,
         ctx: PrepareContext<Self>,
-        _builders: &mut InstanceBuilders<T>,
+        _builders: &mut PreparedInstanceBuilders<T>,
     ) -> anyhow::Result<InstanceBuilder> {
         let mut wasi_ctx = WasiCtxBuilder::new();
 

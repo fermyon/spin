@@ -3,7 +3,8 @@ use std::any::Any;
 use wasmtime::component::{Linker, ResourceTable};
 
 use crate::{
-    prepare::FactorInstanceBuilder, App, Error, InstanceBuilders, PrepareContext, RuntimeFactors,
+    prepare::FactorInstanceBuilder, App, Error, PrepareContext, PreparedInstanceBuilders,
+    RuntimeFactors,
 };
 
 /// A contained (i.e., "factored") piece of runtime functionality.
@@ -65,7 +66,7 @@ pub trait Factor: Any + Sized {
     fn prepare<T: RuntimeFactors>(
         &self,
         ctx: PrepareContext<Self>,
-        _builders: &mut InstanceBuilders<T>,
+        _builders: &mut PreparedInstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder>;
 }
 

@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use spin_common::ui::quoted_path;
 use spin_core::async_trait;
 use spin_factor_wasi::WasiFactor;
-use spin_factors::{HasInstanceBuilder, RuntimeFactors};
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::ExecutorHooks;
 use tokio::io::AsyncWrite;
 
@@ -110,7 +110,7 @@ impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for StdioLoggingExecutorHooks {
         builder: &mut spin_factors_executor::FactorsInstanceBuilder<F, U>,
     ) -> anyhow::Result<()> {
         let component_id = builder.app_component().id().to_string();
-        let Some(wasi_builder) = builder.factor_builders().for_factor::<WasiFactor>() else {
+        let Some(wasi_builder) = builder.factor_builder::<WasiFactor>() else {
             return Ok(());
         };
         wasi_builder.stdout_pipe(self.component_stdio_writer(

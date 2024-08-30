@@ -150,7 +150,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                                 configured_app.app_state::<#factor_types>().unwrap(),
                                 &app_component,
                             ),
-                            &mut #factors_path::InstanceBuilders::new(&mut builders),
+                            &mut #factors_path::PreparedInstanceBuilders::new(&mut builders),
                         ).map_err(#Error::factor_prepare_error::<#factor_types>)?
                     );
                 )*

@@ -67,11 +67,11 @@ impl<'a, F: Factor> PrepareContext<'a, F> {
 /// The collection of all the already prepared `InstanceBuilder`s.
 ///
 /// Use `InstanceBuilders::get_mut` to get a mutable reference to a specific factor's instance builder.
-pub struct InstanceBuilders<'a, T: RuntimeFactors> {
+pub struct PreparedInstanceBuilders<'a, T: RuntimeFactors> {
     pub(crate) inner: &'a mut T::InstanceBuilders,
 }
 
-impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
+impl<'a, T: RuntimeFactors> PreparedInstanceBuilders<'a, T> {
     #[doc(hidden)]
     pub fn new(inner: &'a mut T::InstanceBuilders) -> Self {
         Self { inner }

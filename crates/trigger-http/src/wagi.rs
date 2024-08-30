@@ -1,10 +1,10 @@
 use std::{io::Cursor, net::SocketAddr};
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use spin_factor_wasi::WasiFactor;
-use spin_factors::{HasInstanceBuilder, RuntimeFactors};
+use spin_factors::RuntimeFactors;
 use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
 use tracing::{instrument, Level};
 use wasmtime_wasi::pipe::MemoryOutputPipe;
@@ -75,16 +75,15 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let stdout = MemoryOutputPipe::new(usize::MAX);
 
-        if let Some(wasi_builder) = instance_builder
-            .factor_builders()
-            .for_factor::<WasiFactor>()
-        {
-            // Set up Wagi environment
-            wasi_builder.args(argv.split(' '));
-            wasi_builder.env(headers);
-            wasi_builder.stdin_pipe(Cursor::new(body));
-            wasi_builder.stdout(stdout.clone());
-        }
+        let wasi_builder = instance_builder
+            .factor_builder::<WasiFactor>()
+            .context("The wagi HTTP trigger was configured without the required wasi support")?;
+
+        // Set up Wagi environment
+        wasi_builder.args(argv.split(' '));
+        wasi_builder.env(headers);
+        wasi_builder.stdin_pipe(Cursor::new(body));
+        wasi_builder.stdout(stdout.clone());
 
         let (instance, mut store) = instance_builder.instantiate(()).await?;
 

@@ -13,8 +13,8 @@ use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{SocketAddrUse, WasiFactor};
 use spin_factors::{
     anyhow::{self, Context},
-    ConfigureAppContext, Error, Factor, FactorInstanceBuilder, InstanceBuilders, PrepareContext,
-    RuntimeFactors,
+    ConfigureAppContext, Error, Factor, FactorInstanceBuilder, PrepareContext,
+    PreparedInstanceBuilders, RuntimeFactors,
 };
 
 pub use config::{
@@ -83,7 +83,7 @@ impl Factor for OutboundNetworkingFactor {
     fn prepare<T: RuntimeFactors>(
         &self,
         ctx: PrepareContext<Self>,
-        builders: &mut InstanceBuilders<T>,
+        builders: &mut PreparedInstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
         let hosts = ctx
             .app_state()

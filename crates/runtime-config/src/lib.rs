@@ -421,9 +421,7 @@ pub fn key_value_config_resolver(
     key_value
         .add_default_store::<SpinKeyValueStore>(
             DEFAULT_KEY_VALUE_STORE_LABEL,
-            SpinKeyValueRuntimeConfig::new(
-                local_store_base_path.map(|p| p.join(DEFAULT_SPIN_STORE_FILENAME)),
-            ),
+            SpinKeyValueRuntimeConfig::new(Some(PathBuf::from(DEFAULT_SPIN_STORE_FILENAME))),
         )
         .unwrap();
 

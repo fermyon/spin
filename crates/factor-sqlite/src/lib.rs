@@ -86,8 +86,7 @@ impl Factor for SqliteFactor {
 
     fn prepare<T: spin_factors::RuntimeFactors>(
         &self,
-        ctx: spin_factors::PrepareContext<Self>,
-        _builders: &mut spin_factors::PreparedInstanceBuilders<T>,
+        ctx: spin_factors::PrepareContext<T, Self>,
     ) -> spin_factors::anyhow::Result<Self::InstanceBuilder> {
         let allowed_databases = ctx
             .app_state()

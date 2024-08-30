@@ -6,8 +6,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use spin_factors::{
-    ConfigureAppContext, Factor, PrepareContext, PreparedInstanceBuilders, RuntimeFactors,
-    SelfInstanceBuilder,
+    ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_locked_app::MetadataKey;
 use spin_world::v1::llm::{self as v1};
@@ -77,8 +76,7 @@ impl Factor for LlmFactor {
 
     fn prepare<T: RuntimeFactors>(
         &self,
-        ctx: PrepareContext<Self>,
-        _builders: &mut PreparedInstanceBuilders<T>,
+        ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<Self::InstanceBuilder> {
         let allowed_models = ctx
             .app_state()

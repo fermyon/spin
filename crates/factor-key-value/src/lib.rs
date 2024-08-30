@@ -7,8 +7,7 @@ use std::{
 
 use anyhow::ensure;
 use spin_factors::{
-    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext,
-    PreparedInstanceBuilders, RuntimeFactors,
+    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
 };
 use spin_key_value::{
     CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch, Store,
@@ -87,8 +86,7 @@ impl Factor for KeyValueFactor {
 
     fn prepare<T: RuntimeFactors>(
         &self,
-        ctx: PrepareContext<Self>,
-        _builders: &mut PreparedInstanceBuilders<T>,
+        ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<InstanceBuilder> {
         let app_state = ctx.app_state();
         let allowed_stores = app_state

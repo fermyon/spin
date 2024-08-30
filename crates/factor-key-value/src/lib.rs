@@ -1,4 +1,6 @@
+mod host;
 pub mod runtime_config;
+mod util;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -6,16 +8,16 @@ use std::{
 };
 
 use anyhow::ensure;
+use host::KEY_VALUE_STORES_KEY;
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
 };
-use spin_key_value::{
-    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch,
-    StoreManager, KEY_VALUE_STORES_KEY,
-};
+use util::{CachingStoreManager, DefaultManagerGetter};
 
+pub use host::{log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
+pub use util::DelegatingStoreManager;
 
 /// A factor that provides key-value storage.
 pub struct KeyValueFactor {
@@ -23,8 +25,8 @@ pub struct KeyValueFactor {
 }
 
 impl KeyValueFactor {
-    /// Create a new KeyValueFactor.  
-    ///  
+    /// Create a new KeyValueFactor.
+    ///
     /// The `default_label_resolver` is used to resolve store managers for labels that
     /// are not defined in the runtime configuration.
     pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {

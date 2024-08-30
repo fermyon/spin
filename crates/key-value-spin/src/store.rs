@@ -2,7 +2,7 @@ use anyhow::Result;
 use once_cell::sync::OnceCell;
 use rusqlite::Connection;
 use spin_core::async_trait;
-use spin_key_value::{log_error, Error, Store, StoreManager};
+use spin_factor_key_value::{log_error, Error, Store, StoreManager};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -161,7 +161,7 @@ impl Store for SqliteStore {
 mod test {
     use super::*;
     use spin_core::wasmtime::component::Resource;
-    use spin_key_value::{DelegatingStoreManager, KeyValueDispatch};
+    use spin_factor_key_value::{DelegatingStoreManager, KeyValueDispatch};
     use spin_world::v2::key_value::HostStore;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

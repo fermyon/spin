@@ -6,16 +6,20 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
+lru = "0.9.0"
 serde = { version = "1.0", features = ["rc"] }
+spin-core = { path = "../core" }
 spin-factors = { path = "../factors" }
-# TODO: merge with this crate
-spin-key-value = { path = "../key-value" }
+spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
+table = { path = "../table" }
+tokio = { version = "1", features = ["macros", "sync", "rt"] }
 toml = "0.8"
+tracing = { workspace = true }
 
 [dev-dependencies]
-spin-factor-key-value-redis = { path = "../factor-key-value-redis" }
-spin-factor-key-value-spin = { path = "../factor-key-value-spin" }
+spin-key-value-redis = { path = "../key-value-redis" }
+spin-key-value-spin = { path = "../key-value-spin" }
 spin-factors-test = { path = "../factors-test" }
 tempfile = "3.12.0"
 tokio = { version = "1", features = ["macros", "rt"] }

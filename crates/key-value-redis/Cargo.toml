@@ -5,10 +5,11 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1"
+anyhow = "1.0"
 redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp"] }
+serde = { version = "1.0", features = ["rc"] }
 spin-core = { path = "../core" }
-spin-key-value = { path = "../key-value" }
+spin-factor-key-value = { path = "../factor-key-value" }
 spin-world = { path = "../world" }
 tokio = "1"
 tracing = { workspace = true }

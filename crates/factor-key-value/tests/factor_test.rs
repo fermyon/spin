@@ -3,10 +3,10 @@ use spin_factor_key_value::{
     runtime_config::spin::{MakeKeyValueStore, RuntimeConfigResolver},
     KeyValueFactor, RuntimeConfig,
 };
-use spin_factor_key_value_redis::RedisKeyValueStore;
-use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factors::{FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
+use spin_key_value_redis::RedisKeyValueStore;
+use spin_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_world::v2::key_value::HostStore;
 use std::{collections::HashSet, sync::Arc};
 

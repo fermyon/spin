@@ -1,17 +1,10 @@
+use crate::util::EmptyStoreManager;
 use anyhow::{Context, Result};
-use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_locked_app::MetadataKey;
 use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
-
-// TODO(factors): Code left for reference; remove after migration to factors
-// mod host_component;
-mod util;
-
-pub use util::{
-    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, EmptyStoreManager,
-};
 
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 

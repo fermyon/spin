@@ -30,7 +30,10 @@ pub use tls::TlsConfig;
 
 pub(crate) use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
+/// A [`spin_trigger::TriggerApp`] for the HTTP trigger.
 pub(crate) type TriggerApp<F> = spin_trigger::TriggerApp<HttpTrigger, F>;
+
+/// A [`spin_trigger::TriggerInstanceBuilder`] for the HTTP trigger.
 pub(crate) type TriggerInstanceBuilder<'a, F> =
     spin_trigger::TriggerInstanceBuilder<'a, HttpTrigger, F>;
 

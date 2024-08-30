@@ -7,7 +7,7 @@ use spin_factors::{AsInstanceState, ConfiguredApp, RuntimeFactors, RuntimeFactor
 
 /// A FactorsExecutor manages execution of a Spin app.
 ///
-/// `Factors` is the executor's [`RuntimeFactors`]. `ExecutorInstanceState`
+/// It is generic over the executor's [`RuntimeFactors`]. Additionally, it
 /// holds any other per-instance state needed by the caller.
 pub struct FactorsExecutor<T: RuntimeFactors, U = ()> {
     core_engine: spin_core::Engine<InstanceState<T::InstanceState, U>>,
@@ -110,6 +110,9 @@ type InstancePre<T, U> =
     spin_core::InstancePre<InstanceState<<T as RuntimeFactors>::InstanceState, U>>;
 
 /// A FactorsExecutorApp represents a loaded Spin app, ready for instantiation.
+///
+/// It is generic over the executor's [`RuntimeFactors`] and any ad-hoc additional
+/// per-instance state needed by the caller.
 pub struct FactorsExecutorApp<T: RuntimeFactors, U> {
     executor: FactorsExecutor<T, U>,
     configured_app: ConfiguredApp<T>,
@@ -173,14 +176,16 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
     }
 }
 
-/// A FactorsInstanceBuilder manages the instantiation of a Spin component
-/// instance.
-pub struct FactorsInstanceBuilder<'a, T: RuntimeFactors, U> {
+/// A FactorsInstanceBuilder manages the instantiation of a Spin component instance.
+///
+/// It is generic over the executor's [`RuntimeFactors`] and any ad-hoc additional
+/// per-instance state needed by the caller.
+pub struct FactorsInstanceBuilder<'a, F: RuntimeFactors, U> {
     app_component: AppComponent<'a>,
     store_builder: spin_core::StoreBuilder,
-    factor_builders: T::InstanceBuilders,
-    instance_pre: &'a InstancePre<T, U>,
-    factors: &'a T,
+    factor_builders: F::InstanceBuilders,
+    instance_pre: &'a InstancePre<F, U>,
+    factors: &'a F,
 }
 
 impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
@@ -221,6 +226,9 @@ impl<'a, T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'a, T, U> {
 }
 
 /// InstanceState is the [`spin_core::Store`] `data` for an instance.
+///
+/// It is generic over the [`RuntimeFactors::InstanceState`] and any ad-hoc
+/// data needed by the caller.
 pub struct InstanceState<T, U> {
     core: spin_core::State,
     factors: T,

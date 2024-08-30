@@ -1,13 +1,16 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
+use spin_common::ui::quoted_path;
 use spin_factors_executor::FactorsExecutor;
 use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_runtime_factors::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
 use spin_trigger::cli::{
     CommonTriggerOptions, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook,
-    RuntimeFactorsBuilder, SqlStatementExecutorHook, StdioLoggingExecutorHooks,
+    RuntimeFactorsBuilder, SqlStatementExecutorHook, SqliteDefaultStoreSummaryHook,
+    StdioLoggingExecutorHooks,
 };
+use toml::Value;
 
 pub struct FactorsBuilder;
 
@@ -30,6 +33,11 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
             use_gpu,
         )?;
 
+        summarize_runtime_config(
+            &runtime_config,
+            common_options.runtime_config_file.as_deref(),
+        );
+
         let factors = TriggerFactors::new(
             runtime_config.state_dir(),
             common_options.working_dir.clone(),
@@ -48,17 +56,53 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
         common_options: &CommonTriggerOptions,
         options: &Self::Options,
     ) -> anyhow::Result<()> {
-        executor.add_hooks(SqlStatementExecutorHook::new(
-            options.sqlite_statements.clone(),
-        ));
         executor.add_hooks(StdioLoggingExecutorHooks::new(
             common_options.follow_components.clone(),
             runtime_config.log_dir(),
         ));
-        executor.add_hooks(KeyValueDefaultStoreSummaryHook);
+        executor.add_hooks(SqlStatementExecutorHook::new(
+            options.sqlite_statements.clone(),
+        ));
         executor.add_hooks(InitialKvSetterHook::new(options.key_values.clone()));
-        // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
-        // builder.hooks(SqlitePersistenceMessageHook);
+        executor.add_hooks(SqliteDefaultStoreSummaryHook);
+        executor.add_hooks(KeyValueDefaultStoreSummaryHook);
         Ok(())
+    }
+}
+
+fn summarize_runtime_config<T>(
+    runtime_config: &ResolvedRuntimeConfig<T>,
+    runtime_config_path: Option<&Path>,
+) {
+    let toml = &runtime_config.toml;
+    let summarize_labeled_typed_tables = |key| {
+        let mut summaries = vec![];
+        if let Some(tables) = toml.get(key).and_then(Value::as_table) {
+            for (label, config) in tables {
+                if let Some(ty) = config.get("type").and_then(Value::as_str) {
+                    summaries.push(format!("[{key}.{label}: {ty}]"))
+                }
+            }
+        }
+        summaries
+    };
+
+    let mut summaries = vec![];
+    // [key_value_store.<label>: <type>]
+    summaries.extend(summarize_labeled_typed_tables("key_value_store"));
+    // [sqlite_database.<label>: <type>]
+    summaries.extend(summarize_labeled_typed_tables("sqlite_database"));
+    // [llm_compute: <type>]
+    if let Some(table) = toml.get("llm_compute").and_then(Value::as_table) {
+        if let Some(ty) = table.get("type").and_then(Value::as_str) {
+            summaries.push(format!("[llm_compute: {ty}"));
+        }
+    }
+    if !summaries.is_empty() {
+        let summaries = summaries.join(", ");
+        let from_path = runtime_config_path
+            .map(|path| format!("from {}", quoted_path(path)))
+            .unwrap_or_default();
+        println!("Using runtime config {summaries} {from_path}");
     }
 }

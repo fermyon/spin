@@ -4,6 +4,7 @@ use spin_factor_key_value::KeyValueFactor;
 use spin_factors::RuntimeFactors;
 use spin_factors_executor::ExecutorHooks;
 
+/// An [`ExecutorHooks`] that sets initial key-value pairs in the default store.
 pub struct InitialKvSetterHook {
     kv_pairs: Vec<(String, String)>,
 }

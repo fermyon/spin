@@ -4640,15 +4640,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nom8"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae01545c9c7fc4486ab7debaf2aad7003ac19431791868fb2e8066df97fad2f8"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "normalize-line-endings"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7154,7 +7145,7 @@ dependencies = [
  "test-environment",
  "testing-framework",
  "tokio",
- "toml 0.6.0",
+ "toml 0.8.14",
  "tracing",
  "url",
  "uuid",
@@ -8740,18 +8731,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb9d890e4dc9298b70f740f615f2e05b9db37dce531f6b24fb77ac993f9f217"
-dependencies = [
- "serde 1.0.197",
- "serde_spanned",
- "toml_datetime 0.5.1",
- "toml_edit 0.18.1",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f49eb2ab21d2f26bd6db7bf383edc527a7ebaee412d17af4d40fdccd442f335"
@@ -8759,17 +8738,8 @@ dependencies = [
  "indexmap 2.2.6",
  "serde 1.0.197",
  "serde_spanned",
- "toml_datetime 0.6.6",
+ "toml_datetime",
  "toml_edit 0.22.14",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4553f467ac8e3d374bc9a177a26801e5d0f9b211aa1673fb137a403afd1c9cf5"
-dependencies = [
- "serde 1.0.197",
 ]
 
 [[package]]
@@ -8783,25 +8753,12 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c59d8dd7d0dcbc6428bf7aa2f0e823e26e43b3c9aca15bbc9475d23e5fa12b"
-dependencies = [
- "indexmap 1.9.3",
- "nom8",
- "serde 1.0.197",
- "serde_spanned",
- "toml_datetime 0.5.1",
-]
-
-[[package]]
-name = "toml_edit"
 version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap 2.2.6",
- "toml_datetime 0.6.6",
+ "toml_datetime",
  "winnow 0.5.40",
 ]
 
@@ -8814,7 +8771,7 @@ dependencies = [
  "indexmap 2.2.6",
  "serde 1.0.197",
  "serde_spanned",
- "toml_datetime 0.6.6",
+ "toml_datetime",
  "winnow 0.5.40",
 ]
 
@@ -8827,7 +8784,7 @@ dependencies = [
  "indexmap 2.2.6",
  "serde 1.0.197",
  "serde_spanned",
- "toml_datetime 0.6.6",
+ "toml_datetime",
  "winnow 0.6.5",
 ]
 

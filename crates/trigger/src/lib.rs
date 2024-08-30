@@ -9,23 +9,31 @@ use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
 pub use spin_app::App;
 
-/// Type alias for a [`FactorsExecutorApp`] specialized to a [`Trigger`].
+/// Type alias for a [`spin_factors_executor::FactorsExecutorApp`] specialized to a [`Trigger`].
 pub type TriggerApp<T, F> = FactorsExecutorApp<F, <T as Trigger<F>>::InstanceState>;
 
+/// Type alias for a [`spin_factors_executor::FactorsInstanceBuilder`] specialized to a [`Trigger`].
 pub type TriggerInstanceBuilder<'a, T, F> =
     FactorsInstanceBuilder<'a, F, <T as Trigger<F>>::InstanceState>;
 
+/// Type alias for a [`spin_core::Store`] specialized to a [`Trigger`].
 pub type Store<T, F> = spin_core::Store<TriggerInstanceState<T, F>>;
 
+/// Type alias for [`spin_factors_executor::InstanceState`] specialized to a [`Trigger`].
 type TriggerInstanceState<T, F> = spin_factors_executor::InstanceState<
     <F as RuntimeFactors>::InstanceState,
     <T as Trigger<F>>::InstanceState,
 >;
 
+/// A trigger for a Spin runtime.
 pub trait Trigger<F: RuntimeFactors>: Sized + Send {
+    /// A unique identifier for this trigger.
     const TYPE: &'static str;
 
+    /// The specific CLI arguments for this trigger.
     type CliArgs: Args;
+
+    /// The instance state for this trigger.
     type InstanceState: Send + 'static;
 
     /// Constructs a new trigger.

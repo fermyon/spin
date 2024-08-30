@@ -118,7 +118,7 @@ where
             sqlite_resolver: sqlite_config_resolver,
             state_dir: toml_resolver.state_dir()?,
             log_dir: toml_resolver.log_dir()?,
-            toml,
+            toml: toml_resolver.toml(),
         })
     }
 
@@ -261,6 +261,10 @@ impl<'a> TomlResolver<'a> {
     /// Validate that all keys in the TOML file have been used.
     pub fn validate_all_keys_used(&self) -> spin_factors::Result<()> {
         self.table.validate_all_keys_used()
+    }
+
+    fn toml(&self) -> toml::Table {
+        self.table.as_ref().clone()
     }
 }
 

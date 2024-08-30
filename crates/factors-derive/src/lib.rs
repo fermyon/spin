@@ -211,6 +211,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             )*
         }
 
+        #[allow(dead_code)]
         impl #builders_name {
             #(
                 pub fn #factor_names(&mut self) -> &mut <#factor_types as #Factor>::InstanceBuilder {

@@ -81,7 +81,9 @@ pub trait RuntimeFactors: Send + Sync + Sized + 'static {
     ) -> Option<Option<&mut F::InstanceBuilder>>;
 }
 
+/// Allows querying an `InstanceBuilders` for a particular `Factor`'s `InstanceBuilder`.
 pub trait HasInstanceBuilder {
+    /// Get the instance builder of a particular factor.
     fn for_factor<F: Factor>(&mut self) -> Option<&mut F::InstanceBuilder>;
 }
 

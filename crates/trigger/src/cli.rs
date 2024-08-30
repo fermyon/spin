@@ -23,7 +23,7 @@ pub use launch_metadata::LaunchMetadata;
 pub use sqlite_statements::SqlStatementExecutorHook;
 use stdio::FollowComponents;
 pub use stdio::StdioLoggingExecutorHooks;
-pub use summary::KeyValueDefaultStoreSummaryHook;
+pub use summary::{KeyValueDefaultStoreSummaryHook, SqliteDefaultStoreSummaryHook};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
@@ -398,8 +398,11 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
 
 /// A builder for runtime factors.
 pub trait RuntimeFactorsBuilder {
-    type Options: clap::Args;
+    /// The factors type to build.
     type Factors: RuntimeFactors;
+    /// CLI arguments not included in [`CommonTriggerOptions`] needed  to build the [`RuntimeFactors`].
+    type Options: clap::Args;
+    /// The wrapped runtime config type.
     type RuntimeConfig: Into<<Self::Factors as RuntimeFactors>::RuntimeConfig>;
 
     /// Build the factors and runtime config from the given options.

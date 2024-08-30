@@ -79,7 +79,7 @@ impl HttpExecutor for WagiHttpExecutor {
             .factor_builders()
             .for_factor::<WasiFactor>()
         {
-            // // Set up Wagi environment
+            // Set up Wagi environment
             wasi_builder.args(argv.split(' '));
             wasi_builder.env(headers);
             wasi_builder.stdin_pipe(Cursor::new(body));

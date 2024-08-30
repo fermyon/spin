@@ -36,7 +36,7 @@ pub trait RuntimeFactors: Send + Sync + Sized + 'static {
     /// The per instance state of the factors.
     type InstanceState: RuntimeFactorsInstanceState;
     /// The collection of all the `InstanceBuilder`s of the factors.
-    type InstanceBuilders: Send;
+    type InstanceBuilders: Send + HasInstanceBuilder;
     /// The runtime configuration of all the factors.
     type RuntimeConfig: Default;
 
@@ -79,6 +79,10 @@ pub trait RuntimeFactors: Send + Sync + Sized + 'static {
     fn instance_builder_mut<F: Factor>(
         builders: &mut Self::InstanceBuilders,
     ) -> Option<Option<&mut F::InstanceBuilder>>;
+}
+
+pub trait HasInstanceBuilder {
+    fn for_factor<F: Factor>(&mut self) -> Option<&mut F::InstanceBuilder>;
 }
 
 /// Get the state of a particular Factor from the overall InstanceState

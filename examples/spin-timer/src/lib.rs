@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
+use spin_factors::RuntimeFactors;
 use spin_trigger::{App, Trigger, TriggerApp};
 
 wasmtime::component::bindgen!({
@@ -45,7 +46,7 @@ pub struct TimerTriggerConfig {
     interval_secs: u64,
 }
 
-impl Trigger for TimerTrigger {
+impl<F: RuntimeFactors> Trigger<F> for TimerTrigger {
     const TYPE: &'static str = "timer";
 
     type CliArgs = CliArgs;
@@ -53,13 +54,14 @@ impl Trigger for TimerTrigger {
     type InstanceState = ();
 
     fn new(cli_args: Self::CliArgs, app: &App) -> anyhow::Result<Self> {
+        let trigger_type = <Self as Trigger<F>>::TYPE;
         let metadata = app
-            .get_trigger_metadata::<TriggerMetadata>(Self::TYPE)?
+            .get_trigger_metadata::<TriggerMetadata>(trigger_type)?
             .unwrap_or_default();
         let speedup = metadata.speedup.unwrap_or(1);
 
         let component_timings = app
-            .trigger_configs::<TimerTriggerConfig>(Self::TYPE)?
+            .trigger_configs::<TimerTriggerConfig>(trigger_type)?
             .into_iter()
             .map(|(_, config)| (config.component.clone(), config.interval_secs))
             .collect();
@@ -71,7 +73,7 @@ impl Trigger for TimerTrigger {
         })
     }
 
-    async fn run(self, trigger_app: TriggerApp<Self>) -> anyhow::Result<()> {
+    async fn run(self, trigger_app: TriggerApp<Self, F>) -> anyhow::Result<()> {
         if self.test {
             for component in self.component_timings.keys() {
                 self.handle_timer_event(&trigger_app, component).await?;
@@ -108,9 +110,9 @@ impl Trigger for TimerTrigger {
 }
 
 impl TimerTrigger {
-    async fn handle_timer_event(
+    async fn handle_timer_event<F: RuntimeFactors>(
         &self,
-        trigger_app: &TriggerApp<Self>,
+        trigger_app: &TriggerApp<Self, F>,
         component_id: &str,
     ) -> anyhow::Result<()> {
         let instance_builder = trigger_app.prepare(component_id)?;

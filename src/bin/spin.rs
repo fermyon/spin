@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::{Context, Error};
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use lazy_static::lazy_static;
@@ -16,15 +14,10 @@ use spin_cli::commands::{
     up::UpCommand,
     watch::WatchCommand,
 };
+use spin_cli::Builder;
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_factors_executor::FactorsExecutor;
-use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
-use spin_trigger::cli::{
-    CommonTriggerOptions, FactorsTriggerCommand, KeyValueDefaultStoreSummaryHook,
-    RuntimeFactorsBuilder, SqlStatementExecutorHook, StdioLoggingExecutorHooks,
-};
-use spin_trigger::{TriggerAppOptions, TriggerFactors, TriggerFactorsRuntimeConfig};
+use spin_trigger::cli::FactorsTriggerCommand;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
 
@@ -173,65 +166,6 @@ impl SpinApp {
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
         }
-    }
-}
-
-struct Builder;
-
-impl RuntimeFactorsBuilder for Builder {
-    type Options = TriggerAppOptions;
-    type Factors = TriggerFactors;
-    type RuntimeConfig = ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>;
-
-    fn build(
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
-    ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)> {
-        let runtime_config_path = common_options.runtime_config_file.clone();
-        let local_app_dir = common_options.local_app_dir.clone().map(PathBuf::from);
-        // Hardcode `use_gpu` to true for now
-        let use_gpu = true;
-        let runtime_config = ResolvedRuntimeConfig::<TriggerFactorsRuntimeConfig>::from_file(
-            runtime_config_path.as_deref(),
-            local_app_dir,
-            common_options.state_dir.clone(),
-            common_options.log_dir.clone(),
-            use_gpu,
-        )?;
-
-        let factors = TriggerFactors::new(
-            runtime_config.state_dir(),
-            common_options.working_dir.clone(),
-            options.allow_transient_write,
-            runtime_config.key_value_resolver.clone(),
-            runtime_config.sqlite_resolver.clone(),
-            use_gpu,
-        )
-        .context("failed to create factors")?;
-        Ok((factors, runtime_config))
-    }
-
-    fn configure_app<U: Send + 'static>(
-        executor: &mut FactorsExecutor<Self::Factors, U>,
-        runtime_config: &Self::RuntimeConfig,
-        common_options: &CommonTriggerOptions,
-        options: &Self::Options,
-    ) -> anyhow::Result<()> {
-        executor.add_hooks(SqlStatementExecutorHook::new(
-            options.sqlite_statements.clone(),
-        ));
-        executor.add_hooks(StdioLoggingExecutorHooks::new(
-            common_options.follow_components.clone(),
-            runtime_config.log_dir(),
-        ));
-        executor.add_hooks(KeyValueDefaultStoreSummaryHook);
-        // TODO: implement initial key values as a hook
-        // runtime_config
-        //     .set_initial_key_values(&options.initial_key_values)
-        //     .await?;
-        // builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
-        // builder.hooks(SqlitePersistenceMessageHook);
-        Ok(())
     }
 }
 

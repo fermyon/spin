@@ -90,10 +90,6 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
         )]
     pub silence_component_logs: bool,
 
-    /// Set the static assets of the components in the temporary directory as writable.
-    #[clap(long = "allow-transient-write")]
-    pub allow_transient_write: bool,
-
     /// Configuration file for config providers and wasmtime config.
     #[clap(
         name = RUNTIME_CONFIG_FILE,
@@ -125,7 +121,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
 }
 
 /// Configuration options that are common to all triggers.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CommonTriggerOptions {
     /// The Spin working directory.
     pub working_dir: PathBuf,
@@ -135,8 +131,6 @@ pub struct CommonTriggerOptions {
     pub state_dir: UserProvidedPath,
     /// Path to the local app directory.
     pub local_app_dir: Option<String>,
-    /// Whether to allow transient writes to mounted files
-    pub allow_transient_write: bool,
     /// Which components should have their logs followed.
     pub follow_components: FollowComponents,
     /// Log directory for component stdout/stderr.
@@ -220,7 +214,6 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> FactorsTriggerCommand<T, 
             runtime_config_file: self.runtime_config_file.clone(),
             state_dir,
             local_app_dir: local_app_dir.clone(),
-            allow_transient_write: self.allow_transient_write,
             follow_components,
             log_dir,
         };
@@ -281,10 +274,10 @@ fn help_heading<T: Trigger<F>, F: RuntimeFactors>() -> Option<&'static str> {
 }
 
 /// A builder for a [`TriggerApp`].
-pub struct TriggerAppBuilder<T, F> {
+pub struct TriggerAppBuilder<T, B> {
     engine_config: spin_core::Config,
     pub trigger: T,
-    _factors: std::marker::PhantomData<F>,
+    _factors_builder: std::marker::PhantomData<B>,
 }
 
 impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
@@ -292,7 +285,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         Self {
             engine_config: spin_core::Config::default(),
             trigger,
-            _factors: Default::default(),
+            _factors_builder: Default::default(),
         }
     }
 
@@ -400,16 +393,19 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
     }
 }
 
+/// A builder for runtime factors.
 pub trait RuntimeFactorsBuilder {
     type Options: clap::Args;
     type Factors: RuntimeFactors;
     type RuntimeConfig: Into<<Self::Factors as RuntimeFactors>::RuntimeConfig>;
 
+    /// Build the factors and runtime config from the given options.
     fn build(
         common_options: &CommonTriggerOptions,
         options: &Self::Options,
     ) -> anyhow::Result<(Self::Factors, Self::RuntimeConfig)>;
 
+    /// Configure the factors in the executor.
     fn configure_app<U: Send + 'static>(
         executor: &mut FactorsExecutor<Self::Factors, U>,
         runtime_config: &Self::RuntimeConfig,
@@ -444,11 +440,12 @@ pub mod help {
 }
 
 /// A user provided option which be either be provided, default, or explicitly none.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum UserProvidedPath {
     /// Use the explicitly provided directory.
     Provided(PathBuf),
     /// Use the default.
+    #[default]
     Default,
     /// Explicitly unset.
     Unset,

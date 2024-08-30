@@ -11,7 +11,7 @@ use spin_factors::{
     PrepareContext, RuntimeFactors,
 };
 use spin_key_value::{
-    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch,
+    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch, Store,
     StoreManager, KEY_VALUE_STORES_KEY,
 };
 
@@ -130,6 +130,11 @@ impl AppState {
         self.component_allowed_stores
             .values()
             .any(|stores| stores.contains(label))
+    }
+
+    /// Get a store by label.
+    pub async fn get_store(&self, label: &str) -> Option<Arc<dyn Store>> {
+        self.store_manager.get(label).await.ok()
     }
 }
 

@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use spin_cli::runtime_factors::FactorsBuilder;
-use spin_runtime_factors::{TriggerAppOptions, TriggerFactors};
+use spin_runtime_factors::{FactorsBuilder, TriggerAppOptions, TriggerFactors};
 use spin_trigger::cli::TriggerAppBuilder;
 use spin_trigger_http::{HttpServer, HttpTrigger};
 use test_environment::{

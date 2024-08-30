@@ -19,7 +19,6 @@ use spin_factors::runtime_config::toml::GetTomlValue as _;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
-use spin_runtime_factors::TriggerFactorsRuntimeConfig;
 use spin_sqlite as sqlite;
 use spin_trigger::cli::UserProvidedPath;
 
@@ -151,12 +150,6 @@ where
     /// The fully resolved state directory.
     pub fn log_dir(&self) -> Option<PathBuf> {
         self.log_dir.clone()
-    }
-}
-
-impl From<ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>> for TriggerFactorsRuntimeConfig {
-    fn from(value: ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>) -> Self {
-        value.runtime_config
     }
 }
 
@@ -426,12 +419,4 @@ fn sqlite_config_resolver(
         default_database_dir,
         local_database_dir,
     ))
-}
-
-impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
-        Self::from_source(value)
-    }
 }

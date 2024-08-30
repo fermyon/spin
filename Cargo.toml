@@ -48,8 +48,6 @@ spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
 spin-doctor = { path = "crates/doctor" }
 spin-expressions = { path = "crates/expressions" }
-spin-factors = { path = "crates/factors" }
-spin-factors-executor = { path = "crates/factors-executor" }
 spin-http = { path = "crates/http" }
 spin-key-value = { path = "crates/key-value" }
 spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
@@ -58,7 +56,6 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
-spin-runtime-config = { path = "crates/runtime-config" }
 spin-runtime-factors = { path = "crates/runtime-factors" }
 spin-telemetry = { path = "crates/telemetry", features = [
   "tracing-log-compat",

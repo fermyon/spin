@@ -31,10 +31,9 @@ spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-factors-executor = { path = "../factors-executor" }
 spin-runtime-config = { path = "../runtime-config" }
-spin-trigger = { path = "../trigger" }
 spin-telemetry = { path = "../telemetry" }
+spin-trigger = { path = "../trigger" }
 terminal = { path = "../terminal" }
-toml = "0.8"
 tracing = { workspace = true }
 
 [lints]

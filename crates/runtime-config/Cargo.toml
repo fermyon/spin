@@ -10,6 +10,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+spin-common = { path = "../common" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }

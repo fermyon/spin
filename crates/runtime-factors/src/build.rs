@@ -1,16 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::{TriggerAppArgs, TriggerFactors, TriggerFactorsRuntimeConfig};
 
 use anyhow::Context as _;
-use spin_common::ui::quoted_path;
 use spin_factors_executor::FactorsExecutor;
 use spin_runtime_config::ResolvedRuntimeConfig;
 use spin_trigger::cli::{
     FactorsConfig, InitialKvSetterHook, KeyValueDefaultStoreSummaryHook, RuntimeFactorsBuilder,
     SqlStatementExecutorHook, SqliteDefaultStoreSummaryHook, StdioLoggingExecutorHooks,
 };
-use toml::Value;
 
 /// A [`RuntimeFactorsBuilder`] for [`TriggerFactors`].
 pub struct FactorsBuilder;
@@ -34,7 +32,7 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
             use_gpu,
         )?;
 
-        summarize_runtime_config(&runtime_config, config.runtime_config_file.as_deref());
+        runtime_config.summarize(config.runtime_config_file.as_deref());
 
         let factors = TriggerFactors::new(
             runtime_config.state_dir(),
@@ -65,42 +63,5 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
         executor.add_hooks(SqliteDefaultStoreSummaryHook);
         executor.add_hooks(KeyValueDefaultStoreSummaryHook);
         Ok(())
-    }
-}
-
-fn summarize_runtime_config<T>(
-    runtime_config: &ResolvedRuntimeConfig<T>,
-    runtime_config_path: Option<&Path>,
-) {
-    let toml = &runtime_config.toml;
-    let summarize_labeled_typed_tables = |key| {
-        let mut summaries = vec![];
-        if let Some(tables) = toml.get(key).and_then(Value::as_table) {
-            for (label, config) in tables {
-                if let Some(ty) = config.get("type").and_then(Value::as_str) {
-                    summaries.push(format!("[{key}.{label}: {ty}]"))
-                }
-            }
-        }
-        summaries
-    };
-
-    let mut summaries = vec![];
-    // [key_value_store.<label>: <type>]
-    summaries.extend(summarize_labeled_typed_tables("key_value_store"));
-    // [sqlite_database.<label>: <type>]
-    summaries.extend(summarize_labeled_typed_tables("sqlite_database"));
-    // [llm_compute: <type>]
-    if let Some(table) = toml.get("llm_compute").and_then(Value::as_table) {
-        if let Some(ty) = table.get("type").and_then(Value::as_str) {
-            summaries.push(format!("[llm_compute: {ty}"));
-        }
-    }
-    if !summaries.is_empty() {
-        let summaries = summaries.join(", ");
-        let from_path = runtime_config_path
-            .map(|path| format!("from {}", quoted_path(path)))
-            .unwrap_or_default();
-        println!("Using runtime config {summaries} {from_path}");
     }
 }

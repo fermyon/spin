@@ -7761,6 +7761,7 @@ name = "spin-runtime-config"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
+ "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
  "spin-factor-outbound-http",
@@ -7805,7 +7806,6 @@ dependencies = [
  "spin-telemetry",
  "spin-trigger",
  "terminal",
- "toml 0.8.14",
  "tracing",
 ]
 

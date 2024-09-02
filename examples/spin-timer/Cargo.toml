@@ -9,9 +9,9 @@ anyhow = "1.0.68"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 futures = "0.3.25"
 serde = "1.0.188"
+spin-factors = { path = "../../crates/factors" }
 spin-runtime-factors = { path = "../../crates/runtime-factors" }
 spin-trigger = { path = "../../crates/trigger" }
-spin-factors = { path = "../../crates/factors" }
 tokio = { version = "1.11", features = ["full"] }
 tokio-scoped = "0.2.0"
 wasmtime = "22.0.0"

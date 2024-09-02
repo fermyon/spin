@@ -4045,50 +4045,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-key-value-azure"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "azure_data_cosmos",
- "azure_identity",
- "futures",
- "serde",
- "spin-core",
- "spin-key-value",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "spin-key-value-redis"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "redis",
- "spin-core",
- "spin-key-value",
- "spin-world",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "spin-key-value-sqlite"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "once_cell",
- "rusqlite",
- "spin-core",
- "spin-key-value",
- "spin-world",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "spin-llm-remote-http"
 version = "2.8.0-pre0"
 dependencies = [
@@ -4119,6 +4075,7 @@ name = "spin-runtime-config"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
+ "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
  "spin-factor-outbound-http",
@@ -4134,30 +4091,6 @@ dependencies = [
  "spin-key-value-azure",
  "spin-key-value-redis",
  "spin-key-value-spin",
- "spin-sqlite",
- "toml",
-]
-
-[[package]]
-name = "spin-runtime-config"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "spin-factor-key-value",
- "spin-factor-key-value-azure",
- "spin-factor-key-value-redis",
- "spin-factor-key-value-spin",
- "spin-factor-llm",
- "spin-factor-outbound-http",
- "spin-factor-outbound-mqtt",
- "spin-factor-outbound-mysql",
- "spin-factor-outbound-networking",
- "spin-factor-outbound-pg",
- "spin-factor-outbound-redis",
- "spin-factor-sqlite",
- "spin-factor-variables",
- "spin-factor-wasi",
- "spin-factors",
  "spin-sqlite",
  "spin-trigger",
  "toml",
@@ -4187,7 +4120,6 @@ dependencies = [
  "spin-telemetry",
  "spin-trigger",
  "terminal",
- "toml",
  "tracing",
 ]
 

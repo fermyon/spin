@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
+use spin_common::ui::quoted_path;
 use spin_factor_key_value::runtime_config::spin::{self as key_value};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_llm::{spin as llm, LlmFactor};
@@ -19,9 +20,9 @@ use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
 use spin_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
-use spin_runtime_factors::TriggerFactorsRuntimeConfig;
 use spin_sqlite as sqlite;
 use spin_trigger::cli::UserProvidedPath;
+use toml::Value;
 
 /// The default state directory for the trigger.
 pub const DEFAULT_STATE_DIR: &str = ".spin";
@@ -46,6 +47,41 @@ pub struct ResolvedRuntimeConfig<T> {
     pub log_dir: Option<PathBuf>,
     /// The input TOML, for informational summaries.
     pub toml: toml::Table,
+}
+
+impl<T> ResolvedRuntimeConfig<T> {
+    pub fn summarize(&self, runtime_config_path: Option<&Path>) {
+        let summarize_labeled_typed_tables = |key| {
+            let mut summaries = vec![];
+            if let Some(tables) = self.toml.get(key).and_then(Value::as_table) {
+                for (label, config) in tables {
+                    if let Some(ty) = config.get("type").and_then(Value::as_str) {
+                        summaries.push(format!("[{key}.{label}: {ty}]"))
+                    }
+                }
+            }
+            summaries
+        };
+
+        let mut summaries = vec![];
+        // [key_value_store.<label>: <type>]
+        summaries.extend(summarize_labeled_typed_tables("key_value_store"));
+        // [sqlite_database.<label>: <type>]
+        summaries.extend(summarize_labeled_typed_tables("sqlite_database"));
+        // [llm_compute: <type>]
+        if let Some(table) = self.toml.get("llm_compute").and_then(Value::as_table) {
+            if let Some(ty) = table.get("type").and_then(Value::as_str) {
+                summaries.push(format!("[llm_compute: {ty}"));
+            }
+        }
+        if !summaries.is_empty() {
+            let summaries = summaries.join(", ");
+            let from_path = runtime_config_path
+                .map(|path| format!("from {}", quoted_path(path)))
+                .unwrap_or_default();
+            println!("Using runtime config {summaries} {from_path}");
+        }
+    }
 }
 
 impl<T> ResolvedRuntimeConfig<T>
@@ -95,8 +131,6 @@ where
         let runtime_config_dir = runtime_config_path
             .and_then(Path::parent)
             .map(ToOwned::to_owned);
-        let toml_resolver =
-            TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
         let tls_resolver = runtime_config_dir.clone().map(SpinTlsRuntimeConfig::new);
         let key_value_config_resolver =
             key_value_config_resolver(runtime_config_dir, toml_resolver.state_dir()?);

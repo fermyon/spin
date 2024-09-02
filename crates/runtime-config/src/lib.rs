@@ -120,10 +120,14 @@ where
         provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
+        let runtime_config_dir = runtime_config_path
+            .and_then(Path::parent)
+            .map(ToOwned::to_owned);
         let toml_resolver =
             TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
-        let tls_resolver = runtime_config_path.map(SpinTlsRuntimeConfig::new);
-        let key_value_config_resolver = key_value_config_resolver(toml_resolver.state_dir()?);
+        let tls_resolver = runtime_config_dir.clone().map(SpinTlsRuntimeConfig::new);
+        let key_value_config_resolver =
+            key_value_config_resolver(runtime_config_dir, toml_resolver.state_dir()?);
         let sqlite_config_resolver = sqlite_config_resolver(toml_resolver.state_dir()?)
             .context("failed to resolve sqlite runtime config")?;
 
@@ -396,9 +400,11 @@ const DEFAULT_KEY_VALUE_STORE_LABEL: &str = "default";
 /// The key-value runtime configuration resolver.
 ///
 /// Takes a base path that all local key-value stores which are configured with
-/// relative paths will be relative to.
+/// relative paths will be relative to. It also takes a default store base path
+/// which will be used as the directory for the default store.
 pub fn key_value_config_resolver(
     local_store_base_path: Option<PathBuf>,
+    default_store_base_path: Option<PathBuf>,
 ) -> key_value::RuntimeConfigResolver {
     let mut key_value = key_value::RuntimeConfigResolver::new();
 
@@ -417,11 +423,12 @@ pub fn key_value_config_resolver(
         .unwrap();
 
     // Add handling of "default" store.
+    let default_store_path = default_store_base_path.map(|p| p.join(DEFAULT_SPIN_STORE_FILENAME));
     // Unwraps are safe because the store is known to be serializable as toml.
     key_value
         .add_default_store::<SpinKeyValueStore>(
             DEFAULT_KEY_VALUE_STORE_LABEL,
-            SpinKeyValueRuntimeConfig::new(Some(PathBuf::from(DEFAULT_SPIN_STORE_FILENAME))),
+            SpinKeyValueRuntimeConfig::new(default_store_path),
         )
         .unwrap();
 

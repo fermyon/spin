@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context};
+use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
@@ -42,23 +42,20 @@ impl MakeKeyValueStore for SpinKeyValueStore {
                 let path = resolve_relative_path(path, base_path);
                 DatabaseLocation::Path(path)
             }
-            // If the base path is `None` but path is an absolute path, use the absolute path
-            (None, Some(path)) if path.is_absolute() => DatabaseLocation::Path(path.clone()),
-            // If the base path is `None` but path is a relative path, error out
-            (None, Some(path)) => {
-                bail!(
-                    "key-value store path '{}' is relative, but no base path is set",
-                    path.display()
-                )
-            }
+            // If the base path is `None` but use the path without resolving relative to the base path.
+            (None, Some(path)) => DatabaseLocation::Path(path.clone()),
             // Otherwise, use an in-memory database
             (None | Some(_), None) => DatabaseLocation::InMemory,
         };
         if let DatabaseLocation::Path(path) = &location {
             // Create the store's parent directory if necessary
             if let Some(parent) = path.parent().filter(|p| !p.exists()) {
-                fs::create_dir_all(parent)
-                    .context("Failed to create key value store's parent directory")?;
+                fs::create_dir_all(parent).with_context(|| {
+                    format!(
+                        "failed to create key value store's parent directory: '{}",
+                        parent.display()
+                    )
+                })?;
             }
         }
         Ok(KeyValueSqlite::new(location))

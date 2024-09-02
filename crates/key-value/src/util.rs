@@ -68,6 +68,9 @@ impl StoreManager for DelegatingStoreManager {
     }
 
     fn summary(&self, store_name: &str) -> Option<String> {
+        if let Some(store) = self.delegates.get(store_name) {
+            return store.summary(store_name);
+        }
         (self.default_manager)(store_name)?.summary(store_name)
     }
 }

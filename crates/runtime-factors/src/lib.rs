@@ -1,6 +1,6 @@
-mod runtime_factors;
+mod build;
 
-pub use runtime_factors::FactorsBuilder;
+pub use build::FactorsBuilder;
 
 use std::path::PathBuf;
 

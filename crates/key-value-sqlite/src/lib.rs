@@ -22,6 +22,11 @@ pub struct KeyValueSqlite {
 }
 
 impl KeyValueSqlite {
+    /// Create a new `KeyValueSqlite` store manager.
+    ///
+    /// If location is `DatabaseLocation::InMemory`, the database will be created in memory.
+    /// If it's `DatabaseLocation::Path`, the database will be created at the specified path.
+    /// Relative paths will be resolved against the current working directory.
     pub fn new(location: DatabaseLocation) -> Self {
         Self {
             location,

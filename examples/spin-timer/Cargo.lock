@@ -3774,41 +3774,16 @@ name = "spin-factor-key-value"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
+ "lru 0.9.0",
  "serde",
+ "spin-core",
  "spin-factors",
- "spin-key-value",
+ "spin-locked-app",
  "spin-world",
+ "table",
+ "tokio",
  "toml",
-]
-
-[[package]]
-name = "spin-factor-key-value-azure"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "serde",
- "spin-factor-key-value",
- "spin-key-value-azure",
-]
-
-[[package]]
-name = "spin-factor-key-value-redis"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "serde",
- "spin-factor-key-value",
- "spin-key-value-redis",
-]
-
-[[package]]
-name = "spin-factor-key-value-spin"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "serde",
- "spin-factor-key-value",
- "spin-key-value-sqlite",
+ "tracing",
 ]
 
 [[package]]
@@ -4022,20 +3997,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-key-value"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "lru 0.9.0",
- "spin-app",
- "spin-core",
- "spin-world",
- "table",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "spin-key-value-azure"
 version = "2.8.0-pre0"
 dependencies = [
@@ -4045,7 +4006,7 @@ dependencies = [
  "futures",
  "serde",
  "spin-core",
- "spin-key-value",
+ "spin-factor-key-value",
  "tokio",
  "tracing",
  "url",
@@ -4057,8 +4018,9 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "redis",
+ "serde",
  "spin-core",
- "spin-key-value",
+ "spin-factor-key-value",
  "spin-world",
  "tokio",
  "tracing",
@@ -4066,14 +4028,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-key-value-sqlite"
+name = "spin-key-value-spin"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "once_cell",
  "rusqlite",
+ "serde",
  "spin-core",
- "spin-key-value",
+ "spin-factor-key-value",
  "spin-world",
  "tokio",
  "tracing",
@@ -4111,9 +4074,6 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "spin-factor-key-value",
- "spin-factor-key-value-azure",
- "spin-factor-key-value-redis",
- "spin-factor-key-value-spin",
  "spin-factor-llm",
  "spin-factor-outbound-http",
  "spin-factor-outbound-mqtt",
@@ -4125,6 +4085,9 @@ dependencies = [
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-key-value-azure",
+ "spin-key-value-redis",
+ "spin-key-value-spin",
  "spin-sqlite",
  "toml",
 ]

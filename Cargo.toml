@@ -49,8 +49,6 @@ spin-common = { path = "crates/common" }
 spin-doctor = { path = "crates/doctor" }
 spin-expressions = { path = "crates/expressions" }
 spin-http = { path = "crates/http" }
-spin-key-value = { path = "crates/key-value" }
-spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 spin-loader = { path = "crates/loader" }
 spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }

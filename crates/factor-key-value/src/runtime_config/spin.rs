@@ -1,11 +1,11 @@
 //! Runtime configuration implementation used by Spin CLI.
 
+use crate::StoreManager;
 use crate::{DefaultLabelResolver, RuntimeConfig};
 use anyhow::Context as _;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use spin_factors::runtime_config::toml::GetTomlValue;
-use spin_key_value::StoreManager;
 use std::{collections::HashMap, sync::Arc};
 
 /// Defines the construction of a key value store from a serialized runtime config.

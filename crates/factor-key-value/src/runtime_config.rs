@@ -2,7 +2,7 @@ pub mod spin;
 
 use std::{collections::HashMap, sync::Arc};
 
-use spin_key_value::StoreManager;
+use crate::StoreManager;
 
 /// Runtime configuration for all key value stores.
 #[derive(Default, Clone)]

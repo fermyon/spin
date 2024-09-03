@@ -1,3 +1,5 @@
+mod store;
+
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -6,7 +8,7 @@ use std::{
 use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
-use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
+use store::{DatabaseLocation, KeyValueSqlite};
 
 /// A key-value store that uses SQLite as the backend.
 pub struct SpinKeyValueStore {

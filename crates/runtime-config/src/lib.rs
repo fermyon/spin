@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use spin_factor_key_value::runtime_config::spin::{self as key_value};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
-use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_llm::{spin as llm, LlmFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
@@ -19,6 +18,7 @@ use spin_factors::runtime_config::toml::GetTomlValue as _;
 use spin_factors::{
     runtime_config::toml::TomlKeyTracker, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer,
 };
+use spin_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_sqlite as sqlite;
 
 /// The default state directory for the trigger.
@@ -411,15 +411,15 @@ pub fn key_value_config_resolver(
     // Register the supported store types.
     // Unwraps are safe because the store types are known to not overlap.
     key_value
-        .register_store_type(spin_factor_key_value_spin::SpinKeyValueStore::new(
+        .register_store_type(spin_key_value_spin::SpinKeyValueStore::new(
             local_store_base_path.clone(),
         ))
         .unwrap();
     key_value
-        .register_store_type(spin_factor_key_value_redis::RedisKeyValueStore::new())
+        .register_store_type(spin_key_value_redis::RedisKeyValueStore::new())
         .unwrap();
     key_value
-        .register_store_type(spin_factor_key_value_azure::AzureKeyValueStore::new())
+        .register_store_type(spin_key_value_azure::AzureKeyValueStore::new())
         .unwrap();
 
     // Add handling of "default" store.

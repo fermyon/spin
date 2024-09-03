@@ -26,7 +26,7 @@ shellexpand = "3.1"
 spin-common = { path = "../common" }
 spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
-spin-outbound-networking = { path = "../outbound-networking" }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-serde = { path = "../serde" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }

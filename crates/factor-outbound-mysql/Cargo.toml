@@ -21,7 +21,6 @@ spin-core = { path = "../core" }
 spin-expressions = { path = "../expressions" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
-spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }

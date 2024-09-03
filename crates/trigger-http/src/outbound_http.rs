@@ -7,8 +7,8 @@ use http::uri::Scheme;
 use spin_factor_outbound_http::{
     HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request,
 };
+use spin_factor_outbound_networking::parse_service_chaining_target;
 use spin_http::routes::RouteMatch;
-use spin_outbound_networking::parse_service_chaining_target;
 use wasmtime_wasi_http::types::IncomingResponse;
 
 use crate::HttpServer;

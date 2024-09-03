@@ -571,7 +571,7 @@ dependencies = [
 [[package]]
 name = "azure_core"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -599,7 +599,7 @@ dependencies = [
 [[package]]
 name = "azure_data_cosmos"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "azure_core",
@@ -617,7 +617,7 @@ dependencies = [
 [[package]]
 name = "azure_identity"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-lock 3.3.0",
  "async-process 2.2.2",
@@ -637,7 +637,7 @@ dependencies = [
 [[package]]
 name = "azure_security_keyvault"
 version = "0.20.0"
-source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+source = "git+https://github.com/azure/azure-sdk-for-rust?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
  "azure_core",
@@ -7392,7 +7392,6 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
- "spin-outbound-networking",
  "spin-world",
  "table",
  "tokio",
@@ -7412,16 +7411,20 @@ dependencies = [
  "rustls-pemfile 2.1.2",
  "rustls-pki-types",
  "serde 1.0.197",
+ "spin-expressions",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
  "spin-factors-test",
- "spin-outbound-networking",
+ "spin-locked-app",
  "spin-serde",
  "tempfile",
+ "terminal",
  "tokio",
  "toml 0.8.14",
  "tracing",
+ "url",
+ "urlencoding",
  "wasmtime-wasi",
  "webpki-roots 0.26.1",
 ]
@@ -7699,9 +7702,9 @@ dependencies = [
  "sha2",
  "shellexpand 3.1.0",
  "spin-common",
+ "spin-factor-outbound-networking",
  "spin-locked-app",
  "spin-manifest",
- "spin-outbound-networking",
  "spin-serde",
  "tempfile",
  "terminal",
@@ -7773,20 +7776,6 @@ dependencies = [
  "tokio-util 0.7.10",
  "tracing",
  "walkdir",
-]
-
-[[package]]
-name = "spin-outbound-networking"
-version = "2.8.0-pre0"
-dependencies = [
- "anyhow",
- "http 1.1.0",
- "ipnet",
- "spin-expressions",
- "spin-locked-app",
- "terminal",
- "url",
- "urlencoding",
 ]
 
 [[package]]
@@ -8011,9 +8000,9 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-factor-outbound-http",
+ "spin-factor-outbound-networking",
  "spin-factor-wasi",
  "spin-http",
- "spin-outbound-networking",
  "spin-telemetry",
  "spin-trigger",
  "spin-world",

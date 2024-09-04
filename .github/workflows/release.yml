@@ -156,16 +156,16 @@ jobs:
 
       - name: upload binary as GitHub artifact
         if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: spin
+          name: spin-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
 
       - name: upload binary as GitHub artifact
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: spin
+          name: spin-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
 
       - name: Configure AWS Credentials
@@ -205,16 +205,17 @@ jobs:
         run: echo "RELEASE_VERSION=canary" >> $GITHUB_ENV
 
       - name: download release assets
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: spin
+          pattern: spin-*
+          merge-multiple: true
 
       - name: generate checksums
         run: sha256sum * > checksums-${{ env.RELEASE_VERSION }}.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: spin
+          name: spin-checksums
           path: checksums-${{ env.RELEASE_VERSION }}.txt
 
   create-gh-release:
@@ -227,10 +228,11 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: download release assets
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: spin
+          pattern: spin-*
           path: _dist
+          merge-multiple: true
 
       - name: check if pre-release
         shell: bash
@@ -362,9 +364,9 @@ jobs:
             spin-${{ env.RELEASE_VERSION }}-static-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz \
             crt.pem spin.sig README.md LICENSE spin
       - name: upload binary as GitHub artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: spin
+          name: spin-static-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}
           path: _dist/spin-${{ env.RELEASE_VERSION }}-static-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
 
   dispatch-homebrew-tap:
@@ -409,9 +411,10 @@ jobs:
           fi
 
       - name: download release assets
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: spin
+          pattern: spin-*
+          merge-multiple: true
 
       - name: extract binaries
         shell: bash

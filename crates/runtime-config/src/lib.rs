@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use spin_common::ui::quoted_path;
 use spin_factor_key_value::runtime_config::spin::{self as key_value};
-use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
+use spin_factor_key_value::KeyValueFactor;
 use spin_factor_llm::{spin as llm, LlmFactor};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
@@ -154,33 +154,6 @@ where
             log_dir: toml_resolver.log_dir()?,
             toml: toml_resolver.toml(),
         })
-    }
-
-    /// Set initial key-value pairs supplied in the CLI arguments in the default store.
-    pub async fn set_initial_key_values(
-        &self,
-        initial_key_values: impl IntoIterator<Item = &(String, String)>,
-    ) -> anyhow::Result<()> {
-        // We don't want to unnecessarily interact with the default store
-        let mut iter = initial_key_values.into_iter().peekable();
-        if iter.peek().is_none() {
-            return Ok(());
-        }
-
-        let store = self
-            .key_value_resolver
-            .default(DEFAULT_KEY_VALUE_STORE_LABEL)
-            .expect("trigger was misconfigured and lacks a default store")
-            .get(DEFAULT_KEY_VALUE_STORE_LABEL)
-            .await
-            .expect("trigger was misconfigured and lacks a default store");
-        for (key, value) in iter {
-            store
-                .set(key, value.as_bytes())
-                .await
-                .context("failed to set key-value pair")?;
-        }
-        Ok(())
     }
 
     /// The fully resolved state directory.

@@ -34,6 +34,10 @@ mod local {
         ) -> Result<v2::EmbeddingsResult, v2::Error> {
             self.generate_embeddings(model, data).await
         }
+
+        fn summary(&self) -> Option<String> {
+            Some("local model".to_string())
+        }
     }
 }
 
@@ -77,6 +81,10 @@ impl LlmEngine for RemoteHttpLlmEngine {
         data: Vec<String>,
     ) -> Result<v2::EmbeddingsResult, v2::Error> {
         self.generate_embeddings(model, data).await
+    }
+
+    fn summary(&self) -> Option<String> {
+        Some(format!("model at {}", self.url()))
     }
 }
 
@@ -160,6 +168,10 @@ mod noop {
             Err(v2::Error::RuntimeError(
                 "Local LLM operations are not supported in this version of Spin.".into(),
             ))
+        }
+
+        fn summary(&self) -> Option<String> {
+            Some("noop model".to_owned())
         }
     }
 }

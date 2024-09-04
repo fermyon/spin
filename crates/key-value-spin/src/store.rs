@@ -8,7 +8,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::task;
-use tracing::{instrument, Level};
 
 #[derive(Clone, Debug)]
 pub enum DatabaseLocation {
@@ -37,7 +36,6 @@ impl KeyValueSqlite {
 
 #[async_trait]
 impl StoreManager for KeyValueSqlite {
-    #[instrument(name = "spin_key_value_sqlite.get_store", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         let connection = task::block_in_place(|| {
             self.connection.get_or_try_init(|| {
@@ -89,7 +87,6 @@ struct SqliteStore {
 
 #[async_trait]
 impl Store for SqliteStore {
-    #[instrument(name = "spin_key_value_sqlite.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         task::block_in_place(|| {
             self.connection
@@ -105,7 +102,6 @@ impl Store for SqliteStore {
         })
     }
 
-    #[instrument(name = "spin_key_value_sqlite.set", skip(self, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         task::block_in_place(|| {
             self.connection
@@ -122,7 +118,6 @@ impl Store for SqliteStore {
         })
     }
 
-    #[instrument(name = "spin_key_value_sqlite.delete", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(&self, key: &str) -> Result<(), Error> {
         task::block_in_place(|| {
             self.connection
@@ -136,12 +131,10 @@ impl Store for SqliteStore {
         })
     }
 
-    #[instrument(name = "spin_key_value_sqlite.exists", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(&self, key: &str) -> Result<bool, Error> {
         Ok(self.get(key).await?.is_some())
     }
 
-    #[instrument(name = "spin_key_value_sqlite.get_keys", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         task::block_in_place(|| {
             self.connection

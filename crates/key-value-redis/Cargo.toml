@@ -12,7 +12,6 @@ spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-world = { path = "../world" }
 tokio = "1"
-tracing = { workspace = true }
 url = "2"
 
 [lints]

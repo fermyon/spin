@@ -19,7 +19,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokenizers::PaddingParams;
-use tracing::{instrument, Level};
 
 const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
 
@@ -32,7 +31,6 @@ pub struct LocalLlmEngine {
 }
 
 impl LocalLlmEngine {
-    #[instrument(name = "spin_llm_local.infer", skip(self, prompt), err(level = Level::INFO))]
     pub async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -92,7 +90,6 @@ impl LocalLlmEngine {
         Ok(response)
     }
 
-    #[instrument(name = "spin_llm_local.generate_embeddings", skip(self, data), err(level = Level::INFO))]
     pub async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,

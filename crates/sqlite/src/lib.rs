@@ -20,6 +20,7 @@ use tokio::sync::OnceCell;
 ///
 /// This type implements how Spin CLI's SQLite implementation is configured
 /// through the runtime config toml as well as the behavior of the "default" label.
+#[derive(Clone, Debug)]
 pub struct RuntimeConfigResolver {
     default_database_dir: Option<PathBuf>,
     local_database_dir: PathBuf,

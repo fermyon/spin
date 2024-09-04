@@ -149,8 +149,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             #factors_path::PrepareContext::new(
                                 configured_app.app_state::<#factor_types>().unwrap(),
                                 &app_component,
+                                &mut builders,
                             ),
-                            &mut #factors_path::InstanceBuilders::new(&mut builders),
                         ).map_err(#Error::factor_prepare_error::<#factor_types>)?
                     );
                 )*
@@ -218,6 +218,23 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     self.#factor_names.as_mut().unwrap()
                 }
             )*
+        }
+
+        impl #factors_path::HasInstanceBuilder for #builders_name {
+            fn for_factor<F: #Factor>(
+                &mut self
+            ) -> Option<&mut F::InstanceBuilder> {
+                let type_id = #TypeId::of::<F::InstanceBuilder>();
+                #(
+                    if type_id == #TypeId::of::<<#factor_types as #Factor>::InstanceBuilder>() {
+                        let builder = self.#factor_names.as_mut().unwrap();
+                        return Some(
+                            <dyn #Any>::downcast_mut(builder).unwrap()
+                        );
+                    }
+                )*
+                None
+            }
         }
 
         #vis struct #state_name {

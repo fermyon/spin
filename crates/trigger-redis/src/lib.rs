@@ -5,6 +5,7 @@ use futures::{StreamExt, TryFutureExt};
 use redis::{Client, Msg};
 use serde::Deserialize;
 use spin_factor_variables::VariablesFactor;
+use spin_factors::RuntimeFactors;
 use spin_trigger::{cli::NoCliArgs, App, Trigger, TriggerApp};
 use spin_world::exports::fermyon::spin::inbound_redis;
 use tracing::{instrument, Level};
@@ -30,7 +31,7 @@ struct TriggerConfig {
     address: Option<String>,
 }
 
-impl Trigger for RedisTrigger {
+impl<F: RuntimeFactors> Trigger<F> for RedisTrigger {
     const TYPE: &'static str = "redis";
 
     type CliArgs = NoCliArgs;
@@ -41,15 +42,16 @@ impl Trigger for RedisTrigger {
         Ok(Self)
     }
 
-    async fn run(self, trigger_app: spin_trigger::TriggerApp<Self>) -> anyhow::Result<()> {
+    async fn run(self, trigger_app: spin_trigger::TriggerApp<Self, F>) -> anyhow::Result<()> {
         let app_variables = trigger_app
             .configured_app()
             .app_state::<VariablesFactor>()
             .context("RedisTrigger depends on VariablesFactor")?;
 
         let app = trigger_app.app();
+        let trigger_type = <Self as Trigger<F>>::TYPE;
         let metadata = app
-            .get_trigger_metadata::<TriggerMetadata>(Self::TYPE)?
+            .get_trigger_metadata::<TriggerMetadata>(trigger_type)?
             .unwrap_or_default();
         let default_address_expr = &metadata.address;
         let default_address = app_variables
@@ -64,7 +66,7 @@ impl Trigger for RedisTrigger {
 
         // Resolve trigger configs before starting any subscribers
         for (_, config) in app
-            .trigger_configs::<TriggerConfig>(Self::TYPE)?
+            .trigger_configs::<TriggerConfig>(trigger_type)?
             .into_iter()
             .collect::<Vec<_>>()
         {
@@ -117,16 +119,16 @@ impl Trigger for RedisTrigger {
 type ChannelComponents = HashMap<String, Vec<String>>;
 
 /// Subscribes to channels from a single Redis server.
-struct Subscriber {
+struct Subscriber<F: RuntimeFactors> {
     client: Client,
-    trigger_app: Arc<TriggerApp<RedisTrigger>>,
+    trigger_app: Arc<TriggerApp<RedisTrigger, F>>,
     channel_components: ChannelComponents,
 }
 
-impl Subscriber {
+impl<F: RuntimeFactors> Subscriber<F> {
     fn new(
         address: String,
-        trigger_app: Arc<TriggerApp<RedisTrigger>>,
+        trigger_app: Arc<TriggerApp<RedisTrigger, F>>,
         channel_components: ChannelComponents,
     ) -> anyhow::Result<Self> {
         let client = Client::open(address)?;

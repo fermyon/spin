@@ -8,11 +8,6 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
-[features]
-llm = ["spin-factor-llm/llm"]
-llm-metal = ["spin-factor-llm/llm-metal"]
-llm-cublas = ["spin-factor-llm/llm-cublas"]
-
 [dependencies]
 anyhow = "1"
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -27,21 +22,11 @@ spin-componentize = { path = "../componentize" }
 spin-compose = { path = "../compose" }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
-spin-factor-llm = { path = "../factor-llm" }
-spin-factor-outbound-http = { path = "../factor-outbound-http" }
-spin-factor-outbound-mqtt = { path = "../factor-outbound-mqtt" }
-spin-factor-outbound-mysql = { path = "../factor-outbound-mysql" }
-spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
-spin-factor-outbound-pg = { path = "../factor-outbound-pg" }
-spin-factor-outbound-redis = { path = "../factor-outbound-redis" }
 spin-factor-sqlite = { path = "../factor-sqlite" }
-spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-factors-executor = { path = "../factors-executor" }
-spin-runtime-config = { path = "../runtime-config" }
 spin-telemetry = { path = "../telemetry" }
-terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs", "rt"] }
 toml = "0.8"
 tracing = { workspace = true }

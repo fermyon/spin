@@ -54,6 +54,7 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
+spin-runtime-factors = { path = "crates/runtime-factors" }
 spin-telemetry = { path = "crates/telemetry", features = [
   "tracing-log-compat",
 ] }
@@ -66,7 +67,7 @@ terminal = { path = "crates/terminal" }
 subprocess = "0.2.9"
 tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
-toml = "0.6"
+toml = "0.8"
 tracing = { workspace = true }
 url = "2.2.2"
 uuid = { version = "^1.0", features = ["v4"] }
@@ -109,9 +110,9 @@ vergen = { version = "^8.2.1", default-features = false, features = [
 default = ["llm"]
 all-tests = ["extern-dependencies-tests"]
 extern-dependencies-tests = []
-llm = ["spin-trigger-http/llm"]
-llm-metal = ["llm", "spin-trigger-http/llm-metal"]
-llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
+llm = ["spin-runtime-factors/llm"]
+llm-metal = ["llm", "spin-runtime-factors/llm-metal"]
+llm-cublas = ["llm", "spin-runtime-factors/llm-cublas"]
 
 [workspace]
 members = [

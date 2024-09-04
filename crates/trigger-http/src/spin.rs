@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
+use spin_factors::RuntimeFactors;
 use spin_http::body;
 use spin_http::routes::RouteMatch;
 use spin_world::v1::http_types;
@@ -20,9 +21,9 @@ pub struct SpinHttpExecutor;
 
 impl HttpExecutor for SpinHttpExecutor {
     #[instrument(name = "spin_trigger_http.execute_wasm", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", route_match.component_id())))]
-    async fn execute(
+    async fn execute<F: RuntimeFactors>(
         &self,
-        instance_builder: TriggerInstanceBuilder<'_>,
+        instance_builder: TriggerInstanceBuilder<'_, F>,
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,

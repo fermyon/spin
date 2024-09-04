@@ -15,6 +15,7 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
+use spin_runtime_factors::FactorsBuilder;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::FactorsTriggerCommand;
 use spin_trigger_http::HttpTrigger;
@@ -139,10 +140,10 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(FactorsTriggerCommand<HttpTrigger>),
-    Redis(FactorsTriggerCommand<RedisTrigger>),
+    Http(FactorsTriggerCommand<HttpTrigger, FactorsBuilder>),
+    Redis(FactorsTriggerCommand<RedisTrigger, FactorsBuilder>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
-    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger>),
+    HelpArgsOnly(FactorsTriggerCommand<HelpArgsOnlyTrigger, FactorsBuilder>),
 }
 
 impl SpinApp {

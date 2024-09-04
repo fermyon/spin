@@ -39,42 +39,34 @@ impl<T: SelfInstanceBuilder> FactorInstanceBuilder for T {
 /// A PrepareContext is passed to [`Factor::prepare`].
 ///
 /// This gives the factor access to app state and the app component.
-pub struct PrepareContext<'a, F: Factor> {
+pub struct PrepareContext<'a, T: RuntimeFactors, F: Factor> {
     pub(crate) app_state: &'a F::AppState,
     pub(crate) app_component: &'a AppComponent<'a>,
+    pub(crate) instance_builders: &'a mut T::InstanceBuilders,
 }
 
-impl<'a, F: Factor> PrepareContext<'a, F> {
+impl<'a, T: RuntimeFactors, F: Factor> PrepareContext<'a, T, F> {
     #[doc(hidden)]
-    pub fn new(app_state: &'a F::AppState, app_component: &'a AppComponent) -> Self {
+    pub fn new(
+        app_state: &'a F::AppState,
+        app_component: &'a AppComponent,
+        instance_builders: &'a mut T::InstanceBuilders,
+    ) -> Self {
         Self {
             app_state,
             app_component,
+            instance_builders,
         }
     }
 
     /// Get the app state related to the factor.
-    pub fn app_state(&self) -> &F::AppState {
+    pub fn app_state(&self) -> &'a F::AppState {
         self.app_state
     }
 
     /// Get the app component.
-    pub fn app_component(&self) -> &AppComponent {
+    pub fn app_component(&self) -> &'a AppComponent {
         self.app_component
-    }
-}
-
-/// The collection of all the already prepared `InstanceBuilder`s.
-///
-/// Use `InstanceBuilders::get_mut` to get a mutable reference to a specific factor's instance builder.
-pub struct InstanceBuilders<'a, T: RuntimeFactors> {
-    pub(crate) inner: &'a mut T::InstanceBuilders,
-}
-
-impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
-    #[doc(hidden)]
-    pub fn new(inner: &'a mut T::InstanceBuilders) -> Self {
-        Self { inner }
     }
 
     /// Returns the prepared [`FactorInstanceBuilder`] for the given [`Factor`].
@@ -82,8 +74,8 @@ impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
     /// Fails if the current [`RuntimeFactors`] does not include the given
     /// [`Factor`] or if the given [`Factor`]'s builder has not been prepared
     /// yet (because it is sequenced after this factor).
-    pub fn get_mut<U: Factor>(&mut self) -> crate::Result<&mut U::InstanceBuilder> {
-        T::instance_builder_mut::<U>(self.inner)
+    pub fn instance_builder<U: Factor>(&mut self) -> crate::Result<&mut U::InstanceBuilder> {
+        T::instance_builder_mut::<U>(self.instance_builders)
             .ok_or(Error::no_such_factor::<U>())?
             .ok_or_else(|| {
                 Error::DependencyOrderingError(format!(

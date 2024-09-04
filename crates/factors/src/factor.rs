@@ -2,9 +2,7 @@ use std::any::Any;
 
 use wasmtime::component::{Linker, ResourceTable};
 
-use crate::{
-    prepare::FactorInstanceBuilder, App, Error, InstanceBuilders, PrepareContext, RuntimeFactors,
-};
+use crate::{prepare::FactorInstanceBuilder, App, Error, PrepareContext, RuntimeFactors};
 
 /// A contained (i.e., "factored") piece of runtime functionality.
 pub trait Factor: Any + Sized {
@@ -64,8 +62,7 @@ pub trait Factor: Any + Sized {
     /// used.
     fn prepare<T: RuntimeFactors>(
         &self,
-        ctx: PrepareContext<Self>,
-        _builders: &mut InstanceBuilders<T>,
+        ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<Self::InstanceBuilder>;
 }
 
@@ -149,12 +146,12 @@ impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
     }
 
     /// Get the [`App`] being configured.
-    pub fn app(&self) -> &App {
+    pub fn app(&self) -> &'a App {
         self.app
     }
 
     /// Get the app state related to the given factor.
-    pub fn app_state<U: Factor>(&self) -> crate::Result<&U::AppState> {
+    pub fn app_state<U: Factor>(&self) -> crate::Result<&'a U::AppState> {
         T::app_state::<U>(self.app_state).ok_or(Error::no_such_factor::<U>())
     }
 

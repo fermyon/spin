@@ -1,9 +1,10 @@
 //! The Spin runtime running in the same process as the test
 
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use spin_trigger::cli::{TriggerAppBuilder, TriggerAppOptions};
+use spin_runtime_factors::{FactorsBuilder, TriggerAppArgs, TriggerFactors};
+use spin_trigger::cli::TriggerAppBuilder;
 use spin_trigger_http::{HttpServer, HttpTrigger};
 use test_environment::{
     http::{Request, Response},
@@ -15,7 +16,7 @@ use test_environment::{
 ///
 /// Use `runtimes::spin_cli::SpinCli` if you'd rather use Spin as a separate process
 pub struct InProcessSpin {
-    server: Arc<HttpServer>,
+    server: Arc<HttpServer<TriggerFactors>>,
 }
 
 impl InProcessSpin {
@@ -36,7 +37,7 @@ impl InProcessSpin {
     }
 
     /// Create a new instance of Spin running in the same process as the tests
-    pub fn new(server: Arc<HttpServer>) -> Self {
+    pub fn new(server: Arc<HttpServer<TriggerFactors>>) -> Self {
         Self { server }
     }
 
@@ -104,8 +105,14 @@ async fn initialize_trigger(
 
     let app = spin_app::App::new("my-app", locked_app);
     let trigger = HttpTrigger::new(&app, "127.0.0.1:80".parse().unwrap(), None)?;
-    let mut builder = TriggerAppBuilder::new(trigger, PathBuf::from("."));
-    let trigger_app = builder.build(app, TriggerAppOptions::default()).await?;
+    let mut builder = TriggerAppBuilder::<_, FactorsBuilder>::new(trigger);
+    let trigger_app = builder
+        .build(
+            app,
+            spin_trigger::cli::FactorsConfig::default(),
+            TriggerAppArgs::default(),
+        )
+        .await?;
     let server = builder.trigger.into_server(trigger_app)?;
 
     Ok(InProcessSpin::new(server))

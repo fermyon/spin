@@ -4,6 +4,8 @@ use std::ffi::OsString;
 
 use crate::{cli::FactorsTriggerCommand, Trigger};
 
+use super::RuntimeFactorsBuilder;
+
 /// Contains information about the trigger flags (and potentially
 /// in future configuration) that a consumer (such as `spin up`)
 /// can query using `--launch-metadata-only`.
@@ -27,8 +29,8 @@ struct LaunchFlag {
 }
 
 impl LaunchMetadata {
-    pub fn infer<T: Trigger>() -> Self {
-        let all_flags: Vec<_> = FactorsTriggerCommand::<T>::command()
+    pub fn infer<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder>() -> Self {
+        let all_flags: Vec<_> = FactorsTriggerCommand::<T, B>::command()
             .get_arguments()
             .map(LaunchFlag::infer)
             .collect();

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
+use spin_common::ui::quoted_path;
 use spin_factor_key_value::runtime_config::spin::{self as key_value};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_llm::{spin as llm, LlmFactor};
@@ -20,6 +21,8 @@ use spin_factors::{
 };
 use spin_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_sqlite as sqlite;
+use spin_trigger::cli::UserProvidedPath;
+use toml::Value;
 
 /// The default state directory for the trigger.
 pub const DEFAULT_STATE_DIR: &str = ".spin";
@@ -46,85 +49,88 @@ pub struct ResolvedRuntimeConfig<T> {
     pub toml: toml::Table,
 }
 
+impl<T> ResolvedRuntimeConfig<T> {
+    pub fn summarize(&self, runtime_config_path: Option<&Path>) {
+        let summarize_labeled_typed_tables = |key| {
+            let mut summaries = vec![];
+            if let Some(tables) = self.toml.get(key).and_then(Value::as_table) {
+                for (label, config) in tables {
+                    if let Some(ty) = config.get("type").and_then(Value::as_str) {
+                        summaries.push(format!("[{key}.{label}: {ty}]"))
+                    }
+                }
+            }
+            summaries
+        };
+
+        let mut summaries = vec![];
+        // [key_value_store.<label>: <type>]
+        summaries.extend(summarize_labeled_typed_tables("key_value_store"));
+        // [sqlite_database.<label>: <type>]
+        summaries.extend(summarize_labeled_typed_tables("sqlite_database"));
+        // [llm_compute: <type>]
+        if let Some(table) = self.toml.get("llm_compute").and_then(Value::as_table) {
+            if let Some(ty) = table.get("type").and_then(Value::as_str) {
+                summaries.push(format!("[llm_compute: {ty}"));
+            }
+        }
+        if !summaries.is_empty() {
+            let summaries = summaries.join(", ");
+            let from_path = runtime_config_path
+                .map(|path| format!("from {}", quoted_path(path)))
+                .unwrap_or_default();
+            println!("Using runtime config {summaries} {from_path}");
+        }
+    }
+}
+
 impl<T> ResolvedRuntimeConfig<T>
 where
     T: for<'a, 'b> TryFrom<TomlRuntimeConfigSource<'a, 'b>>,
     for<'a, 'b> <T as TryFrom<TomlRuntimeConfigSource<'a, 'b>>>::Error: Into<anyhow::Error>,
 {
-    /// Creates a new resolved runtime configuration from an optional runtime config source TOML file.
-    pub fn from_optional_file(
-        runtime_config_path: Option<&Path>,
-        local_app_dir: Option<PathBuf>,
-        provided_state_dir: UserProvidedPath,
-        provided_log_dir: UserProvidedPath,
-        use_gpu: bool,
-    ) -> anyhow::Result<Self> {
-        match runtime_config_path {
-            Some(runtime_config_path) => Self::from_file(
-                runtime_config_path,
-                local_app_dir,
-                provided_state_dir,
-                provided_log_dir,
-                use_gpu,
-            ),
-            None => Self::new(
-                Default::default(),
-                None,
-                local_app_dir,
-                provided_state_dir,
-                provided_log_dir,
-                use_gpu,
-            ),
-        }
-    }
-
     /// Creates a new resolved runtime configuration from a runtime config source TOML file.
     ///
     /// `provided_state_dir` is the explicitly provided state directory, if any.
     pub fn from_file(
-        runtime_config_path: &Path,
+        runtime_config_path: Option<&Path>,
         local_app_dir: Option<PathBuf>,
         provided_state_dir: UserProvidedPath,
         provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
-        let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
-            format!(
-                "failed to read runtime config file '{}'",
-                runtime_config_path.display()
-            )
-        })?;
-        let toml = toml::from_str(&file).with_context(|| {
-            format!(
-                "failed to parse runtime config file '{}' as toml",
-                runtime_config_path.display()
-            )
-        })?;
+        let toml = match runtime_config_path {
+            Some(runtime_config_path) => {
+                let file = std::fs::read_to_string(runtime_config_path).with_context(|| {
+                    format!(
+                        "failed to read runtime config file '{}'",
+                        runtime_config_path.display()
+                    )
+                })?;
+                toml::from_str(&file).with_context(|| {
+                    format!(
+                        "failed to parse runtime config file '{}' as toml",
+                        runtime_config_path.display()
+                    )
+                })?
+            }
+            None => Default::default(),
+        };
+        let toml_resolver =
+            TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
 
-        Self::new(
-            toml,
-            Some(runtime_config_path),
-            local_app_dir,
-            provided_state_dir,
-            provided_log_dir,
-            use_gpu,
-        )
+        Self::new(toml_resolver, runtime_config_path, use_gpu)
     }
 
     /// Creates a new resolved runtime configuration from a TOML table.
     pub fn new(
-        toml: toml::Table,
+        toml_resolver: TomlResolver<'_>,
         runtime_config_path: Option<&Path>,
-        local_app_dir: Option<PathBuf>,
-        provided_state_dir: UserProvidedPath,
-        provided_log_dir: UserProvidedPath,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let runtime_config_dir = runtime_config_path
             .and_then(Path::parent)
             .map(ToOwned::to_owned);
-        let toml_resolver =
-            TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
         let tls_resolver = runtime_config_dir.clone().map(SpinTlsRuntimeConfig::new);
         let key_value_config_resolver =
             key_value_config_resolver(runtime_config_dir, toml_resolver.state_dir()?);
@@ -146,7 +152,7 @@ where
             sqlite_resolver: sqlite_config_resolver,
             state_dir: toml_resolver.state_dir()?,
             log_dir: toml_resolver.log_dir()?,
-            toml,
+            toml: toml_resolver.toml(),
         })
     }
 
@@ -283,6 +289,10 @@ impl<'a> TomlResolver<'a> {
     /// Validate that all keys in the TOML file have been used.
     pub fn validate_all_keys_used(&self) -> spin_factors::Result<()> {
         self.table.validate_all_keys_used()
+    }
+
+    fn toml(&self) -> toml::Table {
+        self.table.as_ref().clone()
     }
 }
 
@@ -451,15 +461,4 @@ fn sqlite_config_resolver(
         default_database_dir,
         local_database_dir,
     ))
-}
-
-/// A user provided option which be either be provided, default, or explicitly none.
-#[derive(Clone, Debug)]
-pub enum UserProvidedPath {
-    /// Use the explicitly provided directory.
-    Provided(PathBuf),
-    /// Use the default.
-    Default,
-    /// Explicitly unset.
-    Unset,
 }

@@ -13,7 +13,8 @@ use hyper::{
 };
 use hyper_util::rt::TokioIo;
 use spin_app::{APP_DESCRIPTION_KEY, APP_NAME_KEY};
-use spin_factor_outbound_http::SelfRequestOrigin;
+use spin_factor_outbound_http::{OutboundHttpFactor, SelfRequestOrigin};
+use spin_factors::RuntimeFactors;
 use spin_http::{
     app_info::AppInfo,
     body,
@@ -40,7 +41,7 @@ use crate::{
 };
 
 /// An HTTP server which runs Spin apps.
-pub struct HttpServer {
+pub struct HttpServer<F: RuntimeFactors> {
     /// The address the server is listening on.
     listen_addr: SocketAddr,
     /// The TLS configuration for the server.
@@ -48,19 +49,19 @@ pub struct HttpServer {
     /// Request router.
     router: Router,
     /// The app being triggered.
-    trigger_app: TriggerApp,
+    trigger_app: TriggerApp<F>,
     // Component ID -> component trigger config
     component_trigger_configs: HashMap<String, HttpTriggerConfig>,
     // Component ID -> handler type
     component_handler_types: HashMap<String, HandlerType>,
 }
 
-impl HttpServer {
+impl<F: RuntimeFactors> HttpServer<F> {
     /// Create a new [`HttpServer`].
     pub fn new(
         listen_addr: SocketAddr,
         tls_config: Option<TlsConfig>,
-        trigger_app: TriggerApp,
+        trigger_app: TriggerApp<F>,
     ) -> anyhow::Result<Self> {
         // This needs to be a vec before building the router to handle duplicate routes
         let component_trigger_configs = Vec::from_iter(
@@ -235,7 +236,14 @@ impl HttpServer {
         let mut instance_builder = self.trigger_app.prepare(component_id)?;
 
         // Set up outbound HTTP request origin and service chaining
-        let outbound_http = instance_builder.factor_builders().outbound_http();
+        // The outbound HTTP factor is required since both inbound and outbound wasi HTTP
+        // implementations assume they use the same underlying wasmtime resource storage.
+        // Eventually, we may be able to factor this out to a separate factor.
+        let outbound_http = instance_builder
+            .factor_builder::<OutboundHttpFactor>()
+            .context(
+            "The wasi HTTP trigger was configured without the required wasi outbound http support",
+        )?;
         let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
         outbound_http.set_self_request_origin(origin);
         outbound_http.set_request_interceptor(OutboundHttpInterceptor::new(self.clone()))?;
@@ -448,9 +456,9 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> anyhow::Result<()> {
 
 /// An HTTP executor.
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
-    fn execute(
+    fn execute<F: RuntimeFactors>(
         &self,
-        instance_builder: TriggerInstanceBuilder,
+        instance_builder: TriggerInstanceBuilder<F>,
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,

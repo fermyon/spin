@@ -18,6 +18,7 @@ spin-app = { path = "../../crates/app" }
 spin-factors-executor = { path = "../../crates/factors-executor" }
 spin-http = { path = "../../crates/http" }
 spin-loader = { path = "../../crates/loader" }
+spin-runtime-factors = { path = "../../crates/runtime-factors" }
 spin-trigger = { path = "../../crates/trigger" }
 spin-trigger-http = { path = "../../crates/trigger-http" }
 toml = "0.8.6"

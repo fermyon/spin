@@ -1,8 +1,10 @@
 use std::{io::Cursor, net::SocketAddr};
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
+use spin_factor_wasi::WasiFactor;
+use spin_factors::RuntimeFactors;
 use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
 use tracing::{instrument, Level};
 use wasmtime_wasi::pipe::MemoryOutputPipe;
@@ -17,9 +19,9 @@ pub struct WagiHttpExecutor {
 
 impl HttpExecutor for WagiHttpExecutor {
     #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", route_match.component_id())))]
-    async fn execute(
+    async fn execute<F: RuntimeFactors>(
         &self,
-        mut instance_builder: TriggerInstanceBuilder<'_>,
+        mut instance_builder: TriggerInstanceBuilder<'_, F>,
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
@@ -73,7 +75,9 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let stdout = MemoryOutputPipe::new(usize::MAX);
 
-        let wasi_builder = instance_builder.factor_builders().wasi();
+        let wasi_builder = instance_builder
+            .factor_builder::<WasiFactor>()
+            .context("The wagi HTTP trigger was configured without the required wasi support")?;
 
         // Set up Wagi environment
         wasi_builder.args(argv.split(' '));

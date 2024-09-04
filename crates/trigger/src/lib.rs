@@ -1,33 +1,39 @@
 pub mod cli;
-mod factors;
-mod stdio;
 
 use std::future::Future;
 
 use clap::Args;
-use factors::{TriggerFactors, TriggerFactorsInstanceState};
 use spin_core::Linker;
+use spin_factors::RuntimeFactors;
 use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
 pub use spin_app::App;
 
-/// Type alias for a [`FactorsExecutorApp`] specialized to a [`Trigger`].
-pub type TriggerApp<T> = FactorsExecutorApp<TriggerFactors, <T as Trigger>::InstanceState>;
+/// Type alias for a [`spin_factors_executor::FactorsExecutorApp`] specialized to a [`Trigger`].
+pub type TriggerApp<T, F> = FactorsExecutorApp<F, <T as Trigger<F>>::InstanceState>;
 
-pub type TriggerInstanceBuilder<'a, T> =
-    FactorsInstanceBuilder<'a, TriggerFactors, <T as Trigger>::InstanceState>;
+/// Type alias for a [`spin_factors_executor::FactorsInstanceBuilder`] specialized to a [`Trigger`].
+pub type TriggerInstanceBuilder<'a, T, F> =
+    FactorsInstanceBuilder<'a, F, <T as Trigger<F>>::InstanceState>;
 
-pub type Store<T> = spin_core::Store<TriggerInstanceState<T>>;
+/// Type alias for a [`spin_core::Store`] specialized to a [`Trigger`].
+pub type Store<T, F> = spin_core::Store<TriggerInstanceState<T, F>>;
 
-type TriggerInstanceState<T> = spin_factors_executor::InstanceState<
-    TriggerFactorsInstanceState,
-    <T as Trigger>::InstanceState,
+/// Type alias for [`spin_factors_executor::InstanceState`] specialized to a [`Trigger`].
+type TriggerInstanceState<T, F> = spin_factors_executor::InstanceState<
+    <F as RuntimeFactors>::InstanceState,
+    <T as Trigger<F>>::InstanceState,
 >;
 
-pub trait Trigger: Sized + Send {
+/// A trigger for a Spin runtime.
+pub trait Trigger<F: RuntimeFactors>: Sized + Send {
+    /// A unique identifier for this trigger.
     const TYPE: &'static str;
 
+    /// The specific CLI arguments for this trigger.
     type CliArgs: Args;
+
+    /// The instance state for this trigger.
     type InstanceState: Send + 'static;
 
     /// Constructs a new trigger.
@@ -46,14 +52,17 @@ pub trait Trigger: Sized + Send {
     /// Update the [`Linker`] for this trigger.
     fn add_to_linker(
         &mut self,
-        linker: &mut Linker<TriggerInstanceState<Self>>,
+        linker: &mut Linker<TriggerInstanceState<Self, F>>,
     ) -> anyhow::Result<()> {
         let _ = linker;
         Ok(())
     }
 
     /// Run this trigger.
-    fn run(self, trigger_app: TriggerApp<Self>) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn run(
+        self,
+        trigger_app: TriggerApp<Self, F>,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
 
     /// Returns a list of host requirements supported by this trigger specifically.
     ///

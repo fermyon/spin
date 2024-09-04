@@ -1,6 +1,11 @@
+mod build;
+
+pub use build::FactorsBuilder;
+
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use spin_common::arg_parser::parse_kv;
 use spin_factor_key_value::KeyValueFactor;
 use spin_factor_llm::LlmFactor;
 use spin_factor_outbound_http::OutboundHttpFactor;
@@ -13,7 +18,7 @@ use spin_factor_sqlite::SqliteFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{spin::SpinFilesMounter, WasiFactor};
 use spin_factors::RuntimeFactors;
-use spin_runtime_config::TomlRuntimeConfigSource;
+use spin_runtime_config::{ResolvedRuntimeConfig, TomlRuntimeConfigSource};
 
 #[derive(RuntimeFactors)]
 pub struct TriggerFactors {
@@ -79,6 +84,31 @@ fn outbound_networking_factor() -> OutboundNetworkingFactor {
     let mut factor = OutboundNetworkingFactor::new();
     factor.set_disallowed_host_handler(disallowed_host_handler);
     factor
+}
+
+/// Options for building a [`TriggerFactors`].
+#[derive(Default, clap::Args)]
+pub struct TriggerAppArgs {
+    /// Set the static assets of the components in the temporary directory as writable.
+    #[clap(long = "allow-transient-write")]
+    pub allow_transient_write: bool,
+
+    /// Set a key/value pair (key=value) in the application's
+    /// default store. Any existing value will be overwritten.
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    pub key_values: Vec<(String, String)>,
+
+    /// Run a SQLite statement such as a migration against the default database.
+    /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
+    #[clap(long = "sqlite")]
+    pub sqlite_statements: Vec<String>,
+}
+
+impl From<ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>> for TriggerFactorsRuntimeConfig {
+    fn from(value: ResolvedRuntimeConfig<TriggerFactorsRuntimeConfig>) -> Self {
+        value.runtime_config
+    }
 }
 
 impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TriggerFactorsRuntimeConfig {

@@ -10,8 +10,7 @@ use std::{
 use anyhow::ensure;
 use host::KEY_VALUE_STORES_KEY;
 use spin_factors::{
-    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors,
+    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
 };
 use util::{CachingStoreManager, DefaultManagerGetter};
 
@@ -89,8 +88,7 @@ impl Factor for KeyValueFactor {
 
     fn prepare<T: RuntimeFactors>(
         &self,
-        ctx: PrepareContext<Self>,
-        _builders: &mut InstanceBuilders<T>,
+        ctx: PrepareContext<T, Self>,
     ) -> anyhow::Result<InstanceBuilder> {
         let app_state = ctx.app_state();
         let allowed_stores = app_state
@@ -132,6 +130,11 @@ impl AppState {
         self.component_allowed_stores
             .values()
             .any(|stores| stores.contains(label))
+    }
+
+    /// Get a store by label.
+    pub async fn get_store(&self, label: &str) -> Option<Arc<dyn Store>> {
+        self.store_manager.get(label).await.ok()
     }
 }
 

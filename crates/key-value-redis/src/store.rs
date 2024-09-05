@@ -4,7 +4,6 @@ use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Error, Store, StoreManager};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
-use tracing::{instrument, Level};
 use url::Url;
 
 pub struct KeyValueRedis {
@@ -25,7 +24,6 @@ impl KeyValueRedis {
 
 #[async_trait]
 impl StoreManager for KeyValueRedis {
-    #[instrument(name = "spin_key_value_redis.get_store", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
         let connection = self
             .connection
@@ -60,13 +58,11 @@ struct RedisStore {
 
 #[async_trait]
 impl Store for RedisStore {
-    #[instrument(name = "spin_key_value_redis.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let mut conn = self.connection.lock().await;
         conn.get(key).await.map_err(log_error)
     }
 
-    #[instrument(name = "spin_key_value_redis.set", skip(self, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         self.connection
             .lock()
@@ -76,7 +72,6 @@ impl Store for RedisStore {
             .map_err(log_error)
     }
 
-    #[instrument(name = "spin_key_value_redis.delete", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(&self, key: &str) -> Result<(), Error> {
         self.connection
             .lock()
@@ -86,7 +81,6 @@ impl Store for RedisStore {
             .map_err(log_error)
     }
 
-    #[instrument(name = "spin_key_value_redis.exists", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(&self, key: &str) -> Result<bool, Error> {
         self.connection
             .lock()
@@ -96,7 +90,6 @@ impl Store for RedisStore {
             .map_err(log_error)
     }
 
-    #[instrument(name = "spin_key_value_redis.get_keys", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         self.connection
             .lock()

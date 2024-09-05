@@ -5,6 +5,7 @@ use spin_locked_app::MetadataKey;
 use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
+use tracing::{instrument, Level};
 
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 
@@ -79,6 +80,7 @@ impl key_value::Host for KeyValueDispatch {}
 
 #[async_trait]
 impl key_value::HostStore for KeyValueDispatch {
+    #[instrument(name = "spin_key_value.open", skip(self), err(level = Level::INFO), fields(otel.kind = "client", kv.backend=self.manager.summary(&name).unwrap_or("unknown".to_string())))]
     async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {
         Ok(async {
             if self.allowed_stores.contains(&name) {
@@ -94,6 +96,7 @@ impl key_value::HostStore for KeyValueDispatch {
         .await)
     }
 
+    #[instrument(name = "spin_key_value.get", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(
         &mut self,
         store: Resource<key_value::Store>,
@@ -103,6 +106,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.get(&key).await)
     }
 
+    #[instrument(name = "spin_key_value.set", skip(self, store, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(
         &mut self,
         store: Resource<key_value::Store>,
@@ -113,6 +117,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.set(&key, &value).await)
     }
 
+    #[instrument(name = "spin_key_value.delete", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(
         &mut self,
         store: Resource<key_value::Store>,
@@ -122,6 +127,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.delete(&key).await)
     }
 
+    #[instrument(name = "spin_key_value.exists", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(
         &mut self,
         store: Resource<key_value::Store>,
@@ -131,6 +137,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.exists(&key).await)
     }
 
+    #[instrument(name = "spin_key_value.get_keys", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get_keys(
         &mut self,
         store: Resource<key_value::Store>,

@@ -1,11 +1,14 @@
 use async_trait::async_trait;
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2};
+use tracing::field::Empty;
+use tracing::{instrument, Level};
 
 use crate::InstanceState;
 
 #[async_trait]
 impl v2::Host for InstanceState {
+    #[instrument(name = "spin_llm.infer", skip(self, prompt), err(level = Level::INFO), fields(otel.kind = "client", llm.backend = Empty))]
     async fn infer(
         &mut self,
         model: v2::InferencingModel,
@@ -15,9 +18,9 @@ impl v2::Host for InstanceState {
         if !self.allowed_models.contains(&model) {
             return Err(access_denied_error(&model));
         }
-        self.engine
-            .lock()
-            .await
+        let mut engine = self.engine.lock().await;
+        tracing::Span::current().record("llm.backend", engine.summary());
+        engine
             .infer(
                 model,
                 prompt,
@@ -33,15 +36,18 @@ impl v2::Host for InstanceState {
             .await
     }
 
+    #[instrument(name = "spin_llm.generate_embeddings", skip(self, data), err(level = Level::INFO), fields(otel.kind = "client", llm.backend = Empty))]
     async fn generate_embeddings(
         &mut self,
-        m: v1::EmbeddingModel,
+        model: v1::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<v2::EmbeddingsResult, v2::Error> {
-        if !self.allowed_models.contains(&m) {
-            return Err(access_denied_error(&m));
+        if !self.allowed_models.contains(&model) {
+            return Err(access_denied_error(&model));
         }
-        self.engine.lock().await.generate_embeddings(m, data).await
+        let mut engine = self.engine.lock().await;
+        tracing::Span::current().record("llm.backend", engine.summary());
+        engine.generate_embeddings(model, data).await
     }
 
     fn convert_error(&mut self, error: v2::Error) -> anyhow::Result<v2::Error> {

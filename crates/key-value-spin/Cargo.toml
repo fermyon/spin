@@ -13,7 +13,6 @@ spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-world = { path = "../world" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-tracing = { workspace = true }
 
 [lints]
 workspace = true

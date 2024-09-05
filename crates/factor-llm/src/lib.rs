@@ -127,6 +127,13 @@ pub trait LlmEngine: Send + Sync {
         model: v2::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<v2::EmbeddingsResult, v2::Error>;
+
+    /// A human-readable summary of the given engine's configuration
+    ///
+    /// Example: "local model"
+    fn summary(&self) -> Option<String> {
+        None
+    }
 }
 
 /// A creator for an LLM engine.

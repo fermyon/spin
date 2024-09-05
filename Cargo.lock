@@ -7560,7 +7560,6 @@ dependencies = [
  "spin-core",
  "spin-factor-key-value",
  "tokio",
- "tracing",
  "url",
 ]
 
@@ -7575,7 +7574,6 @@ dependencies = [
  "spin-factor-key-value",
  "spin-world",
  "tokio",
- "tracing",
  "url",
 ]
 
@@ -7591,7 +7589,6 @@ dependencies = [
  "spin-factor-key-value",
  "spin-world",
  "tokio",
- "tracing",
 ]
 
 [[package]]

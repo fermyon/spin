@@ -23,9 +23,12 @@ impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for InitialKvSetterHook {
         &mut self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
-        let Some(kv) = configured_app.app_state::<KeyValueFactor>().ok() else {
+        if self.kv_pairs.is_empty() {
             return Ok(());
-        };
+        }
+        let kv = configured_app.app_state::<KeyValueFactor>().context(
+            "attempted to set initial kv pairs but the key-value factor was not configured",
+        )?;
         let store = kv
             .get_store(DEFAULT_KEY_VALUE_STORE_LABEL)
             .await

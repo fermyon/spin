@@ -112,9 +112,12 @@ pub fn componentize_new_bindgen(module: &[u8]) -> Result<Vec<u8>> {
 
 /// Modules *not* produced with wit-bindgen >= 0.5 could be old wit-bindgen or no wit-bindgen
 pub fn componentize_old_module(module: &[u8], module_info: &ModuleInfo) -> Result<Vec<u8>> {
-    // If the module has a _start export and doesn't obviously use wit-bindgen
-    // it is likely an old p1 command module.
-    if module_info.has_start_export && !module_info.probably_uses_wit_bindgen() {
+    // If the module has a _start export AND doesn't have an old spin export AND
+    // doesn't obviously use wit-bindgen it is likely an old p1 command module.
+    if module_info.has_start_export
+        && !module_info.has_old_spin_export_interface
+        && !module_info.probably_uses_wit_bindgen()
+    {
         bugs::WasiLibc377Bug::check(module_info)?;
         componentize_command(module)
     } else {

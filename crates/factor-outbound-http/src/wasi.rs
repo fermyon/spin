@@ -74,7 +74,7 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
         skip_all,
         fields(
             otel.kind = "client",
-            url.full = %request.uri(),
+            url.full = Empty,
             http.request.method = %request.method(),
             otel.name = %request.method(),
             http.response.status_code = Empty,
@@ -127,6 +127,10 @@ async fn send_request_impl(
         }
         *uri = builder.build().unwrap();
     }
+    let span = tracing::Span::current();
+    span.record("url.full", uri.to_string());
+
+    spin_telemetry::inject_trace_context(&mut request);
 
     if let Some(interceptor) = request_interceptor {
         match interceptor.intercept(&mut request, &mut config).await? {
@@ -165,17 +169,15 @@ async fn send_request_impl(
         config.use_tls = origin.use_tls();
 
         request.headers_mut().insert(HOST, origin.host_header());
-        spin_telemetry::inject_trace_context(&mut request);
 
         let path_and_query = request.uri().path_and_query().cloned();
         *request.uri_mut() = origin.into_uri(path_and_query);
     }
 
     let authority = request.uri().authority().context("authority not set")?;
-    let current_span = tracing::Span::current();
-    current_span.record("server.address", authority.host());
+    span.record("server.address", authority.host());
     if let Some(port) = authority.port() {
-        current_span.record("server.port", port.as_u16());
+        span.record("server.port", port.as_u16());
     }
 
     Ok(send_request_handler(request, config, tls_client_config, allow_private_ips).await)
@@ -314,6 +316,8 @@ async fn send_request_handler(
         .map_err(|_| ErrorCode::ConnectionReadTimeout)?
         .map_err(hyper_request_error)?
         .map(|body| body.map_err(hyper_request_error).boxed());
+
+    tracing::Span::current().record("http.response.status_code", resp.status().as_u16());
 
     Ok(wasmtime_wasi_http::types::IncomingResponse {
         resp,

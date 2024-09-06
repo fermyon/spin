@@ -24,14 +24,24 @@ pub use wasmtime_wasi_http::{
     HttpResult,
 };
 
-#[derive(Default)]
 pub struct OutboundHttpFactor {
-    _priv: (),
+    allow_private_ips: bool,
 }
 
 impl OutboundHttpFactor {
-    pub fn new() -> Self {
-        Self::default()
+    /// Create a new OutboundHttpFactor.
+    ///
+    /// If `allow_private_ips` is true, requests to private IP addresses will be allowed.
+    pub fn new(allow_private_ips: bool) -> Self {
+        Self { allow_private_ips }
+    }
+}
+
+impl Default for OutboundHttpFactor {
+    fn default() -> Self {
+        Self {
+            allow_private_ips: true,
+        }
     }
 }
 
@@ -66,6 +76,7 @@ impl Factor for OutboundHttpFactor {
         Ok(InstanceState {
             wasi_http_ctx: WasiHttpCtx::new(),
             allowed_hosts,
+            allow_private_ips: self.allow_private_ips,
             component_tls_configs,
             self_request_origin: None,
             request_interceptor: None,
@@ -77,6 +88,7 @@ impl Factor for OutboundHttpFactor {
 pub struct InstanceState {
     wasi_http_ctx: WasiHttpCtx,
     allowed_hosts: OutboundAllowedHosts,
+    allow_private_ips: bool,
     component_tls_configs: ComponentTlsConfigs,
     self_request_origin: Option<SelfRequestOrigin>,
     request_interceptor: Option<Box<dyn OutboundHttpInterceptor>>,

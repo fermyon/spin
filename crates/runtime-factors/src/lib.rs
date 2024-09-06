@@ -49,7 +49,7 @@ impl TriggerFactors {
             variables: VariablesFactor::default(),
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
             outbound_networking: outbound_networking_factor(),
-            outbound_http: OutboundHttpFactor::new(),
+            outbound_http: OutboundHttpFactor::default(),
             sqlite: SqliteFactor::new(default_sqlite_label_resolver),
             redis: OutboundRedisFactor::new(),
             mqtt: OutboundMqttFactor::new(NetworkedMqttClient::creator()),

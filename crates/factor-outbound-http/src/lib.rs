@@ -3,7 +3,7 @@ mod wasi;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::net::SocketAddr;
+use std::{future::Future, net::SocketAddr, pin::Pin};
 
 use anyhow::Context;
 use http::{
@@ -199,6 +199,9 @@ pub enum InterceptOutcome {
     /// The intercepted request will be passed on to the default outgoing
     /// request handler.
     Continue,
+    /// The validation future will be run before the default outgoing request
+    /// handler is run.
+    Validate(Pin<Box<dyn Future<Output = HttpResult<()>> + Send>>),
     /// The given result will be returned as the result of the intercepted
     /// request, bypassing the default handler.
     Complete(HttpResult<HostFutureIncomingResponse>),

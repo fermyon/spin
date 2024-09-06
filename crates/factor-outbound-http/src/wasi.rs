@@ -1,4 +1,4 @@
-use std::{error::Error, net::IpAddr, sync::Arc};
+use std::{error::Error, future::Future, net::IpAddr, pin::Pin, sync::Arc};
 
 use anyhow::Context;
 use http::{header::HOST, Request};
@@ -102,12 +102,15 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
             *uri = builder.build().unwrap();
         }
 
-        if let Some(interceptor) = &self.state.request_interceptor {
+        let validation_future = if let Some(interceptor) = &self.state.request_interceptor {
             match interceptor.intercept(&mut request, &mut config) {
-                InterceptOutcome::Continue => (),
+                InterceptOutcome::Continue => None,
                 InterceptOutcome::Complete(res) => return res,
+                InterceptOutcome::Validate(r) => Some(r),
             }
-        }
+        } else {
+            None
+        };
 
         let host = request.uri().host().unwrap_or_default();
         let tls_client_config = self
@@ -121,6 +124,7 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
                 send_request_impl(
                     request,
                     config,
+                    validation_future,
                     self.state.allowed_hosts.clone(),
                     self.state.self_request_origin.clone(),
                     tls_client_config,
@@ -135,11 +139,17 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
 async fn send_request_impl(
     mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
     mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+    validation_future: Option<
+        Pin<Box<dyn Future<Output = wasmtime_wasi_http::HttpResult<()>> + Send>>,
+    >,
     outbound_allowed_hosts: OutboundAllowedHosts,
     self_request_origin: Option<SelfRequestOrigin>,
     tls_client_config: Arc<ClientConfig>,
     allow_private_ips: bool,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
+    if let Some(fut) = validation_future {
+        fut.await?;
+    }
     if request.uri().authority().is_some() {
         // Absolute URI
         let is_allowed = outbound_allowed_hosts

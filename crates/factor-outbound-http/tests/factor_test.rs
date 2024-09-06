@@ -21,7 +21,7 @@ struct TestFactors {
 
 #[tokio::test]
 async fn allowed_host_is_allowed() -> anyhow::Result<()> {
-    let mut state = test_instance_state("https://*").await?;
+    let mut state = test_instance_state("https://*", true).await?;
     let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     // [100::] is an IPv6 "black hole", which should always fail
@@ -39,7 +39,7 @@ async fn allowed_host_is_allowed() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn self_request_smoke_test() -> anyhow::Result<()> {
-    let mut state = test_instance_state("http://self").await?;
+    let mut state = test_instance_state("http://self", true).await?;
     let origin = SelfRequestOrigin::from_uri(&Uri::from_static("http://[100::1]"))?;
     state.http.set_self_request_origin(origin);
 
@@ -58,7 +58,7 @@ async fn self_request_smoke_test() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn disallowed_host_fails() -> anyhow::Result<()> {
-    let mut state = test_instance_state("https://allowed.test").await?;
+    let mut state = test_instance_state("https://allowed.test", true).await?;
     let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     let req = Request::get("https://denied.test").body(Default::default())?;
@@ -71,13 +71,47 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn disallowed_private_ips_fails() -> anyhow::Result<()> {
+    async fn run_test(allow_private_ips: bool) -> anyhow::Result<()> {
+        let mut state = test_instance_state("http://*", allow_private_ips).await?;
+        let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
+        let req = Request::get("http://localhost").body(Default::default())?;
+        let mut future_resp = wasi_http.send_request(req, test_request_config())?;
+        future_resp.ready().await;
+        match future_resp.unwrap_ready().unwrap() {
+            // If we don't allow private IPs, we should not get a response
+            Ok(_) if !allow_private_ips => bail!("expected Err, got Ok"),
+            // Otherwise, it's fine if the request happens to succeed
+            Ok(_) => {}
+            // If private IPs are disallowed, we should get an error saying the destination is prohibited
+            Err(err) if !allow_private_ips => {
+                assert!(matches!(err, ErrorCode::DestinationIpProhibited))
+            }
+            // Otherwise, we should get some non-DestinationIpProhibited error
+            Err(err) => {
+                assert!(!matches!(err, ErrorCode::DestinationIpProhibited))
+            }
+        };
+        Ok(())
+    }
+
+    // Test with private IPs allowed
+    run_test(true).await?;
+    // Test with private IPs disallowed
+    run_test(false).await?;
+
+    Ok(())
+}
+
 async fn test_instance_state(
     allowed_outbound_hosts: &str,
+    allow_private_ips: bool,
 ) -> anyhow::Result<TestFactorsInstanceState> {
     let factors = TestFactors {
         variables: VariablesFactor::default(),
         networking: OutboundNetworkingFactor::new(),
-        http: OutboundHttpFactor::default(),
+        http: OutboundHttpFactor::new(allow_private_ips),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]

@@ -12,11 +12,11 @@ use host::KEY_VALUE_STORES_KEY;
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
 };
-use util::{CachingStoreManager, DefaultManagerGetter};
+use util::DefaultManagerGetter;
 
 pub use host::{log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
-pub use util::DelegatingStoreManager;
+pub use util::{CachingStoreManager, DelegatingStoreManager};
 
 /// A factor that provides key-value storage.
 pub struct KeyValueFactor {

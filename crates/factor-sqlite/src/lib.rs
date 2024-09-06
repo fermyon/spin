@@ -168,8 +168,13 @@ impl AppState {
     /// Get a connection for a given database label.
     ///
     /// Returns `None` if there is no connection creator for the given label.
-    pub fn get_connection(&self, label: &str) -> Option<Result<Box<dyn Connection>, v2::Error>> {
-        let connection = (self.get_connection_creator)(label)?.create_connection();
+    pub async fn get_connection(
+        &self,
+        label: &str,
+    ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
+        let connection = (self.get_connection_creator)(label)?
+            .create_connection(label)
+            .await;
         Some(connection)
     }
 
@@ -182,18 +187,27 @@ impl AppState {
 }
 
 /// A creator of a connections for a particular SQLite database.
+#[async_trait]
 pub trait ConnectionCreator: Send + Sync {
     /// Get a *new* [`Connection`]
     ///
     /// The connection should be a new connection, not a reused one.
-    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error>;
+    async fn create_connection(
+        &self,
+        label: &str,
+    ) -> Result<Box<dyn Connection + 'static>, v2::Error>;
 }
 
+#[async_trait]
 impl<F> ConnectionCreator for F
 where
     F: Fn() -> anyhow::Result<Box<dyn Connection + 'static>> + Send + Sync + 'static,
 {
-    fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+    async fn create_connection(
+        &self,
+        label: &str,
+    ) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+        let _ = label;
         (self)().map_err(|_| v2::Error::InvalidConnection)
     }
 }

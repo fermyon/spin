@@ -128,7 +128,7 @@ fn load_dotenv(dotenv_path: &Path) -> anyhow::Result<HashMap<String, String>> {
 
 #[async_trait]
 impl Provider for EnvVariablesProvider {
-    #[instrument(name = "spin_variables.get_from_env", skip(self), err(level = Level::INFO))]
+    #[instrument(name = "spin_variables.get_from_env", level = Level::DEBUG, skip(self), err(level = Level::INFO))]
     async fn get(&self, key: &Key) -> anyhow::Result<Option<String>> {
         tokio::task::block_in_place(|| self.get_sync(key))
     }

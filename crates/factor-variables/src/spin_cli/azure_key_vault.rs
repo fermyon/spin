@@ -134,7 +134,7 @@ impl AzureKeyVaultProvider {
 
 #[async_trait]
 impl Provider for AzureKeyVaultProvider {
-    #[instrument(name = "spin_variables.get_from_azure_key_vault", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_variables.get_from_azure_key_vault", level = Level::DEBUG, skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &Key) -> anyhow::Result<Option<String>> {
         let secret = self
             .secret_client

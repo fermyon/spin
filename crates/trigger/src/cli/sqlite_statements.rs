@@ -31,6 +31,7 @@ impl SqlStatementExecutorHook {
         let get_database = |label| async move {
             sqlite
                 .get_connection(label)
+                .await
                 .transpose()
                 .with_context(|| format!("failed connect to database with label '{label}'"))
         };
@@ -70,7 +71,7 @@ where
     F: RuntimeFactors,
 {
     async fn configure_app(
-        &mut self,
+        &self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         let Some(sqlite) = configured_app.app_state::<SqliteFactor>().ok() else {
@@ -175,8 +176,13 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl ConnectionCreator for MockCreator {
-        fn create_connection(&self) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+        async fn create_connection(
+            &self,
+            label: &str,
+        ) -> Result<Box<dyn Connection + 'static>, v2::Error> {
+            let _ = label;
             Ok(Box::new(MockConnection {
                 tx: self.tx.clone(),
             }))

@@ -10,7 +10,7 @@ pub struct KeyValueDefaultStoreSummaryHook;
 #[async_trait]
 impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for KeyValueDefaultStoreSummaryHook {
     async fn configure_app(
-        &mut self,
+        &self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         let Ok(kv_app_state) = configured_app.app_state::<KeyValueFactor>() else {
@@ -33,7 +33,7 @@ pub struct SqliteDefaultStoreSummaryHook;
 #[async_trait]
 impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for SqliteDefaultStoreSummaryHook {
     async fn configure_app(
-        &mut self,
+        &self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         let Ok(sqlite_app_state) = configured_app.app_state::<SqliteFactor>() else {
@@ -45,6 +45,7 @@ impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for SqliteDefaultStoreSummaryHook
         }
         if let Some(default_database_summary) = sqlite_app_state
             .get_connection("default")
+            .await
             .and_then(Result::ok)
             .and_then(|conn| conn.summary())
         {

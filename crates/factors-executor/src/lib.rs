@@ -315,7 +315,7 @@ mod tests {
         let executor = Arc::new(FactorsExecutor::new(engine_builder, env.factors)?);
 
         let factors_app = executor
-            .load_app(app, Default::default(), &mut DummyComponentLoader)
+            .load_app(app, Default::default(), &DummyComponentLoader)
             .await?;
 
         let mut instance_builder = factors_app.prepare("empty")?;

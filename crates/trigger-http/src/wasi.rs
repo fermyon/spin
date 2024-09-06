@@ -53,7 +53,7 @@ impl HttpExecutor for WasiHttpExecutor {
             }));
 
         let mut wasi_http = spin_factor_outbound_http::OutboundHttpFactor::get_wasi_http_impl(
-            store.data_mut().factors_instance_state(),
+            store.data_mut().factors_instance_state_mut(),
         )
         .context("missing OutboundHttpFactor")?;
 

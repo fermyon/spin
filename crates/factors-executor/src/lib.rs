@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use spin_app::{App, AppComponent};
@@ -35,10 +35,12 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
             hooks: Default::default(),
         })
     }
-}
 
-impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
-    /// Adds the given [`ExecutorHooks`] to this executor.
+    pub fn core_engine(&self) -> &spin_core::Engine<InstanceState<T::InstanceState, U>> {
+        &self.core_engine
+    }
+
+    // Adds the given [`ExecutorHooks`] to this executor.
     ///
     /// Hooks are run in the order they are added.
     pub fn add_hooks(&mut self, hooks: impl ExecutorHooks<T, U> + 'static) {
@@ -47,17 +49,17 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
 
     /// Loads a [`FactorsApp`] with this executor.
     pub async fn load_app(
-        mut self,
+        self: Arc<Self>,
         app: App,
         runtime_config: T::RuntimeConfig,
-        mut component_loader: impl ComponentLoader,
+        component_loader: &impl ComponentLoader,
     ) -> anyhow::Result<FactorsExecutorApp<T, U>> {
         let configured_app = self
             .factors
             .configure_app(app, runtime_config)
             .context("failed to configure app")?;
 
-        for hooks in &mut self.hooks {
+        for hooks in &self.hooks {
             hooks.configure_app(&configured_app).await?;
         }
 
@@ -73,7 +75,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
         }
 
         Ok(FactorsExecutorApp {
-            executor: self,
+            executor: self.clone(),
             configured_app,
             component_instance_pres,
         })
@@ -86,7 +88,7 @@ where
     T: RuntimeFactors,
 {
     /// Configure app hooks run immediately after [`RuntimeFactors::configure_app`].
-    async fn configure_app(&mut self, configured_app: &ConfiguredApp<T>) -> anyhow::Result<()> {
+    async fn configure_app(&self, configured_app: &ConfiguredApp<T>) -> anyhow::Result<()> {
         let _ = configured_app;
         Ok(())
     }
@@ -103,7 +105,7 @@ where
 pub trait ComponentLoader {
     /// Loads a [`Component`] for the given [`AppComponent`].
     async fn load_component(
-        &mut self,
+        &self,
         engine: &spin_core::wasmtime::Engine,
         component: &AppComponent,
     ) -> anyhow::Result<Component>;
@@ -117,7 +119,7 @@ type InstancePre<T, U> =
 /// It is generic over the executor's [`RuntimeFactors`] and any ad-hoc additional
 /// per-instance state needed by the caller.
 pub struct FactorsExecutorApp<T: RuntimeFactors, U> {
-    executor: FactorsExecutor<T, U>,
+    executor: Arc<FactorsExecutor<T, U>>,
     configured_app: ConfiguredApp<T>,
     // Maps component IDs -> InstancePres
     component_instance_pres: HashMap<String, InstancePre<T, U>>,
@@ -249,13 +251,28 @@ impl<T, U> InstanceState<T, U> {
         &self.core
     }
 
+    /// Provides mutable access to the [`spin_core::State`].
+    pub fn core_state_mut(&mut self) -> &mut spin_core::State {
+        &mut self.core
+    }
+
     /// Provides access to the [`RuntimeFactors::InstanceState`].
-    pub fn factors_instance_state(&mut self) -> &mut T {
+    pub fn factors_instance_state(&self) -> &T {
+        &self.factors
+    }
+
+    /// Provides mutable access to the [`RuntimeFactors::InstanceState`].
+    pub fn factors_instance_state_mut(&mut self) -> &mut T {
         &mut self.factors
     }
 
-    /// Provides access to the `Self::ExecutorInstanceState`.
-    pub fn executor_instance_state(&mut self) -> &mut U {
+    /// Provides access to the ad-hoc executor instance state.
+    pub fn executor_instance_state(&self) -> &U {
+        &self.executor
+    }
+
+    /// Provides mutable access to the ad-hoc executor instance state.
+    pub fn executor_instance_state_mut(&mut self) -> &mut U {
         &mut self.executor
     }
 }
@@ -295,10 +312,10 @@ mod tests {
         let app = App::new("test-app", locked);
 
         let engine_builder = spin_core::Engine::builder(&Default::default())?;
-        let executor = FactorsExecutor::new(engine_builder, env.factors)?;
+        let executor = Arc::new(FactorsExecutor::new(engine_builder, env.factors)?);
 
         let factors_app = executor
-            .load_app(app, Default::default(), DummyComponentLoader)
+            .load_app(app, Default::default(), &DummyComponentLoader)
             .await?;
 
         let mut instance_builder = factors_app.prepare("empty")?;
@@ -321,7 +338,7 @@ mod tests {
     #[async_trait]
     impl ComponentLoader for DummyComponentLoader {
         async fn load_component(
-            &mut self,
+            &self,
             engine: &spin_core::wasmtime::Engine,
             _component: &AppComponent,
         ) -> anyhow::Result<Component> {

@@ -20,7 +20,7 @@ const DEFAULT_KEY_VALUE_STORE_LABEL: &str = "default";
 #[async_trait]
 impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for InitialKvSetterHook {
     async fn configure_app(
-        &mut self,
+        &self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         if self.kv_pairs.is_empty() {

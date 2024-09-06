@@ -28,7 +28,7 @@ pub const APP_DESCRIPTION_KEY: MetadataKey = MetadataKey::new("description");
 pub const OCI_IMAGE_DIGEST_KEY: MetadataKey = MetadataKey::new("oci_image_digest");
 
 /// An `App` holds loaded configuration for a Spin application.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct App {
     id: String,
     locked: LockedApp,

@@ -68,7 +68,8 @@ impl v2::HostConnection for InstanceState {
         }
         let conn = (self.get_connection_creator)(&database)
             .ok_or(v2::Error::NoSuchDatabase)?
-            .create_connection()?;
+            .create_connection(&database)
+            .await?;
         self.connections
             .push(conn)
             .map_err(|()| v2::Error::Io("too many connections opened".to_string()))

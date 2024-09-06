@@ -91,7 +91,7 @@ impl StdioLoggingExecutorHooks {
 #[async_trait]
 impl<F: RuntimeFactors, U> ExecutorHooks<F, U> for StdioLoggingExecutorHooks {
     async fn configure_app(
-        &mut self,
+        &self,
         configured_app: &spin_factors::ConfiguredApp<F>,
     ) -> anyhow::Result<()> {
         self.validate_follows(configured_app.app())?;

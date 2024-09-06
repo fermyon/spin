@@ -8,6 +8,7 @@ use spin_factors::{
 };
 use spin_factors_test::{toml, TestEnvironment};
 use spin_sqlite::RuntimeConfigResolver;
+use spin_world::async_trait;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
@@ -143,11 +144,14 @@ impl spin_factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
 /// A connection creator that always returns an error.
 struct InvalidConnectionCreator;
 
+#[async_trait]
 impl spin_factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
-    fn create_connection(
+    async fn create_connection(
         &self,
+        label: &str,
     ) -> Result<Box<dyn spin_factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error>
     {
+        let _ = label;
         Err(spin_world::v2::sqlite::Error::InvalidConnection)
     }
 }

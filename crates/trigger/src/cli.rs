@@ -4,8 +4,8 @@ mod sqlite_statements;
 mod stdio;
 mod summary;
 
-use std::future::Future;
 use std::path::PathBuf;
+use std::{future::Future, sync::Arc};
 
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
@@ -345,7 +345,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         #[async_trait]
         impl ComponentLoader for SimpleComponentLoader {
             async fn load_component(
-                &mut self,
+                &self,
                 engine: &spin_core::wasmtime::Engine,
                 component: &spin_factors::AppComponent,
             ) -> anyhow::Result<spin_core::Component> {
@@ -373,11 +373,12 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
 
         let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
         B::configure_app(&mut executor, &runtime_config, &common_options, &options)?;
+        let executor = Arc::new(executor);
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
             executor
-                .load_app(app, runtime_config.into(), SimpleComponentLoader)
+                .load_app(app, runtime_config.into(), &SimpleComponentLoader)
                 .await?
         };
 

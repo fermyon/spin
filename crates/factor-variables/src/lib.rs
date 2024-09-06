@@ -17,6 +17,13 @@ pub struct VariablesFactor {
     _priv: (),
 }
 
+impl VariablesFactor {
+    /// Creates a new `VariablesFactor`.
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
+
 impl Factor for VariablesFactor {
     type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
@@ -43,7 +50,8 @@ impl Factor for VariablesFactor {
             )?;
         }
 
-        for provider in ctx.take_runtime_config().unwrap_or_default() {
+        let providers = ctx.take_runtime_config().unwrap_or_default();
+        for provider in providers {
             expression_resolver.add_provider(provider);
         }
 

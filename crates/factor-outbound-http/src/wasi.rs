@@ -5,7 +5,7 @@ use http::{header::HOST, Request};
 use http_body_util::BodyExt;
 use ip_network::IpNetwork;
 use rustls::ClientConfig;
-use spin_factor_outbound_networking::OutboundAllowedHosts;
+use spin_factor_outbound_networking::{ComponentTlsConfigs, OutboundAllowedHosts};
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
 use tokio::{net::TcpStream, time::timeout};
 use tracing::{field::Empty, instrument, Instrument};
@@ -19,7 +19,7 @@ use wasmtime_wasi_http::{
 
 use crate::{
     wasi_2023_10_18, wasi_2023_11_10, InstanceState, InterceptOutcome, OutboundHttpFactor,
-    SelfRequestOrigin,
+    OutboundHttpInterceptor, SelfRequestOrigin,
 };
 
 pub(crate) fn add_to_linker<T: Send + 'static>(
@@ -84,46 +84,18 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
     )]
     fn send_request(
         &mut self,
-        mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
-        mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+        request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
+        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
-        // wasmtime-wasi-http fills in scheme and authority for relative URLs
-        // (e.g. https://:443/<path>), which makes them hard to reason about.
-        // Undo that here.
-        let uri = request.uri_mut();
-        if uri
-            .authority()
-            .is_some_and(|authority| authority.host().is_empty())
-        {
-            let mut builder = http::uri::Builder::new();
-            if let Some(paq) = uri.path_and_query() {
-                builder = builder.path_and_query(paq.clone());
-            }
-            *uri = builder.build().unwrap();
-        }
-
-        if let Some(interceptor) = &self.state.request_interceptor {
-            match interceptor.intercept(&mut request, &mut config) {
-                InterceptOutcome::Continue => (),
-                InterceptOutcome::Complete(res) => return res,
-            }
-        }
-
-        let host = request.uri().host().unwrap_or_default();
-        let tls_client_config = self
-            .state
-            .component_tls_configs
-            .get_client_config(host)
-            .clone();
-
         Ok(HostFutureIncomingResponse::Pending(
             wasmtime_wasi::runtime::spawn(
                 send_request_impl(
                     request,
                     config,
                     self.state.allowed_hosts.clone(),
+                    self.state.component_tls_configs.clone(),
+                    self.state.request_interceptor.clone(),
                     self.state.self_request_origin.clone(),
-                    tls_client_config,
                     self.state.allow_private_ips,
                 )
                 .in_current_span(),
@@ -136,10 +108,36 @@ async fn send_request_impl(
     mut request: Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
     mut config: wasmtime_wasi_http::types::OutgoingRequestConfig,
     outbound_allowed_hosts: OutboundAllowedHosts,
+    component_tls_configs: ComponentTlsConfigs,
+    request_interceptor: Option<Arc<dyn OutboundHttpInterceptor>>,
     self_request_origin: Option<SelfRequestOrigin>,
-    tls_client_config: Arc<ClientConfig>,
     allow_private_ips: bool,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
+    // wasmtime-wasi-http fills in scheme and authority for relative URLs
+    // (e.g. https://:443/<path>), which makes them hard to reason about.
+    // Undo that here.
+    let uri = request.uri_mut();
+    if uri
+        .authority()
+        .is_some_and(|authority| authority.host().is_empty())
+    {
+        let mut builder = http::uri::Builder::new();
+        if let Some(paq) = uri.path_and_query() {
+            builder = builder.path_and_query(paq.clone());
+        }
+        *uri = builder.build().unwrap();
+    }
+
+    if let Some(interceptor) = request_interceptor {
+        match interceptor.intercept(&mut request, &mut config).await? {
+            InterceptOutcome::Continue => (),
+            InterceptOutcome::Complete(resp) => return Ok(Ok(resp)),
+        }
+    }
+
+    let host = request.uri().host().unwrap_or_default();
+    let tls_client_config = component_tls_configs.get_client_config(host).clone();
+
     if request.uri().authority().is_some() {
         // Absolute URI
         let is_allowed = outbound_allowed_hosts

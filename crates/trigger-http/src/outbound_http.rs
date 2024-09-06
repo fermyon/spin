@@ -4,13 +4,12 @@ use std::{
 };
 
 use http::uri::Scheme;
-use spin_factor_outbound_http::{
-    HostFutureIncomingResponse, InterceptOutcome, OutgoingRequestConfig, Request,
-};
+use spin_core::async_trait;
+use spin_factor_outbound_http::{InterceptOutcome, OutgoingRequestConfig, Request};
 use spin_factor_outbound_networking::parse_service_chaining_target;
 use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
-use wasmtime_wasi_http::types::IncomingResponse;
+use wasmtime_wasi_http::{types::IncomingResponse, HttpError, HttpResult};
 
 use crate::HttpServer;
 
@@ -27,40 +26,31 @@ impl<F: RuntimeFactors> OutboundHttpInterceptor<F> {
 
 const CHAINED_CLIENT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
 
+#[async_trait]
 impl<F: RuntimeFactors> spin_factor_outbound_http::OutboundHttpInterceptor
     for OutboundHttpInterceptor<F>
 {
-    fn intercept(
+    async fn intercept(
         &self,
         request: &mut Request,
         config: &mut OutgoingRequestConfig,
-    ) -> InterceptOutcome {
-        let uri = request.uri();
-
+    ) -> HttpResult<InterceptOutcome> {
         // Handle service chaining requests
-        if let Some(component_id) = parse_service_chaining_target(uri) {
-            // TODO: look at the rest of chain_request
-            let route_match = RouteMatch::synthetic(&component_id, uri.path());
+        if let Some(component_id) = parse_service_chaining_target(request.uri()) {
             let req = std::mem::take(request);
-            let between_bytes_timeout = config.between_bytes_timeout;
-            let server = self.server.clone();
-            let resp_fut = async move {
-                match server
-                    .handle_trigger_route(req, route_match, Scheme::HTTP, CHAINED_CLIENT_ADDR)
-                    .await
-                {
-                    Ok(resp) => Ok(Ok(IncomingResponse {
-                        resp,
-                        between_bytes_timeout,
-                        worker: None,
-                    })),
-                    Err(e) => Err(wasmtime::Error::msg(e)),
-                }
-            };
-            let resp = HostFutureIncomingResponse::pending(wasmtime_wasi::runtime::spawn(resp_fut));
-            InterceptOutcome::Complete(Ok(resp))
+            let route_match = RouteMatch::synthetic(&component_id, req.uri().path());
+            let resp = self
+                .server
+                .handle_trigger_route(req, route_match, Scheme::HTTP, CHAINED_CLIENT_ADDR)
+                .await
+                .map_err(HttpError::trap)?;
+            Ok(InterceptOutcome::Complete(IncomingResponse {
+                resp,
+                worker: None,
+                between_bytes_timeout: config.between_bytes_timeout,
+            }))
         } else {
-            InterceptOutcome::Continue
+            Ok(InterceptOutcome::Continue)
         }
     }
 }

@@ -1,8 +1,9 @@
-use std::{error::Error, sync::Arc};
+use std::{error::Error, net::IpAddr, sync::Arc};
 
 use anyhow::Context;
 use http::{header::HOST, Request};
 use http_body_util::BodyExt;
+use ip_network::IpNetwork;
 use rustls::ClientConfig;
 use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
@@ -123,6 +124,7 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
                     self.state.allowed_hosts.clone(),
                     self.state.self_request_origin.clone(),
                     tls_client_config,
+                    self.state.allow_private_ips,
                 )
                 .in_current_span(),
             ),
@@ -136,6 +138,7 @@ async fn send_request_impl(
     outbound_allowed_hosts: OutboundAllowedHosts,
     self_request_origin: Option<SelfRequestOrigin>,
     tls_client_config: Arc<ClientConfig>,
+    allow_private_ips: bool,
 ) -> anyhow::Result<Result<IncomingResponse, ErrorCode>> {
     if request.uri().authority().is_some() {
         // Absolute URI
@@ -177,7 +180,7 @@ async fn send_request_impl(
         current_span.record("server.port", port.as_u16());
     }
 
-    Ok(send_request_handler(request, config, tls_client_config).await)
+    Ok(send_request_handler(request, config, tls_client_config, allow_private_ips).await)
 }
 
 /// This is a fork of wasmtime_wasi_http::default_send_request_handler function
@@ -192,6 +195,7 @@ async fn send_request_handler(
         between_bytes_timeout,
     }: wasmtime_wasi_http::types::OutgoingRequestConfig,
     tls_client_config: Arc<ClientConfig>,
+    allow_private_ips: bool,
 ) -> Result<wasmtime_wasi_http::types::IncomingResponse, ErrorCode> {
     let authority_str = if let Some(authority) = request.uri().authority() {
         if authority.port().is_some() {
@@ -204,23 +208,26 @@ async fn send_request_handler(
         return Err(ErrorCode::HttpRequestUriInvalid);
     };
 
-    let tcp_stream = timeout(connect_timeout, TcpStream::connect(&authority_str))
+    // Resolve the authority to IP addresses
+    let mut socket_addrs = tokio::net::lookup_host(&authority_str)
+        .await
+        .map_err(|_| dns_error("address not available".into(), 0))?
+        .collect::<Vec<_>>();
+
+    // Potentially filter out private IPs
+    if !allow_private_ips && !socket_addrs.is_empty() {
+        socket_addrs.retain(|addr| !is_private_ip(addr.ip()));
+        if socket_addrs.is_empty() {
+            return Err(ErrorCode::DestinationIpProhibited);
+        }
+    }
+
+    let tcp_stream = timeout(connect_timeout, TcpStream::connect(socket_addrs.as_slice()))
         .await
         .map_err(|_| ErrorCode::ConnectionTimeout)?
         .map_err(|err| match err.kind() {
-            std::io::ErrorKind::AddrNotAvailable => {
-                dns_error("address not available".to_string(), 0)
-            }
-            _ => {
-                if err
-                    .to_string()
-                    .starts_with("failed to lookup address information")
-                {
-                    dns_error("address not available".to_string(), 0)
-                } else {
-                    ErrorCode::ConnectionRefused
-                }
-            }
+            std::io::ErrorKind::AddrNotAvailable => dns_error("address not available".into(), 0),
+            _ => ErrorCode::ConnectionRefused,
         })?;
 
     let (mut sender, worker) = if use_tls {
@@ -336,4 +343,9 @@ fn dns_error(rcode: String, info_code: u16) -> ErrorCode {
         rcode: Some(rcode),
         info_code: Some(info_code),
     })
+}
+
+/// Returns true if the IP is a private IP address.
+fn is_private_ip(ip: IpAddr) -> bool {
+    !IpNetwork::from(ip).is_global()
 }

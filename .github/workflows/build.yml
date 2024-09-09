@@ -163,6 +163,22 @@ jobs:
           rust-cache: true
           nomad: true
 
+      - name: Check disk space (Before)
+        run: df -h /
+
+      # Clear space on macOS runner which is prone to running out of space
+      - name: Free disk space
+        run: |
+          sudo rm -rf ~/.dotnet
+          sudo rm -rf /Library/Android
+          sudo rm -rf /Library/Developer/CoreSimulator
+          find /Applications -name "Xcode_*" -maxdepth 1 -mindepth 1 | xargs rm -rf
+        continue-on-error: true
+        if: ${{ matrix.runner == 'macos-14' }}
+
+      - name: Check disk space (After)
+        run: df -h /
+
       - name: Run Unit Tests
         run: |
           make test-unit

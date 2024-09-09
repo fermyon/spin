@@ -3,7 +3,7 @@ mod wasi;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use http::{
@@ -16,6 +16,7 @@ use spin_factor_outbound_networking::{
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
+use spin_world::async_trait;
 use wasmtime_wasi_http::WasiHttpCtx;
 
 pub use wasmtime_wasi_http::{
@@ -91,7 +92,7 @@ pub struct InstanceState {
     allow_private_ips: bool,
     component_tls_configs: ComponentTlsConfigs,
     self_request_origin: Option<SelfRequestOrigin>,
-    request_interceptor: Option<Box<dyn OutboundHttpInterceptor>>,
+    request_interceptor: Option<Arc<dyn OutboundHttpInterceptor>>,
     // Connection-pooling client for 'fermyon:spin/http' interface
     spin_http_client: Option<reqwest::Client>,
 }
@@ -115,7 +116,7 @@ impl InstanceState {
         if self.request_interceptor.is_some() {
             anyhow::bail!("set_request_interceptor can only be called once");
         }
-        self.request_interceptor = Some(Box::new(interceptor));
+        self.request_interceptor = Some(Arc::new(interceptor));
         Ok(())
     }
 }
@@ -123,6 +124,7 @@ impl InstanceState {
 impl SelfInstanceBuilder for InstanceState {}
 
 pub type Request = http::Request<wasmtime_wasi_http::body::HyperOutgoingBody>;
+pub type Response = http::Response<wasmtime_wasi_http::body::HyperIncomingBody>;
 
 /// SelfRequestOrigin indicates the base URI to use for "self" requests.
 ///
@@ -177,21 +179,18 @@ impl std::fmt::Display for SelfRequestOrigin {
 
 /// An outbound HTTP request interceptor to be used with
 /// [`InstanceState::set_request_interceptor`].
+#[async_trait]
 pub trait OutboundHttpInterceptor: Send + Sync {
     /// Intercept an outgoing HTTP request.
     ///
     /// If this method returns [`InterceptedResponse::Continue`], the (possibly
-    /// updated) request and config will be passed on to the default outgoing
-    /// request handler.
+    /// updated) request will be passed on to the default outgoing request
+    /// handler.
     ///
     /// If this method returns [`InterceptedResponse::Intercepted`], the inner
     /// result will be returned as the result of the request, bypassing the
-    /// default handler.
-    fn intercept(
-        &self,
-        request: &mut Request,
-        config: &mut OutgoingRequestConfig,
-    ) -> InterceptOutcome;
+    /// default handler. The `request` will also be dropped immediately.
+    async fn intercept(&self, request: &mut Request) -> HttpResult<InterceptOutcome>;
 }
 
 /// The type returned by an [`OutboundHttpInterceptor`].
@@ -199,7 +198,7 @@ pub enum InterceptOutcome {
     /// The intercepted request will be passed on to the default outgoing
     /// request handler.
     Continue,
-    /// The given result will be returned as the result of the intercepted
+    /// The given response will be returned as the result of the intercepted
     /// request, bypassing the default handler.
-    Complete(HttpResult<HostFutureIncomingResponse>),
+    Complete(Response),
 }

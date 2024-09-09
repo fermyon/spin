@@ -5,15 +5,14 @@ mod loader;
 
 use environment_definition::{TargetEnvironment, TargetWorld, TriggerType};
 pub use loader::ResolutionContext;
-use loader::{component_source, ComponentSourceLoader, ComponentToValidate};
+use loader::{load_and_resolve_all, ComponentToValidate};
 
 pub async fn validate_application_against_environment_ids(
     env_ids: impl Iterator<Item = &str>,
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
 ) -> anyhow::Result<()> {
-    let envs = futures::future::join_all(env_ids.map(resolve_environment_id)).await;
-    let envs: Vec<_> = envs.into_iter().collect::<Result<_, _>>()?;
+    let envs = join_all_result(env_ids.map(resolve_environment_id)).await?;
     validate_application_against_environments(&envs, app, resolution_context).await
 }
 
@@ -54,6 +53,8 @@ pub async fn validate_application_against_environments(
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
 ) -> anyhow::Result<()> {
+    use futures::FutureExt;
+
     for trigger_type in app.triggers.keys() {
         if let Some(env) = envs
             .iter()
@@ -66,26 +67,15 @@ pub async fn validate_application_against_environments(
         }
     }
 
-    let components_by_trigger_type = app
-        .triggers
-        .iter()
-        .map(|(ty, ts)| {
-            ts.iter()
-                .map(|t| component_source(app, t))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|css| (ty, css))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let components_by_trigger_type_futs = app.triggers.iter().map(|(ty, ts)| {
+        load_and_resolve_all(app, ts, resolution_context)
+            .map(|css| css.map(|css| (ty.to_owned(), css)))
+    });
+    let components_by_trigger_type = join_all_result(components_by_trigger_type_futs).await?;
 
     for (trigger_type, component) in components_by_trigger_type {
         for component in &component {
-            validate_component_against_environments(
-                envs,
-                trigger_type,
-                component,
-                resolution_context,
-            )
-            .await?;
+            validate_component_against_environments(envs, &trigger_type, component).await?;
         }
     }
 
@@ -96,7 +86,6 @@ async fn validate_component_against_environments(
     envs: &[TargetEnvironment],
     trigger_type: &TriggerType,
     component: &ComponentToValidate<'_>,
-    resolution_context: &ResolutionContext,
 ) -> anyhow::Result<()> {
     let worlds = envs
         .iter()
@@ -110,21 +99,16 @@ async fn validate_component_against_environments(
                 .map(|w| (e.name.as_str(), w))
         })
         .collect::<Result<std::collections::HashSet<_>, _>>()?;
-    validate_component_against_worlds(worlds.into_iter(), component, resolution_context).await?;
+    validate_component_against_worlds(worlds.into_iter(), component).await?;
     Ok(())
 }
 
 async fn validate_component_against_worlds(
     target_worlds: impl Iterator<Item = (&str, &TargetWorld)>,
     component: &ComponentToValidate<'_>,
-    resolution_context: &ResolutionContext,
 ) -> anyhow::Result<()> {
-    let loader = ComponentSourceLoader::new(resolution_context.wasm_loader());
-    let wasm_bytes = spin_compose::compose(&loader, component).await?;
-
     for (env_name, target_world) in target_worlds {
-        validate_wasm_against_any_world(env_name, target_world, component, wasm_bytes.as_ref())
-            .await?;
+        validate_wasm_against_any_world(env_name, target_world, component).await?;
     }
 
     tracing::info!(
@@ -139,7 +123,6 @@ async fn validate_wasm_against_any_world(
     env_name: &str,
     target_world: &TargetWorld,
     component: &ComponentToValidate<'_>,
-    wasm: &[u8],
 ) -> anyhow::Result<()> {
     let mut result = Ok(());
     for target_str in target_world.versioned_names() {
@@ -148,7 +131,7 @@ async fn validate_wasm_against_any_world(
             component.id(),
             component.source_description(),
         );
-        match validate_wasm_against_world(env_name, &target_str, component, wasm).await {
+        match validate_wasm_against_world(env_name, &target_str, component).await {
             Ok(()) => {
                 tracing::info!(
                     "Validated component {} {} against target world {target_str}",
@@ -175,7 +158,6 @@ async fn validate_wasm_against_world(
     env_name: &str,
     target_str: &str,
     component: &ComponentToValidate<'_>,
-    wasm: &[u8],
 ) -> anyhow::Result<()> {
     let comp_name = "root:component";
 
@@ -200,7 +182,7 @@ async fn validate_wasm_against_world(
         .await
         .context("reg_resolver.resolve failed")?;
 
-    packages.insert(compkey, wasm.to_vec());
+    packages.insert(compkey, component.wasm_bytes().to_vec());
 
     match doc.resolve(packages) {
         Ok(_) => Ok(()),
@@ -222,4 +204,16 @@ async fn validate_wasm_against_world(
             Err(anyhow!(e))
         },
     }
+}
+
+/// Equivalent to futures::future::join_all, but specialised for iterators of
+/// fallible futures. It returns a Result<Vec<...>> instead of a Vec<Result<...>> -
+/// this just moves the transposition boilerplate out of the main flow.
+async fn join_all_result<T, I>(iter: I) -> anyhow::Result<Vec<T>>
+where
+    I: IntoIterator,
+    I::Item: std::future::Future<Output = anyhow::Result<T>>,
+{
+    let vec_result = futures::future::join_all(iter).await;
+    vec_result.into_iter().collect()
 }

@@ -5,6 +5,12 @@ use spin_common::ui::quoted_path;
 
 pub(crate) struct ComponentToValidate<'a> {
     id: &'a str,
+    source_description: String,
+    wasm: Vec<u8>,
+}
+
+struct ComponentSource<'a> {
+    id: &'a str,
     source: &'a spin_manifest::schema::v2::ComponentSource,
     dependencies: WrappedComponentDependencies,
 }
@@ -14,22 +20,30 @@ impl<'a> ComponentToValidate<'a> {
         self.id
     }
 
-    pub fn source_description(&self) -> String {
-        match self.source {
-            spin_manifest::schema::v2::ComponentSource::Local(path) => {
-                format!("file {}", quoted_path(path))
-            }
-            spin_manifest::schema::v2::ComponentSource::Remote { url, .. } => format!("URL {url}"),
-            spin_manifest::schema::v2::ComponentSource::Registry { package, .. } => {
-                format!("package {package}")
-            }
-        }
+    pub fn source_description(&self) -> &str {
+        &self.source_description
+    }
+
+    pub fn wasm_bytes(&self) -> &[u8] {
+        &self.wasm
     }
 }
 
-pub fn component_source<'a>(
+pub async fn load_and_resolve_all<'a>(
+    app: &'a spin_manifest::schema::v2::AppManifest,
+    triggers: &'a [spin_manifest::schema::v2::Trigger],
+    resolution_context: &'a ResolutionContext,
+) -> anyhow::Result<Vec<ComponentToValidate<'a>>> {
+    let component_futures = triggers
+        .iter()
+        .map(|t| load_and_resolve_one(app, t, resolution_context));
+    crate::join_all_result(component_futures).await
+}
+
+async fn load_and_resolve_one<'a>(
     app: &'a spin_manifest::schema::v2::AppManifest,
     trigger: &'a spin_manifest::schema::v2::Trigger,
+    resolution_context: &'a ResolutionContext,
 ) -> anyhow::Result<ComponentToValidate<'a>> {
     let component_spec = trigger
         .component
@@ -50,10 +64,21 @@ pub fn component_source<'a>(
             (id, &component.source, &component.dependencies)
         }
     };
-    Ok(ComponentToValidate {
+
+    let component = ComponentSource {
         id,
         source,
         dependencies: WrappedComponentDependencies::new(dependencies),
+    };
+
+    let loader = ComponentSourceLoader::new(resolution_context.wasm_loader());
+
+    let wasm = spin_compose::compose(&loader, &component).await?;
+
+    Ok(ComponentToValidate {
+        id,
+        source_description: source_description(component.source),
+        wasm,
     })
 }
 
@@ -68,33 +93,29 @@ impl ResolutionContext {
         Ok(Self { wasm_loader })
     }
 
-    pub(crate) fn wasm_loader(&self) -> &spin_loader::WasmLoader {
+    fn wasm_loader(&self) -> &spin_loader::WasmLoader {
         &self.wasm_loader
     }
 }
 
-pub(crate) struct ComponentSourceLoader<'a> {
+struct ComponentSourceLoader<'a> {
     wasm_loader: &'a spin_loader::WasmLoader,
-    _phantom: std::marker::PhantomData<&'a usize>,
 }
 
 impl<'a> ComponentSourceLoader<'a> {
     pub fn new(wasm_loader: &'a spin_loader::WasmLoader) -> Self {
-        Self {
-            wasm_loader,
-            _phantom: std::marker::PhantomData,
-        }
+        Self { wasm_loader }
     }
 }
 
 #[async_trait::async_trait]
 impl<'a> spin_compose::ComponentSourceLoader for ComponentSourceLoader<'a> {
-    type Component = ComponentToValidate<'a>;
+    type Component = ComponentSource<'a>;
     type Dependency = WrappedComponentDependency;
     async fn load_component_source(&self, source: &Self::Component) -> anyhow::Result<Vec<u8>> {
         let path = self
             .wasm_loader
-            .load_component_source(source.id(), source.source)
+            .load_component_source(source.id, source.source)
             .await?;
         let bytes = tokio::fs::read(&path).await?;
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
@@ -144,7 +165,7 @@ impl WrappedComponentDependencies {
 }
 
 #[async_trait::async_trait]
-impl<'a> spin_compose::ComponentLike for ComponentToValidate<'a> {
+impl<'a> spin_compose::ComponentLike for ComponentSource<'a> {
     type Dependency = WrappedComponentDependency;
 
     fn dependencies(
@@ -174,6 +195,18 @@ impl spin_compose::DependencyLike for WrappedComponentDependency {
             spin_manifest::schema::v2::ComponentDependency::Package { export, .. } => export,
             spin_manifest::schema::v2::ComponentDependency::Local { export, .. } => export,
             spin_manifest::schema::v2::ComponentDependency::HTTP { export, .. } => export,
+        }
+    }
+}
+
+fn source_description(source: &spin_manifest::schema::v2::ComponentSource) -> String {
+    match source {
+        spin_manifest::schema::v2::ComponentSource::Local(path) => {
+            format!("file {}", quoted_path(path))
+        }
+        spin_manifest::schema::v2::ComponentSource::Remote { url, .. } => format!("URL {url}"),
+        spin_manifest::schema::v2::ComponentSource::Registry { package, .. } => {
+            format!("package {package}")
         }
     }
 }

@@ -5,7 +5,7 @@ use std::{
 
 use http::uri::Scheme;
 use spin_core::async_trait;
-use spin_factor_outbound_http::{InterceptOutcome, Request};
+use spin_factor_outbound_http::intercept::{self, InterceptOutcome, InterceptRequest};
 use spin_factor_outbound_networking::parse_service_chaining_target;
 use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
@@ -27,13 +27,11 @@ impl<F: RuntimeFactors> OutboundHttpInterceptor<F> {
 const CHAINED_CLIENT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
 
 #[async_trait]
-impl<F: RuntimeFactors> spin_factor_outbound_http::OutboundHttpInterceptor
-    for OutboundHttpInterceptor<F>
-{
-    async fn intercept(&self, request: &mut Request) -> HttpResult<InterceptOutcome> {
+impl<F: RuntimeFactors> intercept::OutboundHttpInterceptor for OutboundHttpInterceptor<F> {
+    async fn intercept(&self, request: InterceptRequest) -> HttpResult<InterceptOutcome> {
         // Handle service chaining requests
         if let Some(component_id) = parse_service_chaining_target(request.uri()) {
-            let req = std::mem::take(request);
+            let req = request.into_hyper_request();
             let route_match = RouteMatch::synthetic(&component_id, req.uri().path());
             let resp = self
                 .server
@@ -42,7 +40,7 @@ impl<F: RuntimeFactors> spin_factor_outbound_http::OutboundHttpInterceptor
                 .map_err(HttpError::trap)?;
             Ok(InterceptOutcome::Complete(resp))
         } else {
-            Ok(InterceptOutcome::Continue)
+            Ok(InterceptOutcome::Continue(request))
         }
     }
 }

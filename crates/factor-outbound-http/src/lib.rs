@@ -1,3 +1,4 @@
+pub mod intercept;
 mod spin;
 mod wasi;
 pub mod wasi_2023_10_18;
@@ -10,13 +11,13 @@ use http::{
     uri::{Authority, Parts, PathAndQuery, Scheme},
     HeaderValue, Uri,
 };
+use intercept::OutboundHttpInterceptor;
 use spin_factor_outbound_networking::{
     ComponentTlsConfigs, OutboundAllowedHosts, OutboundNetworkingFactor,
 };
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
-use spin_world::async_trait;
 use wasmtime_wasi_http::WasiHttpCtx;
 
 pub use wasmtime_wasi_http::{
@@ -175,30 +176,4 @@ impl std::fmt::Display for SelfRequestOrigin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}://{}", self.scheme, self.authority)
     }
-}
-
-/// An outbound HTTP request interceptor to be used with
-/// [`InstanceState::set_request_interceptor`].
-#[async_trait]
-pub trait OutboundHttpInterceptor: Send + Sync {
-    /// Intercept an outgoing HTTP request.
-    ///
-    /// If this method returns [`InterceptedResponse::Continue`], the (possibly
-    /// updated) request will be passed on to the default outgoing request
-    /// handler.
-    ///
-    /// If this method returns [`InterceptedResponse::Intercepted`], the inner
-    /// result will be returned as the result of the request, bypassing the
-    /// default handler. The `request` will also be dropped immediately.
-    async fn intercept(&self, request: &mut Request) -> HttpResult<InterceptOutcome>;
-}
-
-/// The type returned by an [`OutboundHttpInterceptor`].
-pub enum InterceptOutcome {
-    /// The intercepted request will be passed on to the default outgoing
-    /// request handler.
-    Continue,
-    /// The given response will be returned as the result of the intercepted
-    /// request, bypassing the default handler.
-    Complete(Response),
 }

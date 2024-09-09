@@ -145,9 +145,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
             .with_context(|| format!("no such component {component_id:?}"))?;
         Ok(instance_pre.component())
     }
-}
 
-impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutorApp<T, U> {
     /// Returns an instance builder for the given component ID.
     pub fn prepare(&self, component_id: &str) -> anyhow::Result<FactorsInstanceBuilder<T, U>> {
         let app_component = self

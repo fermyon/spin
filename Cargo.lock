@@ -6132,6 +6132,7 @@ version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
 dependencies = [
+ "async-compression",
  "base64 0.22.1",
  "bytes",
  "encoding_rs",
@@ -7314,7 +7315,7 @@ dependencies = [
  "http-body-util",
  "hyper 1.4.1",
  "ip_network",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "rustls 0.23.7",
  "spin-factor-outbound-networking",
  "spin-factor-variables",

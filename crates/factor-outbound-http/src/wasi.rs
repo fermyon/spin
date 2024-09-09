@@ -133,9 +133,16 @@ async fn send_request_impl(
     spin_telemetry::inject_trace_context(&mut request);
 
     if let Some(interceptor) = request_interceptor {
-        match interceptor.intercept(&mut request, &mut config).await? {
+        match interceptor.intercept(&mut request).await? {
             InterceptOutcome::Continue => (),
-            InterceptOutcome::Complete(resp) => return Ok(Ok(resp)),
+            InterceptOutcome::Complete(resp) => {
+                let resp = IncomingResponse {
+                    resp,
+                    worker: None,
+                    between_bytes_timeout: config.between_bytes_timeout,
+                };
+                return Ok(Ok(resp));
+            }
         }
     }
 

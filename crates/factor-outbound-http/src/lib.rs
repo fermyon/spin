@@ -17,7 +17,7 @@ use spin_factors::{
     anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_world::async_trait;
-use wasmtime_wasi_http::{types::IncomingResponse, WasiHttpCtx};
+use wasmtime_wasi_http::WasiHttpCtx;
 
 pub use wasmtime_wasi_http::{
     body::HyperOutgoingBody,
@@ -124,6 +124,7 @@ impl InstanceState {
 impl SelfInstanceBuilder for InstanceState {}
 
 pub type Request = http::Request<wasmtime_wasi_http::body::HyperOutgoingBody>;
+pub type Response = http::Response<wasmtime_wasi_http::body::HyperIncomingBody>;
 
 /// SelfRequestOrigin indicates the base URI to use for "self" requests.
 ///
@@ -183,17 +184,13 @@ pub trait OutboundHttpInterceptor: Send + Sync {
     /// Intercept an outgoing HTTP request.
     ///
     /// If this method returns [`InterceptedResponse::Continue`], the (possibly
-    /// updated) request and config will be passed on to the default outgoing
-    /// request handler.
+    /// updated) request will be passed on to the default outgoing request
+    /// handler.
     ///
     /// If this method returns [`InterceptedResponse::Intercepted`], the inner
     /// result will be returned as the result of the request, bypassing the
     /// default handler. The `request` will also be dropped immediately.
-    async fn intercept(
-        &self,
-        request: &mut Request,
-        config: &mut OutgoingRequestConfig,
-    ) -> HttpResult<InterceptOutcome>;
+    async fn intercept(&self, request: &mut Request) -> HttpResult<InterceptOutcome>;
 }
 
 /// The type returned by an [`OutboundHttpInterceptor`].
@@ -201,7 +198,7 @@ pub enum InterceptOutcome {
     /// The intercepted request will be passed on to the default outgoing
     /// request handler.
     Continue,
-    /// The given result will be returned as the result of the intercepted
+    /// The given response will be returned as the result of the intercepted
     /// request, bypassing the default handler.
-    Complete(IncomingResponse),
+    Complete(Response),
 }

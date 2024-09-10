@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod loader;
 
 use std::future::Future;
 

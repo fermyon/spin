@@ -27,7 +27,7 @@ pub struct VaultVariablesProvider {
 
 #[async_trait]
 impl Provider for VaultVariablesProvider {
-    #[instrument(name = "spin_variables.get_from_vault", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_variables.get_from_vault", level = Level::DEBUG, skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &Key) -> anyhow::Result<Option<String>> {
         let client = VaultClient::new(
             VaultClientSettingsBuilder::default()

@@ -1,10 +1,12 @@
 use spin_factors::anyhow;
 use spin_world::{async_trait, v1, v2::variables};
+use tracing::{instrument, Level};
 
 use crate::InstanceState;
 
 #[async_trait]
 impl variables::Host for InstanceState {
+    #[instrument(name = "spin_variables.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&mut self, key: String) -> Result<String, variables::Error> {
         let key = spin_expressions::Key::new(&key).map_err(expressions_to_variables_err)?;
         self.expression_resolver

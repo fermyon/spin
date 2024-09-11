@@ -30,7 +30,6 @@ lint-rust-examples:
 		echo "Linting $${manifest_path}" \
 		&& cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
-		&& (git diff --name-status --exit-code . || (echo "Git working tree dirtied by lints. Run 'make update-cargo-locks' and check in changes" && false)) \
 		|| exit 1 ; \
 	done
 

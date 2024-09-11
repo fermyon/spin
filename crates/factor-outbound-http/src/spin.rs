@@ -1,3 +1,4 @@
+use http_body_util::BodyExt;
 use spin_world::{
     async_trait,
     v1::{
@@ -6,6 +7,8 @@ use spin_world::{
     },
 };
 use tracing::{field::Empty, instrument, Level, Span};
+
+use crate::intercept::InterceptOutcome;
 
 #[async_trait]
 impl spin_http::Host for crate::InstanceState {
@@ -19,7 +22,11 @@ impl spin_http::Host for crate::InstanceState {
         let uri = req.uri;
         tracing::trace!("Sending outbound HTTP to {uri:?}");
 
-        let abs_url = if !uri.starts_with('/') {
+        if !req.params.is_empty() {
+            tracing::warn!("HTTP params field is deprecated");
+        }
+
+        let req_url = if !uri.starts_with('/') {
             // Absolute URI
             let is_allowed = self
                 .allowed_hosts
@@ -29,7 +36,7 @@ impl spin_http::Host for crate::InstanceState {
             if !is_allowed {
                 return Err(HttpError::DestinationNotAllowed);
             }
-            uri
+            uri.parse().map_err(|_| HttpError::InvalidUrl)?
         } else {
             // Relative URI ("self" request)
             let is_allowed = self
@@ -47,36 +54,51 @@ impl spin_http::Host for crate::InstanceState {
                 );
                 return Err(HttpError::InvalidUrl);
             };
-            format!("{origin}{uri}")
+            let path_and_query = uri.parse().map_err(|_| HttpError::InvalidUrl)?;
+            origin.clone().into_uri(Some(path_and_query))
         };
-        let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 
-        if !req.params.is_empty() {
-            tracing::warn!("HTTP params field is deprecated");
+        // Build an http::Request for OutboundHttpInterceptor
+        let mut req = {
+            let mut builder = http::Request::builder()
+                .method(hyper_method(req.method))
+                .uri(&req_url);
+            for (key, val) in req.headers {
+                builder = builder.header(key, val);
+            }
+            builder.body(req.body.unwrap_or_default())
         }
+        .map_err(|err| {
+            tracing::error!("Error building outbound request: {err}");
+            HttpError::RuntimeError
+        })?;
+
+        spin_telemetry::inject_trace_context(req.headers_mut());
+
+        if let Some(interceptor) = &self.request_interceptor {
+            let intercepted_request = std::mem::take(&mut req).into();
+            match interceptor.intercept(intercepted_request).await {
+                Ok(InterceptOutcome::Continue(intercepted_request)) => {
+                    req = intercepted_request.into_vec_request().unwrap();
+                }
+                Ok(InterceptOutcome::Complete(resp)) => return response_from_hyper(resp).await,
+                Err(err) => {
+                    tracing::error!("Error in outbound HTTP interceptor: {err}");
+                    return Err(HttpError::RuntimeError);
+                }
+            }
+        }
+
+        // Convert http::Request to reqwest::Request
+        let req = reqwest::Request::try_from(req).map_err(|_| HttpError::InvalidUrl)?;
 
         // Allow reuse of Client's internal connection pool for multiple requests
         // in a single component execution
         let client = self.spin_http_client.get_or_insert_with(Default::default);
 
-        let mut req = {
-            let mut builder = client.request(reqwest_method(req.method), req_url);
-            for (key, val) in req.headers {
-                builder = builder.header(key, val);
-            }
-            builder
-                .body(req.body.unwrap_or_default())
-                .build()
-                .map_err(|err| {
-                    tracing::error!("Error building outbound request: {err}");
-                    HttpError::RuntimeError
-                })?
-        };
-        spin_telemetry::inject_trace_context(req.headers_mut());
-
         let resp = client.execute(req).await.map_err(log_reqwest_error)?;
 
-        tracing::trace!("Returning response from outbound request to {abs_url}");
+        tracing::trace!("Returning response from outbound request to {req_url}");
         span.record("http.response.status_code", resp.status().as_u16());
         response_from_reqwest(resp).await
     }
@@ -111,16 +133,50 @@ fn record_request_fields(span: &Span, req: &Request) {
     }
 }
 
-fn reqwest_method(m: Method) -> reqwest::Method {
+fn hyper_method(m: Method) -> http::Method {
     match m {
-        Method::Get => reqwest::Method::GET,
-        Method::Post => reqwest::Method::POST,
-        Method::Put => reqwest::Method::PUT,
-        Method::Delete => reqwest::Method::DELETE,
-        Method::Patch => reqwest::Method::PATCH,
-        Method::Head => reqwest::Method::HEAD,
-        Method::Options => reqwest::Method::OPTIONS,
+        Method::Get => http::Method::GET,
+        Method::Post => http::Method::POST,
+        Method::Put => http::Method::PUT,
+        Method::Delete => http::Method::DELETE,
+        Method::Patch => http::Method::PATCH,
+        Method::Head => http::Method::HEAD,
+        Method::Options => http::Method::OPTIONS,
     }
+}
+
+async fn response_from_hyper(mut resp: crate::Response) -> Result<Response, HttpError> {
+    let status = resp.status().as_u16();
+
+    let headers = resp
+        .headers()
+        .into_iter()
+        .map(|(key, val)| {
+            Ok((
+                key.to_string(),
+                val.to_str()
+                    .map_err(|_| {
+                        tracing::error!("Non-ascii response header {key} = {val:?}");
+                        HttpError::RuntimeError
+                    })?
+                    .to_string(),
+            ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let body = resp
+        .body_mut()
+        .collect()
+        .await
+        .map_err(|_| HttpError::RuntimeError)?
+        .to_bytes()
+        .to_vec();
+
+    Ok(Response {
+        status,
+        headers: Some(headers),
+        body: Some(body),
+    })
 }
 
 fn log_reqwest_error(err: reqwest::Error) -> HttpError {

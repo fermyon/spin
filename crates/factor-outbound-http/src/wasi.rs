@@ -18,8 +18,8 @@ use wasmtime_wasi_http::{
 };
 
 use crate::{
-    wasi_2023_10_18, wasi_2023_11_10, InstanceState, InterceptOutcome, OutboundHttpFactor,
-    OutboundHttpInterceptor, SelfRequestOrigin,
+    intercept::{InterceptOutcome, OutboundHttpInterceptor},
+    wasi_2023_10_18, wasi_2023_11_10, InstanceState, OutboundHttpFactor, SelfRequestOrigin,
 };
 
 pub(crate) fn add_to_linker<T: Send + 'static>(
@@ -133,8 +133,11 @@ async fn send_request_impl(
     spin_telemetry::inject_trace_context(&mut request);
 
     if let Some(interceptor) = request_interceptor {
-        match interceptor.intercept(&mut request).await? {
-            InterceptOutcome::Continue => (),
+        let intercept_request = std::mem::take(&mut request).into();
+        match interceptor.intercept(intercept_request).await? {
+            InterceptOutcome::Continue(req) => {
+                request = req.into_hyper_request();
+            }
             InterceptOutcome::Complete(resp) => {
                 let resp = IncomingResponse {
                     resp,

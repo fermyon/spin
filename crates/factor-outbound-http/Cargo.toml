@@ -10,7 +10,7 @@ http = "1.1.0"
 http-body-util = "0.1"
 hyper = "1.4.1"
 ip_network = "0.4"
-reqwest = { version = "0.11", features = ["gzip"] }
+reqwest = { version = "0.12", features = ["gzip"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }

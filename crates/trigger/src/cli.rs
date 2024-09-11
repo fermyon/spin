@@ -13,10 +13,10 @@ use spin_app::App;
 use spin_common::sloth;
 use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
-use spin_core::async_trait;
 use spin_factors::RuntimeFactors;
-use spin_factors_executor::{ComponentLoader, FactorsExecutor};
+use spin_factors_executor::FactorsExecutor;
 
+use crate::loader::ComponentLoader;
 use crate::{Trigger, TriggerApp};
 pub use initial_kv_setter::InitialKvSetterHook;
 pub use launch_metadata::LaunchMetadata;
@@ -312,65 +312,6 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
 
         let (factors, runtime_config) = B::build(&common_options, &options)?;
 
-        // TODO: port the rest of the component loader logic
-        struct SimpleComponentLoader;
-
-        #[async_trait]
-        impl spin_compose::ComponentSourceLoader for SimpleComponentLoader {
-            async fn load_component_source(
-                &self,
-                source: &spin_app::locked::LockedComponentSource,
-            ) -> anyhow::Result<Vec<u8>> {
-                let source = source
-                    .content
-                    .source
-                    .as_ref()
-                    .context("LockedComponentSource missing source field")?;
-
-                let path = parse_file_url(source)?;
-
-                let bytes: Vec<u8> = tokio::fs::read(&path).await.with_context(|| {
-                    format!(
-                        "failed to read component source from disk at path {}",
-                        quoted_path(&path)
-                    )
-                })?;
-
-                let component = spin_componentize::componentize_if_necessary(&bytes)?;
-
-                Ok(component.into())
-            }
-        }
-
-        #[async_trait]
-        impl ComponentLoader for SimpleComponentLoader {
-            async fn load_component(
-                &self,
-                engine: &spin_core::wasmtime::Engine,
-                component: &spin_factors::AppComponent,
-            ) -> anyhow::Result<spin_core::Component> {
-                let source = component
-                    .source()
-                    .content
-                    .source
-                    .as_ref()
-                    .context("LockedComponentSource missing source field")?;
-                let path = parse_file_url(source)?;
-
-                let composed = spin_compose::compose(self, component.locked)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "failed to resolve dependencies for component {:?}",
-                            component.locked.id
-                        )
-                    })?;
-
-                spin_core::Component::new(engine, composed)
-                    .with_context(|| format!("compiling wasm {}", quoted_path(&path)))
-            }
-        }
-
         let mut executor = FactorsExecutor::new(core_engine_builder, factors)?;
         B::configure_app(&mut executor, &runtime_config, &common_options, &options)?;
         let executor = Arc::new(executor);
@@ -378,7 +319,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
             executor
-                .load_app(app, runtime_config.into(), &SimpleComponentLoader)
+                .load_app(app, runtime_config.into(), &ComponentLoader::default())
                 .await?
         };
 

@@ -8,6 +8,12 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# Enables loading AOT compiled components, a potentially unsafe operation. See
+# `ComponentLoader::enable_loading_aot_compiled_components`
+# documentation for more information about the safety risks.
+unsafe-aot-compilation = []
+
 [dependencies]
 anyhow = "1"
 clap = { version = "3.1.18", features = ["derive", "env"] }

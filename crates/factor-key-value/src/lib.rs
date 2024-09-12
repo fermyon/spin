@@ -8,12 +8,14 @@ use std::{
 };
 
 use anyhow::ensure;
-use host::KEY_VALUE_STORES_KEY;
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, PrepareContext, RuntimeFactors,
 };
+use spin_locked_app::MetadataKey;
 use util::DefaultManagerGetter;
 
+/// Metadata key for key-value stores.
+pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 pub use host::{log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
 pub use util::{CachingStoreManager, DelegatingStoreManager};

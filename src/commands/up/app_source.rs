@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::ensure;
 use spin_common::ui::quoted_path;
 use spin_locked_app::locked::LockedApp;
 use spin_manifest::schema::v2::AppManifest;
@@ -99,7 +98,7 @@ pub enum ResolvedAppSource {
 }
 
 impl ResolvedAppSource {
-    pub fn trigger_types(&self) -> anyhow::Result<Vec<&str>> {
+    pub fn trigger_types(&self) -> Vec<&str> {
         let types = match self {
             ResolvedAppSource::File { manifest, .. } => manifest
                 .triggers
@@ -114,7 +113,6 @@ impl ResolvedAppSource {
             ResolvedAppSource::BareWasm { .. } => ["http"].into_iter().collect(),
         };
 
-        ensure!(!types.is_empty(), "no triggers in app");
-        Ok(types.into_iter().collect())
+        types.into_iter().collect()
     }
 }

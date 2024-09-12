@@ -1,8 +1,6 @@
 mod config;
 pub mod runtime_config;
 
-use std::{collections::HashMap, sync::Arc};
-
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
@@ -14,6 +12,7 @@ use spin_factors::{
     anyhow::{self, Context},
     ConfigureAppContext, Error, Factor, FactorInstanceBuilder, PrepareContext, RuntimeFactors,
 };
+use std::{collections::HashMap, sync::Arc};
 
 pub use config::{
     allowed_outbound_hosts, is_service_chaining_host, parse_service_chaining_target,

@@ -348,12 +348,7 @@ mod integration_tests {
             },
         )?;
 
-        let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
-
-Caused by:
-      no triggers in app
-"#;
-
+        let expected = "Error: No triggers in app\n";
         assert_eq!(env.runtime_mut().stderr(), expected);
 
         Ok(())

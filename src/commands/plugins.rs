@@ -438,7 +438,7 @@ impl Inspect {
             .await?;
 
         println!(
-            "{}, {} (License: {})\n{}\n\n{}",
+            "{}: {} (License: {})\n{}\n\n{}",
             manifest.name(),
             manifest.version(),
             manifest.license(),

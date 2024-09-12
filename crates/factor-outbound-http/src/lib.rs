@@ -4,7 +4,7 @@ mod wasi;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
 use http::{
@@ -138,13 +138,12 @@ pub struct SelfRequestOrigin {
 }
 
 impl SelfRequestOrigin {
-    pub fn create(scheme: Scheme, addr: &SocketAddr) -> anyhow::Result<Self> {
+    pub fn create(scheme: Scheme, auth: &str) -> anyhow::Result<Self> {
         Ok(SelfRequestOrigin {
             scheme,
-            authority: addr
-                .to_string()
+            authority: auth
                 .parse()
-                .with_context(|| format!("address '{addr}' is not a valid authority"))?,
+                .with_context(|| format!("address '{auth}' is not a valid authority"))?,
         })
     }
 

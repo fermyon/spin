@@ -7,7 +7,10 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 async-trait = "0.1"
+bytes = "1.1"
 futures = "0.3"
+futures-util = "0.3"
+id-arena = "2"
 indexmap = "2.2.6"
 miette = "7.2.0"
 oci-distribution = { git = "https://github.com/fermyon/oci-distribution", rev = "7e4ce9be9bcd22e78a28f06204931f10c44402ba" }
@@ -26,6 +29,8 @@ wac-parser = "0.6.0"
 wac-resolver = "0.6.0"
 wac-types = "0.6.0"
 wasm-pkg-loader = "0.4.1"
+wit-component = "0.217.0"
+wit-parser = "0.217.0"
 
 [lints]
 workspace = true

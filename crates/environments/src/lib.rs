@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 
 mod environment_definition;
 mod loader;
 
-use environment_definition::{TargetEnvironment, TargetWorld, TriggerType};
+use environment_definition::{load_environment, TargetEnvironment, TriggerType};
 pub use loader::ResolutionContext;
 use loader::{load_and_resolve_all, ComponentToValidate};
 
@@ -12,43 +12,11 @@ pub async fn validate_application_against_environment_ids(
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
 ) -> anyhow::Result<()> {
-    let envs = join_all_result(env_ids.map(resolve_environment_id)).await?;
+    let envs = join_all_result(env_ids.map(load_environment)).await?;
     validate_application_against_environments(&envs, app, resolution_context).await
 }
 
-async fn resolve_environment_id(id: &str) -> anyhow::Result<TargetEnvironment> {
-    let (name, ver) = id.split_once('@').ok_or(anyhow!(
-        "Target environment '{id}' does not specify a version"
-    ))?;
-    let client = oci_distribution::Client::default();
-    let auth = oci_distribution::secrets::RegistryAuth::Anonymous;
-    let env_def_ref =
-        oci_distribution::Reference::try_from(format!("ghcr.io/itowlson/spinenvs/{name}:{ver}"))?;
-    let (man, _digest) = client
-        .pull_manifest(&env_def_ref, &auth)
-        .await
-        .with_context(|| format!("Failed to find environment '{id}' in registry"))?;
-    let im = match man {
-        oci_distribution::manifest::OciManifest::Image(im) => im,
-        oci_distribution::manifest::OciManifest::ImageIndex(_ind) => {
-            anyhow::bail!("Environment '{id}' definition is unusable - stored in registry in incorrect format")
-        }
-    };
-    let the_layer = &im.layers[0];
-    let mut out = Vec::with_capacity(the_layer.size.try_into().unwrap_or_default());
-    client
-        .pull_blob(&env_def_ref, the_layer, &mut out)
-        .await
-        .with_context(|| {
-            format!("Failed to download environment '{id}' definition from registry")
-        })?;
-    let te = serde_json::from_slice(&out).with_context(|| {
-        format!("Failed to load environment '{id}' definition - invalid JSON schema")
-    })?;
-    Ok(te)
-}
-
-pub async fn validate_application_against_environments(
+async fn validate_application_against_environments(
     envs: &[TargetEnvironment],
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
@@ -56,13 +24,10 @@ pub async fn validate_application_against_environments(
     use futures::FutureExt;
 
     for trigger_type in app.triggers.keys() {
-        if let Some(env) = envs
-            .iter()
-            .find(|e| !e.environments.contains_key(trigger_type))
-        {
+        if let Some(env) = envs.iter().find(|e| !e.supports_trigger_type(trigger_type)) {
             anyhow::bail!(
                 "Environment {} does not support trigger type {trigger_type}",
-                env.name
+                env.name()
             );
         }
     }
@@ -87,28 +52,9 @@ async fn validate_component_against_environments(
     trigger_type: &TriggerType,
     component: &ComponentToValidate<'_>,
 ) -> anyhow::Result<()> {
-    let worlds = envs
-        .iter()
-        .map(|e| {
-            e.environments
-                .get(trigger_type)
-                .ok_or(anyhow!(
-                    "Environment '{}' doesn't support trigger type {trigger_type}",
-                    e.name
-                ))
-                .map(|w| (e.name.as_str(), w))
-        })
-        .collect::<Result<std::collections::HashSet<_>, _>>()?;
-    validate_component_against_worlds(worlds.into_iter(), component).await?;
-    Ok(())
-}
-
-async fn validate_component_against_worlds(
-    target_worlds: impl Iterator<Item = (&str, &TargetWorld)>,
-    component: &ComponentToValidate<'_>,
-) -> anyhow::Result<()> {
-    for (env_name, target_world) in target_worlds {
-        validate_wasm_against_any_world(env_name, target_world, component).await?;
+    for env in envs {
+        let worlds = env.worlds(trigger_type);
+        validate_wasm_against_any_world(env, &worlds, component).await?;
     }
 
     tracing::info!(
@@ -120,21 +66,21 @@ async fn validate_component_against_worlds(
 }
 
 async fn validate_wasm_against_any_world(
-    env_name: &str,
-    target_world: &TargetWorld,
+    env: &TargetEnvironment,
+    world_names: &[String],
     component: &ComponentToValidate<'_>,
 ) -> anyhow::Result<()> {
     let mut result = Ok(());
-    for target_str in target_world.versioned_names() {
-        tracing::info!(
-            "Trying component {} {} against target world {target_str}",
+    for target_world in world_names {
+        tracing::debug!(
+            "Trying component {} {} against target world {target_world}",
             component.id(),
             component.source_description(),
         );
-        match validate_wasm_against_world(env_name, &target_str, component).await {
+        match validate_wasm_against_world(env, target_world, component).await {
             Ok(()) => {
                 tracing::info!(
-                    "Validated component {} {} against target world {target_str}",
+                    "Validated component {} {} against target world {target_world}",
                     component.id(),
                     component.source_description(),
                 );
@@ -143,7 +89,7 @@ async fn validate_wasm_against_any_world(
             Err(e) => {
                 // Record the error, but continue in case a different world succeeds
                 tracing::info!(
-                    "Rejecting component {} {} for target world {target_str} because {e:?}",
+                    "Rejecting component {} {} for target world {target_world} because {e:?}",
                     component.id(),
                     component.source_description(),
                 );
@@ -155,34 +101,52 @@ async fn validate_wasm_against_any_world(
 }
 
 async fn validate_wasm_against_world(
-    env_name: &str,
-    target_str: &str,
+    env: &TargetEnvironment,
+    target_world: &str,
     component: &ComponentToValidate<'_>,
 ) -> anyhow::Result<()> {
-    let comp_name = "root:component";
+    // Because we are abusing a composition tool to do validation, we have to
+    // provide a name by which to refer to the component in the dummy composition.
+    let component_name = "root:component";
+    let component_key = wac_types::BorrowedPackageKey::from_name_and_version(component_name, None);
+
+    // wac is going to get the world from the environment package bytes.
+    // This constructs a key for that mapping.
+    let env_pkg_name = env.package_namespaced_name();
+    let env_pkg_key =
+        wac_types::BorrowedPackageKey::from_name_and_version(&env_pkg_name, env.package_version());
+
+    let env_name = env.name();
 
     let wac_text = format!(
         r#"
-    package validate:component@1.0.0 targets {target_str};
-    let c = new {comp_name} {{ ... }};
+    package validate:component@1.0.0 targets {target_world};
+    let c = new {component_name} {{ ... }};
     export c...;
     "#
     );
 
     let doc = wac_parser::Document::parse(&wac_text)?;
 
-    let compkey = wac_types::BorrowedPackageKey::from_name_and_version(comp_name, None);
+    // TODO: if we end up needing the registry, we need to do this dance
+    // for things we are providing separately, or the registry will try to
+    // hoover them up and will fail.
+    // let mut refpkgs = wac_resolver::packages(&doc)?;
+    // refpkgs.shift_remove(&env_pkg_key);
+    // refpkgs.shift_remove(&component_key);
 
-    let mut refpkgs = wac_resolver::packages(&doc)?;
-    refpkgs.retain(|k, _| k != &compkey);
+    // TODO: determine if this is needed in circumstances other than the simple test
+    // let reg_resolver = wac_resolver::RegistryPackageResolver::new(Some("wa.dev"), None).await?;
+    // let mut packages = reg_resolver
+    //     .resolve(&refpkgs)
+    //     .await
+    //     .context("reg_resolver.resolve failed")?;
 
-    let reg_resolver = wac_resolver::RegistryPackageResolver::new(Some("wa.dev"), None).await?;
-    let mut packages = reg_resolver
-        .resolve(&refpkgs)
-        .await
-        .context("reg_resolver.resolve failed")?;
+    let mut packages: indexmap::IndexMap<wac_types::BorrowedPackageKey, Vec<u8>> =
+        Default::default();
 
-    packages.insert(compkey, component.wasm_bytes().to_vec());
+    packages.insert(env_pkg_key, env.package_bytes().to_vec());
+    packages.insert(component_key, component.wasm_bytes().to_vec());
 
     match doc.resolve(packages) {
         Ok(_) => Ok(()),
@@ -195,7 +159,7 @@ async fn validate_wasm_against_world(
         }
         Err(wac_parser::resolution::Error::PackageMissingExport { export, .. }) => {
             // TODO: The export here seems wrong - it seems to contain the world name rather than the interface name
-            Err(anyhow!("Component {} ({}) can't run in environment {env_name} because world {target_str} requires an export named {export}, which the component does not provide", component.id(), component.source_description()))
+            Err(anyhow!("Component {} ({}) can't run in environment {env_name} because world {target_world} requires an export named {export}, which the component does not provide", component.id(), component.source_description()))
         }
         Err(wac_parser::resolution::Error::ImportNotInTarget { name, world, .. }) => {
             Err(anyhow!("Component {} ({}) can't run in environment {env_name} because world {world} does not provide an import named {name}, which the component requires", component.id(), component.source_description()))

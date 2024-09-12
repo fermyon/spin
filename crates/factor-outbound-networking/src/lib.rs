@@ -111,17 +111,20 @@ impl Factor for OutboundNetworkingFactor {
                 wasi_builder.outbound_socket_addr_check(move |addr, addr_use| {
                     let allowed_hosts = allowed_hosts.clone();
                     async move {
-                        // TODO: validate against existing spin-core behavior
                         let scheme = match addr_use {
                             SocketAddrUse::TcpBind => return false,
                             SocketAddrUse::TcpConnect => "tcp",
-                            SocketAddrUse::UdpBind | SocketAddrUse::UdpConnect | SocketAddrUse::UdpOutgoingDatagram => "udp",
+                            SocketAddrUse::UdpBind
+                            | SocketAddrUse::UdpConnect
+                            | SocketAddrUse::UdpOutgoingDatagram => "udp",
                         };
-                        allowed_hosts.check_url(&addr.to_string(), scheme).await.unwrap_or_else(|err| {
-                            // TODO: should this trap (somehow)?
-                            tracing::error!(%err, "allowed_outbound_hosts variable resolution failed");
-                            false
-                        })
+                        allowed_hosts
+                            .check_url(&addr.to_string(), scheme)
+                            .await
+                            .unwrap_or(
+                                // TODO: should this trap (somehow)?
+                                false,
+                            )
                     }
                 });
             }
@@ -174,7 +177,7 @@ impl FactorInstanceBuilder for InstanceBuilder {
     }
 }
 
-// TODO: Refactor w/ spin-outbound-networking crate to simplify
+/// A check for whether a URL is allowed by the outbound networking configuration.
 #[derive(Clone)]
 pub struct OutboundAllowedHosts {
     allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
@@ -184,18 +187,24 @@ pub struct OutboundAllowedHosts {
 impl OutboundAllowedHosts {
     /// Checks address against allowed hosts
     ///
-    /// Calls the [`DisallowedHostCallback`] if set and URL is disallowed.
+    /// Calls the [`DisallowedHostHandler`] if set and URL is disallowed.
+    /// If `url` cannot be parsed, `{scheme}://` is prepended to `url` and retried.
     pub async fn check_url(&self, url: &str, scheme: &str) -> anyhow::Result<bool> {
-        let Ok(url) = OutboundUrl::parse(url, scheme) else {
-            tracing::warn!(
-                "A component tried to make a request to a url that could not be parsed: {url}",
-            );
-            return Ok(false);
+        tracing::debug!("Checking outbound networking request to '{url}'");
+        let url = match OutboundUrl::parse(url, scheme) {
+            Ok(url) => url,
+            Err(err) => {
+                tracing::warn!(%err,
+                    "A component tried to make a request to a url that could not be parsed: {url}",
+                );
+                return Ok(false);
+            }
         };
 
         let allowed_hosts = self.resolve().await?;
         let is_allowed = allowed_hosts.allows(&url);
         if !is_allowed {
+            tracing::debug!("Disallowed outbound networking request to '{url}'");
             self.report_disallowed_host(url.scheme(), &url.authority());
         }
         Ok(is_allowed)
@@ -203,12 +212,16 @@ impl OutboundAllowedHosts {
 
     /// Checks if allowed hosts permit relative requests
     ///
-    /// Calls the [`DisallowedHostCallback`] if set and relative requests are
+    /// Calls the [`DisallowedHostHandler`] if set and relative requests are
     /// disallowed.
     pub async fn check_relative_url(&self, schemes: &[&str]) -> anyhow::Result<bool> {
+        tracing::debug!("Checking relative outbound networking request with schemes {schemes:?}");
         let allowed_hosts = self.resolve().await?;
         let is_allowed = allowed_hosts.allows_relative_url(schemes);
         if !is_allowed {
+            tracing::debug!(
+                "Disallowed relative outbound networking request with schemes {schemes:?}"
+            );
             let scheme = schemes.first().unwrap_or(&"");
             self.report_disallowed_host(scheme, "self");
         }
@@ -217,7 +230,7 @@ impl OutboundAllowedHosts {
 
     async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
         self.allowed_hosts_future.clone().await.map_err(|err| {
-            tracing::error!("Error resolving allowed_outbound_hosts variables: {err}");
+            tracing::error!(%err, "Error resolving variables when checking request against allowed outbound hosts");
             anyhow::Error::msg(err)
         })
     }

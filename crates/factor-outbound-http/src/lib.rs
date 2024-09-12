@@ -128,9 +128,6 @@ pub type Request = http::Request<wasmtime_wasi_http::body::HyperOutgoingBody>;
 pub type Response = http::Response<wasmtime_wasi_http::body::HyperIncomingBody>;
 
 /// SelfRequestOrigin indicates the base URI to use for "self" requests.
-///
-/// This is meant to be set on [`Request::extensions_mut`] in appropriate
-/// contexts such as an incoming request handler.
 #[derive(Clone, Debug)]
 pub struct SelfRequestOrigin {
     pub scheme: Scheme,

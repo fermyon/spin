@@ -244,7 +244,7 @@ impl<F: RuntimeFactors> HttpServer<F> {
             .context(
             "The wasi HTTP trigger was configured without the required wasi outbound http support",
         )?;
-        let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr)?;
+        let origin = SelfRequestOrigin::create(server_scheme, &self.listen_addr.to_string())?;
         outbound_http.set_self_request_origin(origin);
         outbound_http.set_request_interceptor(OutboundHttpInterceptor::new(self.clone()))?;
 

@@ -135,6 +135,7 @@ fn ensure_allowed_databases_are_configured(
     Ok(())
 }
 
+/// Metadata key for a list of allowed databases for a component.
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
 
 /// Resolves a label to a default connection creator.

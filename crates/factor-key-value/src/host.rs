@@ -1,13 +1,10 @@
 use crate::util::EmptyStoreManager;
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_locked_app::MetadataKey;
 use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 use tracing::{instrument, Level};
-
-pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 

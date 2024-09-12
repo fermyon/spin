@@ -356,6 +356,7 @@ impl Default for AllowedHostsConfig {
     }
 }
 
+/// A parsed URL used for outbound networking.
 #[derive(Debug, Clone)]
 pub struct OutboundUrl {
     scheme: String,
@@ -365,6 +366,9 @@ pub struct OutboundUrl {
 }
 
 impl OutboundUrl {
+    /// Parse a URL.
+    ///
+    /// If parsing `url` fails, `{scheme}://` is prepended to `url` and parsing is tried again.
     pub fn parse(url: impl Into<String>, scheme: &str) -> anyhow::Result<Self> {
         let mut url = url.into();
         let original = url.clone();

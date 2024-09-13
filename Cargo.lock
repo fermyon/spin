@@ -7133,7 +7133,7 @@ dependencies = [
  "spin-manifest",
  "spin-oci",
  "spin-plugins",
- "spin-runtime-factors",
+ "spin-runtime-factors2",
  "spin-telemetry",
  "spin-templates",
  "spin-trigger",
@@ -7304,6 +7304,25 @@ dependencies = [
  "toml 0.8.14",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "spin-factor-llm2"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde 1.0.197",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-llm-local",
+ "spin-llm-remote-http",
+ "spin-locked-app",
+ "tokio",
+ "toml 0.8.14",
+ "tracing",
+ "url",
+ "wasmtime",
 ]
 
 [[package]]
@@ -7803,6 +7822,28 @@ dependencies = [
  "spin-factor-outbound-pg",
  "spin-factor-outbound-redis",
  "spin-factor-sqlite",
+ "spin-factor-variables",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-factors-executor",
+ "spin-runtime-config",
+ "spin-telemetry",
+ "spin-trigger",
+ "terminal",
+ "tracing",
+]
+
+[[package]]
+name = "spin-runtime-factors2"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "clap 3.2.25",
+ "spin-common",
+ "spin-factor-key-value",
+ "spin-factor-llm2",
+ "spin-factor-outbound-http",
+ "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",

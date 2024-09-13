@@ -1,0 +1,19 @@
+spin_manifest_version = 2
+
+[application]
+name = "custom-runtime"
+version = "0.1.0"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+description = ""
+
+[[trigger.http]]
+route = "/..."
+component = "custom"
+
+[component.custom]
+source = "target/wasm32-wasi/release/custom_runtime.wasm"
+allowed_outbound_hosts = []
+key_value_stores = ["default"]
+[component.custom.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

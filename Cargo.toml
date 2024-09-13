@@ -54,7 +54,7 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
-spin-runtime-factors = { path = "crates/runtime-factors" }
+spin-runtime-factors2 = { path = "crates/runtime-factors2" }
 spin-telemetry = { path = "crates/telemetry", features = [
   "tracing-log-compat",
 ] }
@@ -110,9 +110,9 @@ vergen = { version = "^8.2.1", default-features = false, features = [
 default = ["llm"]
 all-tests = ["extern-dependencies-tests"]
 extern-dependencies-tests = []
-llm = ["spin-runtime-factors/llm"]
-llm-metal = ["llm", "spin-runtime-factors/llm-metal"]
-llm-cublas = ["llm", "spin-runtime-factors/llm-cublas"]
+llm = ["spin-runtime-factors2/llm"]
+llm-metal = ["llm", "spin-runtime-factors2/llm-metal"]
+llm-cublas = ["llm", "spin-runtime-factors2/llm-cublas"]
 
 [workspace]
 members = [

@@ -1,0 +1,16 @@
+[package]
+name = "custom-runtime"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+description = ""
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+spin-sdk = "3.0.1"
+wit-bindgen = "0.30"
+
+[workspace]

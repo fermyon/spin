@@ -1,0 +1,35 @@
+[package]
+name = "spin-factor-llm2"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+llm = ["spin-llm-local"]
+llm-metal = ["llm", "spin-llm-local/metal"]
+llm-cublas = ["llm", "spin-llm-local/cublas"]
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+serde = "1.0"
+spin-factors = { path = "../factors" }
+spin-llm-local = { path = "../llm-local", optional = true }
+spin-llm-remote-http = { path = "../llm-remote-http" }
+spin-locked-app = { path = "../locked-app" }
+tokio = { version = "1", features = ["sync"] }
+toml = "0.8"
+tracing = { workspace = true }
+url = { version = "2", features = ["serde"] }
+wasmtime = { workspace = true }
+
+[dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,35 @@
+[package]
+name = "spin-runtime-factors2"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+llm = ["spin-factor-llm2/llm"]
+llm-metal = ["spin-factor-llm2/llm-metal"]
+llm-cublas = ["spin-factor-llm2/llm-cublas"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "3.1.18", features = ["derive", "env"] }
+spin-common = { path = "../common" }
+spin-factor-key-value = { path = "../factor-key-value" }
+spin-factor-llm2 = { path = "../factor-llm2" }
+spin-factor-outbound-http = { path = "../factor-outbound-http" }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-variables = { path = "../factor-variables" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-factors-executor = { path = "../factors-executor" }
+spin-runtime-config = { path = "../runtime-config" }
+spin-trigger = { path = "../trigger" }
+spin-telemetry = { path = "../telemetry" }
+terminal = { path = "../terminal" }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

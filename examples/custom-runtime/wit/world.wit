@@ -1,0 +1,9 @@
+package my-company:my-product;
+
+world my-world {
+    import llm;
+}
+
+interface llm {
+    my-function: func() -> string;
+}

@@ -15,7 +15,7 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_runtime_factors::FactorsBuilder;
+use spin_runtime_factors2::FactorsBuilder;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::FactorsTriggerCommand;
 use spin_trigger_http::HttpTrigger;

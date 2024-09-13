@@ -18,9 +18,9 @@ toml = "0.8"
 tracing = { workspace = true }
 
 [dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
 spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-spin = { path = "../key-value-spin" }
-spin-factors-test = { path = "../factors-test" }
 tempfile = "3.12.0"
 tokio = { version = "1", features = ["macros", "rt"] }
 

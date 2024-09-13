@@ -41,7 +41,7 @@ pub enum PluginCommands {
     Update,
 
     /// Print information about a plugin.
-    Inspect(Inspect),
+    Show(Show),
 }
 
 impl PluginCommands {
@@ -53,7 +53,7 @@ impl PluginCommands {
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
-            PluginCommands::Inspect(cmd) => cmd.run().await,
+            PluginCommands::Show(cmd) => cmd.run().await,
         }
     }
 }
@@ -421,12 +421,12 @@ impl Upgrade {
 }
 
 #[derive(Parser, Debug)]
-pub struct Inspect {
+pub struct Show {
     /// Name of Spin plugin.
     pub name: String,
 }
 
-impl Inspect {
+impl Show {
     pub async fn run(self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let manifest = manager
@@ -438,13 +438,13 @@ impl Inspect {
             .await?;
 
         println!(
-            "{}: {} (License: {})\n{}\n\n{}",
+            "{}: {} (License: {})\n{}\n{}",
             manifest.name(),
             manifest.version(),
             manifest.license(),
             manifest
                 .homepage_url()
-                .map(|u| u.to_string())
+                .map(|u| format!("{u}\n"))
                 .unwrap_or_default(),
             manifest.description().unwrap_or("No description provided"),
         );

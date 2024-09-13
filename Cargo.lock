@@ -7984,7 +7984,6 @@ dependencies = [
  "spin-trigger",
  "spin-world",
  "terminal",
- "tls-listener",
  "tokio",
  "tokio-rustls 0.26.0",
  "tracing",
@@ -8464,19 +8463,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "tls-listener"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce110c38c3c9b6e5cc4fe72e60feb5b327750388a10a276e3d5d7d431e3dc76c"
-dependencies = [
- "futures-util",
- "pin-project-lite",
- "thiserror",
- "tokio",
- "tokio-rustls 0.25.0",
-]
 
 [[package]]
 name = "tokenizers"

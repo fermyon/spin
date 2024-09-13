@@ -12,7 +12,7 @@ use spin_factors::{
     runtime_config::toml::GetTomlValue,
 };
 use spin_sqlite_inproc::InProcDatabaseLocation;
-use spin_sqlite_libsql::LibSqlConnection;
+use spin_sqlite_libsql::LazyLibSqlConnection;
 
 /// Spin's default resolution of runtime configuration for SQLite databases.
 ///
@@ -174,7 +174,7 @@ impl LibSqlDatabase {
             })?
             .to_owned();
         let factory = move || {
-            let connection = LibSqlConnection::new(url.clone(), self.token.clone());
+            let connection = LazyLibSqlConnection::new(url.clone(), self.token.clone());
             Ok(Box::new(connection) as _)
         };
         Ok(factory)

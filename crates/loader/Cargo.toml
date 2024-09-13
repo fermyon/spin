@@ -24,9 +24,9 @@ serde_json = "1.0"
 sha2 = "0.10.8"
 shellexpand = "3.1"
 spin-common = { path = "../common" }
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
-spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-serde = { path = "../serde" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }

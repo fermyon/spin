@@ -75,7 +75,7 @@ impl RuntimeConfigResolver {
         let database_kind = config.type_.as_str();
         match database_kind {
             "spin" => {
-                let config: LocalDatabase = config.config.try_into()?;
+                let config: InProcDatabase = config.config.try_into()?;
                 Ok(Arc::new(
                     config.connection_creator(&self.local_database_dir)?,
                 ))
@@ -122,11 +122,11 @@ const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
 /// Configuration for a local SQLite database.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LocalDatabase {
+pub struct InProcDatabase {
     pub path: Option<PathBuf>,
 }
 
-impl LocalDatabase {
+impl InProcDatabase {
     /// Get a new connection creator for a local database.
     ///
     /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
@@ -155,6 +155,8 @@ fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
 }
 
 /// Configuration for a libSQL database.
+///
+/// This is used to deserialize the specific runtime config toml for libSQL databases.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LibSqlDatabase {

@@ -7986,7 +7986,7 @@ dependencies = [
  "terminal",
  "tls-listener",
  "tokio",
- "tokio-rustls 0.25.0",
+ "tokio-rustls 0.26.0",
  "tracing",
  "url",
  "wasmtime",

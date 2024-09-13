@@ -37,7 +37,7 @@ spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tls-listener = { version = "0.10.0", features = ["rustls"] }
 tokio = { version = "1.23", features = ["full"] }
-tokio-rustls = { version = "0.25.0" }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12"] }
 tracing = { workspace = true }
 url = "2.4.1"
 wasmtime = { workspace = true }

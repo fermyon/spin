@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::bail;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_otlp::SpanExporterBuilder;
 use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
@@ -43,10 +44,10 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
 
-    let tracer = opentelemetry_otlp::new_pipeline()
+    let tracer_provider = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(exporter)
-        .with_trace_config(opentelemetry_sdk::trace::config().with_resource(resource))
+        .with_trace_config(opentelemetry_sdk::trace::Config::default().with_resource(resource))
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
     let env_filter = match EnvFilter::try_from_env("SPIN_OTEL_TRACING_LEVEL") {
@@ -56,7 +57,7 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     };
 
     Ok(tracing_opentelemetry::layer()
-        .with_tracer(tracer)
+        .with_tracer(tracer_provider.tracer("spin"))
         .with_threads(false)
         .with_filter(env_filter))
 }

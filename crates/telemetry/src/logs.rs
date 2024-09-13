@@ -93,7 +93,7 @@ pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<
     };
 
     let provider = opentelemetry_sdk::logs::LoggerProvider::builder()
-        .with_config(opentelemetry_sdk::logs::config().with_resource(resource))
+        .with_resource(resource)
         .with_log_processor(
             BatchLogProcessor::builder(
                 exporter_builder.build_log_exporter()?,

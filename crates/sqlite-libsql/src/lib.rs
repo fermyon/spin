@@ -1,5 +1,62 @@
+use anyhow::Context;
+use async_trait::async_trait;
+use spin_factor_sqlite::Connection;
+use spin_world::v2::sqlite as v2;
 use spin_world::v2::sqlite::{self, RowResult};
+use tokio::sync::OnceCell;
 use tracing::{instrument, Level};
+
+/// A wrapper around a libSQL connection that implements the [`Connection`] trait.
+pub struct LibSqlConnection {
+    url: String,
+    token: String,
+    // Since the libSQL client can only be created asynchronously, we wait until
+    // we're in the `Connection` implementation to create. Since we only want to do
+    // this once, we use a `OnceCell` to store it.
+    inner: OnceCell<LibsqlClient>,
+}
+
+impl LibSqlConnection {
+    pub fn new(url: String, token: String) -> Self {
+        Self {
+            url,
+            token,
+            inner: OnceCell::new(),
+        }
+    }
+
+    pub async fn get_client(&self) -> Result<&LibsqlClient, v2::Error> {
+        self.inner
+            .get_or_try_init(|| async {
+                LibsqlClient::create(self.url.clone(), self.token.clone())
+                    .await
+                    .context("failed to create SQLite client")
+            })
+            .await
+            .map_err(|_| v2::Error::InvalidConnection)
+    }
+}
+
+#[async_trait]
+impl Connection for LibSqlConnection {
+    async fn query(
+        &self,
+        query: &str,
+        parameters: Vec<v2::Value>,
+    ) -> Result<v2::QueryResult, v2::Error> {
+        let client = self.get_client().await?;
+        client.query(query, parameters).await
+    }
+
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        let client = self.get_client().await?;
+        client.execute_batch(statements).await
+    }
+
+    fn summary(&self) -> Option<String> {
+        Some(format!("libSQL at {}", self.url))
+    }
+}
 
 #[derive(Clone)]
 pub struct LibsqlClient {

@@ -5,16 +5,14 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use serde::Deserialize;
-use spin_factor_sqlite::{Connection, ConnectionCreator, DefaultLabelResolver};
+use spin_factor_sqlite::{ConnectionCreator, DefaultLabelResolver};
 use spin_factors::{
     anyhow::{self, Context as _},
     runtime_config::toml::GetTomlValue,
 };
 use spin_sqlite_inproc::InProcDatabaseLocation;
-use spin_world::v2::sqlite as v2;
-use tokio::sync::OnceCell;
+use spin_sqlite_libsql::LibSqlConnection;
 
 /// Spin's default resolution of runtime configuration for SQLite databases.
 ///
@@ -120,58 +118,6 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
 }
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
-
-/// A wrapper around a libSQL connection that implements the [`Connection`] trait.
-struct LibSqlConnection {
-    url: String,
-    token: String,
-    // Since the libSQL client can only be created asynchronously, we wait until
-    // we're in the `Connection` implementation to create. Since we only want to do
-    // this once, we use a `OnceCell` to store it.
-    inner: OnceCell<spin_sqlite_libsql::LibsqlClient>,
-}
-
-impl LibSqlConnection {
-    fn new(url: String, token: String) -> Self {
-        Self {
-            url,
-            token,
-            inner: OnceCell::new(),
-        }
-    }
-
-    async fn get_client(&self) -> Result<&spin_sqlite_libsql::LibsqlClient, v2::Error> {
-        self.inner
-            .get_or_try_init(|| async {
-                spin_sqlite_libsql::LibsqlClient::create(self.url.clone(), self.token.clone())
-                    .await
-                    .context("failed to create SQLite client")
-            })
-            .await
-            .map_err(|_| v2::Error::InvalidConnection)
-    }
-}
-
-#[async_trait]
-impl Connection for LibSqlConnection {
-    async fn query(
-        &self,
-        query: &str,
-        parameters: Vec<v2::Value>,
-    ) -> Result<v2::QueryResult, v2::Error> {
-        let client = self.get_client().await?;
-        client.query(query, parameters).await
-    }
-
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        let client = self.get_client().await?;
-        client.execute_batch(statements).await
-    }
-
-    fn summary(&self) -> Option<String> {
-        Some(format!("libSQL at {}", self.url))
-    }
-}
 
 /// Configuration for a local SQLite database.
 #[derive(Clone, Debug, Deserialize)]

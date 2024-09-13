@@ -8,14 +8,13 @@ use async_trait::async_trait;
 use once_cell::sync::OnceCell;
 use spin_factor_sqlite::Connection;
 use spin_world::v2::sqlite;
-use tracing::{instrument, Level};
 
 /// The location of an in-process sqlite database.
 #[derive(Debug, Clone)]
 pub enum InProcDatabaseLocation {
     /// An in-memory sqlite database.
     InMemory,
-    /// The path to the directory containing the sqlite database.
+    /// The path to the sqlite database.
     Path(PathBuf),
 }
 
@@ -74,7 +73,6 @@ impl InProcConnection {
 
 #[async_trait]
 impl Connection for InProcConnection {
-    #[instrument(name = "spin_sqlite_inproc.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
     async fn query(
         &self,
         query: &str,
@@ -89,7 +87,6 @@ impl Connection for InProcConnection {
             .map_err(|e| sqlite::Error::Io(e.to_string()))?
     }
 
-    #[instrument(name = "spin_sqlite_inproc.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         let connection = self.db_connection()?;
         let statements = statements.to_owned();

@@ -7452,6 +7452,7 @@ dependencies = [
  "table",
  "tokio",
  "toml 0.8.14",
+ "tracing",
 ]
 
 [[package]]
@@ -7855,7 +7856,6 @@ dependencies = [
  "spin-factor-sqlite",
  "spin-world",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -7870,7 +7870,6 @@ dependencies = [
  "spin-world",
  "sqlparser",
  "tokio",
- "tracing",
 ]
 
 [[package]]

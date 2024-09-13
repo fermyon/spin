@@ -15,7 +15,6 @@ spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-world = { path = "../world" }
 sqlparser = "0.34"
 tokio = { version = "1", features = ["full"] }
-tracing = { workspace = true }
 
 [lints]
 workspace = true

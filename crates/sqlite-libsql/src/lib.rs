@@ -4,7 +4,6 @@ use spin_factor_sqlite::Connection;
 use spin_world::v2::sqlite as v2;
 use spin_world::v2::sqlite::{self, RowResult};
 use tokio::sync::OnceCell;
-use tracing::{instrument, Level};
 
 /// A lazy wrapper around a [`LibSqlConnection`] that implements the [`Connection`] trait.
 pub struct LazyLibSqlConnection {
@@ -65,7 +64,6 @@ pub struct LibSqlConnection {
 }
 
 impl LibSqlConnection {
-    #[instrument(name = "spin_sqlite_libsql.create_connection", skip(token), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite"))]
     pub async fn create(url: String, token: String) -> anyhow::Result<Self> {
         let db = libsql::Builder::new_remote(url, token).build().await?;
         let inner = db.connect()?;
@@ -74,7 +72,6 @@ impl LibSqlConnection {
 }
 
 impl LibSqlConnection {
-    #[instrument(name = "spin_sqlite_libsql.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
     pub async fn query(
         &self,
         query: &str,
@@ -94,7 +91,6 @@ impl LibSqlConnection {
         })
     }
 
-    #[instrument(name = "spin_sqlite_libsql.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
     pub async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         self.inner.execute_batch(statements).await?;
 

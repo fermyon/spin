@@ -39,6 +39,9 @@ pub enum PluginCommands {
 
     /// Fetch the latest Spin plugins from the spin-plugins repository.
     Update,
+
+    /// Print information about a plugin.
+    Show(Show),
 }
 
 impl PluginCommands {
@@ -50,6 +53,7 @@ impl PluginCommands {
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
+            PluginCommands::Show(cmd) => cmd.run().await,
         }
     }
 }
@@ -412,6 +416,38 @@ impl Upgrade {
             &manifest_location,
         )
         .await?;
+        Ok(())
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct Show {
+    /// Name of Spin plugin.
+    pub name: String,
+}
+
+impl Show {
+    pub async fn run(self) -> Result<()> {
+        let manager = PluginManager::try_default()?;
+        let manifest = manager
+            .get_manifest(
+                &ManifestLocation::PluginsRepository(PluginLookup::new(&self.name, None)),
+                false,
+                SPIN_VERSION,
+            )
+            .await?;
+
+        println!(
+            "{}: {} (License: {})\n{}\n{}",
+            manifest.name(),
+            manifest.version(),
+            manifest.license(),
+            manifest
+                .homepage_url()
+                .map(|u| format!("{u}\n"))
+                .unwrap_or_default(),
+            manifest.description().unwrap_or("No description provided"),
+        );
         Ok(())
     }
 }

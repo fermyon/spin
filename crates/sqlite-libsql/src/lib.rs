@@ -1,13 +1,69 @@
+use anyhow::Context;
+use async_trait::async_trait;
+use spin_factor_sqlite::Connection;
+use spin_world::v2::sqlite as v2;
 use spin_world::v2::sqlite::{self, RowResult};
-use tracing::{instrument, Level};
+use tokio::sync::OnceCell;
 
+/// A lazy wrapper around a [`LibSqlConnection`] that implements the [`Connection`] trait.
+pub struct LazyLibSqlConnection {
+    url: String,
+    token: String,
+    // Since the libSQL client can only be created asynchronously, we wait until
+    // we're in the `Connection` implementation to create. Since we only want to do
+    // this once, we use a `OnceCell` to store it.
+    inner: OnceCell<LibSqlConnection>,
+}
+
+impl LazyLibSqlConnection {
+    pub fn new(url: String, token: String) -> Self {
+        Self {
+            url,
+            token,
+            inner: OnceCell::new(),
+        }
+    }
+
+    pub async fn get_or_create_connection(&self) -> Result<&LibSqlConnection, v2::Error> {
+        self.inner
+            .get_or_try_init(|| async {
+                LibSqlConnection::create(self.url.clone(), self.token.clone())
+                    .await
+                    .context("failed to create SQLite client")
+            })
+            .await
+            .map_err(|_| v2::Error::InvalidConnection)
+    }
+}
+
+#[async_trait]
+impl Connection for LazyLibSqlConnection {
+    async fn query(
+        &self,
+        query: &str,
+        parameters: Vec<v2::Value>,
+    ) -> Result<v2::QueryResult, v2::Error> {
+        let client = self.get_or_create_connection().await?;
+        client.query(query, parameters).await
+    }
+
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        let client = self.get_or_create_connection().await?;
+        client.execute_batch(statements).await
+    }
+
+    fn summary(&self) -> Option<String> {
+        Some(format!("libSQL at {}", self.url))
+    }
+}
+
+/// An open connection to a libSQL server.
 #[derive(Clone)]
-pub struct LibsqlClient {
+pub struct LibSqlConnection {
     inner: libsql::Connection,
 }
 
-impl LibsqlClient {
-    #[instrument(name = "spin_sqlite_libsql.create_connection", skip(token), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite"))]
+impl LibSqlConnection {
     pub async fn create(url: String, token: String) -> anyhow::Result<Self> {
         let db = libsql::Builder::new_remote(url, token).build().await?;
         let inner = db.connect()?;
@@ -15,8 +71,7 @@ impl LibsqlClient {
     }
 }
 
-impl LibsqlClient {
-    #[instrument(name = "spin_sqlite_libsql.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
+impl LibSqlConnection {
     pub async fn query(
         &self,
         query: &str,
@@ -36,7 +91,6 @@ impl LibsqlClient {
         })
     }
 
-    #[instrument(name = "spin_sqlite_libsql.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
     pub async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         self.inner.execute_batch(statements).await?;
 

@@ -8,18 +8,21 @@ use async_trait::async_trait;
 use once_cell::sync::OnceCell;
 use spin_factor_sqlite::Connection;
 use spin_world::v2::sqlite;
-use tracing::{instrument, Level};
 
+/// The location of an in-process sqlite database.
 #[derive(Debug, Clone)]
 pub enum InProcDatabaseLocation {
+    /// An in-memory sqlite database.
     InMemory,
+    /// The path to the sqlite database.
     Path(PathBuf),
 }
 
 impl InProcDatabaseLocation {
     /// Convert an optional path to a database location.
     ///
-    /// Ensures that the parent directory of the database exists.
+    /// Ensures that the parent directory of the database exists. If path is None, then an in memory
+    /// database will be used.
     pub fn from_path(path: Option<PathBuf>) -> anyhow::Result<Self> {
         match path {
             Some(path) => {
@@ -68,9 +71,9 @@ impl InProcConnection {
     }
 }
 
-impl InProcConnection {
-    #[instrument(name = "spin_sqlite_inproc.query", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query))]
-    pub async fn query(
+#[async_trait]
+impl Connection for InProcConnection {
+    async fn query(
         &self,
         query: &str,
         parameters: Vec<sqlite::Value>,
@@ -84,8 +87,7 @@ impl InProcConnection {
             .map_err(|e| sqlite::Error::Io(e.to_string()))?
     }
 
-    #[instrument(name = "spin_sqlite_inproc.execute_batch", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", db.statements = statements))]
-    pub async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         let connection = self.db_connection()?;
         let statements = statements.to_owned();
         tokio::task::spawn_blocking(move || {
@@ -97,21 +99,6 @@ impl InProcConnection {
         .context("failed to spawn blocking task")?;
         Ok(())
     }
-}
-
-#[async_trait]
-impl Connection for InProcConnection {
-    async fn query(
-        &self,
-        query: &str,
-        parameters: Vec<sqlite::Value>,
-    ) -> Result<sqlite::QueryResult, sqlite::Error> {
-        self.query(query, parameters).await
-    }
-
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        self.execute_batch(statements).await
-    }
 
     fn summary(&self) -> Option<String> {
         Some(match &self.location {
@@ -121,6 +108,7 @@ impl Connection for InProcConnection {
     }
 }
 
+// This function lives outside the query function to make it more readable.
 fn execute_query(
     connection: &Mutex<rusqlite::Connection>,
     query: &str,

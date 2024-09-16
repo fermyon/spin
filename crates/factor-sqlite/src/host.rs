@@ -7,6 +7,8 @@ use spin_factors::wasmtime::component::Resource;
 use spin_factors::{anyhow, SelfInstanceBuilder};
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
+use tracing::field::Empty;
+use tracing::{instrument, Level};
 
 use crate::{Connection, ConnectionCreator};
 
@@ -62,6 +64,7 @@ impl v2::Host for InstanceState {
 
 #[async_trait]
 impl v2::HostConnection for InstanceState {
+    #[instrument(name = "spin_sqlite.open", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", sqlite.backend = Empty))]
     async fn open(&mut self, database: String) -> Result<Resource<v2::Connection>, v2::Error> {
         if !self.allowed_databases.contains(&database) {
             return Err(v2::Error::AccessDenied);
@@ -70,12 +73,17 @@ impl v2::HostConnection for InstanceState {
             .ok_or(v2::Error::NoSuchDatabase)?
             .create_connection(&database)
             .await?;
+        tracing::Span::current().record(
+            "sqlite.backend",
+            conn.summary().as_deref().unwrap_or("unknown"),
+        );
         self.connections
             .push(conn)
             .map_err(|()| v2::Error::Io("too many connections opened".to_string()))
             .map(Resource::new_own)
     }
 
+    #[instrument(name = "spin_sqlite.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query, sqlite.backend = Empty))]
     async fn execute(
         &mut self,
         connection: Resource<v2::Connection>,
@@ -86,6 +94,10 @@ impl v2::HostConnection for InstanceState {
             Ok(c) => c,
             Err(err) => return Err(err),
         };
+        tracing::Span::current().record(
+            "sqlite.backend",
+            conn.summary().as_deref().unwrap_or("unknown"),
+        );
         conn.query(&query, parameters).await
     }
 

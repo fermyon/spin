@@ -5,16 +5,14 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use serde::Deserialize;
-use spin_factor_sqlite::{Connection, ConnectionCreator, DefaultLabelResolver};
+use spin_factor_sqlite::{ConnectionCreator, DefaultLabelResolver};
 use spin_factors::{
     anyhow::{self, Context as _},
     runtime_config::toml::GetTomlValue,
 };
 use spin_sqlite_inproc::InProcDatabaseLocation;
-use spin_world::v2::sqlite as v2;
-use tokio::sync::OnceCell;
+use spin_sqlite_libsql::LazyLibSqlConnection;
 
 /// Spin's default resolution of runtime configuration for SQLite databases.
 ///
@@ -77,7 +75,7 @@ impl RuntimeConfigResolver {
         let database_kind = config.type_.as_str();
         match database_kind {
             "spin" => {
-                let config: LocalDatabase = config.config.try_into()?;
+                let config: InProcDatabase = config.config.try_into()?;
                 Ok(Arc::new(
                     config.connection_creator(&self.local_database_dir)?,
                 ))
@@ -121,66 +119,14 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
 
-/// A wrapper around a libSQL connection that implements the [`Connection`] trait.
-struct LibSqlConnection {
-    url: String,
-    token: String,
-    // Since the libSQL client can only be created asynchronously, we wait until
-    // we're in the `Connection` implementation to create. Since we only want to do
-    // this once, we use a `OnceCell` to store it.
-    inner: OnceCell<spin_sqlite_libsql::LibsqlClient>,
-}
-
-impl LibSqlConnection {
-    fn new(url: String, token: String) -> Self {
-        Self {
-            url,
-            token,
-            inner: OnceCell::new(),
-        }
-    }
-
-    async fn get_client(&self) -> Result<&spin_sqlite_libsql::LibsqlClient, v2::Error> {
-        self.inner
-            .get_or_try_init(|| async {
-                spin_sqlite_libsql::LibsqlClient::create(self.url.clone(), self.token.clone())
-                    .await
-                    .context("failed to create SQLite client")
-            })
-            .await
-            .map_err(|_| v2::Error::InvalidConnection)
-    }
-}
-
-#[async_trait]
-impl Connection for LibSqlConnection {
-    async fn query(
-        &self,
-        query: &str,
-        parameters: Vec<v2::Value>,
-    ) -> Result<v2::QueryResult, v2::Error> {
-        let client = self.get_client().await?;
-        client.query(query, parameters).await
-    }
-
-    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        let client = self.get_client().await?;
-        client.execute_batch(statements).await
-    }
-
-    fn summary(&self) -> Option<String> {
-        Some(format!("libSQL at {}", self.url))
-    }
-}
-
 /// Configuration for a local SQLite database.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LocalDatabase {
+pub struct InProcDatabase {
     pub path: Option<PathBuf>,
 }
 
-impl LocalDatabase {
+impl InProcDatabase {
     /// Get a new connection creator for a local database.
     ///
     /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
@@ -209,6 +155,8 @@ fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
 }
 
 /// Configuration for a libSQL database.
+///
+/// This is used to deserialize the specific runtime config toml for libSQL databases.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LibSqlDatabase {
@@ -228,7 +176,7 @@ impl LibSqlDatabase {
             })?
             .to_owned();
         let factory = move || {
-            let connection = LibSqlConnection::new(url.clone(), self.token.clone());
+            let connection = LazyLibSqlConnection::new(url.clone(), self.token.clone());
             Ok(Box::new(connection) as _)
         };
         Ok(factory)

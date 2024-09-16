@@ -1189,12 +1189,13 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.90"
+version = "1.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
+checksum = "b62ac837cdb5cb22e10a256099b4fc502b1dfe560cb282963a974d7abd80e476"
 dependencies = [
  "jobserver",
  "libc",
+ "shlex",
 ]
 
 [[package]]
@@ -3728,9 +3729,9 @@ dependencies = [
 
 [[package]]
 name = "jobserver"
-version = "0.1.28"
+version = "0.1.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab46a6e9526ddef3ae7f787c06f0f2600639ba80ea3eade3d8e670a2230f51d6"
+checksum = "48d1dbcbbeb6a7fec7e059840aa538bd62aaccf972c7346c4d9d2059312853d0"
 dependencies = [
  "libc",
 ]
@@ -7451,6 +7452,7 @@ dependencies = [
  "table",
  "tokio",
  "toml 0.8.14",
+ "tracing",
 ]
 
 [[package]]
@@ -7854,7 +7856,6 @@ dependencies = [
  "spin-factor-sqlite",
  "spin-world",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -7865,10 +7866,10 @@ dependencies = [
  "async-trait",
  "libsql",
  "rusqlite",
+ "spin-factor-sqlite",
  "spin-world",
  "sqlparser",
  "tokio",
- "tracing",
 ]
 
 [[package]]

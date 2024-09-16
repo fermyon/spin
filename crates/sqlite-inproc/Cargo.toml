@@ -13,7 +13,6 @@ rusqlite = { version = "0.29.0", features = ["bundled"] }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-world = { path = "../world" }
 tokio = "1"
-tracing = { workspace = true }
 
 [lints]
 workspace = true

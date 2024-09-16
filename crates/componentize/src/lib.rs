@@ -466,7 +466,7 @@ mod tests {
         let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
         let mut cmd = process::Command::new("cargo");
         cmd.arg("build")
-            .current_dir(&format!("tests/{name}"))
+            .current_dir(format!("tests/{name}"))
             .arg("--release")
             .arg("--target=wasm32-wasi")
             .env("CARGO_TARGET_DIR", out_dir);

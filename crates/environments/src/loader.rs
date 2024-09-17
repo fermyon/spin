@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use spin_common::ui::quoted_path;
 
 pub(crate) struct ComponentToValidate<'a> {
@@ -73,7 +73,7 @@ async fn load_and_resolve_one<'a>(
 
     let loader = ComponentSourceLoader::new(resolution_context.wasm_loader());
 
-    let wasm = spin_compose::compose(&loader, &component).await?;
+    let wasm = spin_compose::compose(&loader, &component).await.with_context(|| format!("Spin needed to compose dependencies for {id} as part of target checking, but composition failed"))?;
 
     Ok(ComponentToValidate {
         id,

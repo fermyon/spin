@@ -3,25 +3,33 @@ use anyhow::Context;
 pub async fn load_environment(env_id: &str) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
 
-    let (pkg_name, pkg_ver) = env_id.split_once('@').unwrap();
+    let (pkg_name, pkg_ver) = env_id.split_once('@').with_context(|| format!("Failed to parse target environment {env_id} as package reference - is the target correct?"))?;
 
-    let mut client = wasm_pkg_loader::Client::with_global_defaults()?;
+    // TODO: this requires wkg configuration which shouldn't be on users:
+    // is there a better way to handle it?
+    let mut client = wasm_pkg_loader::Client::with_global_defaults()
+        .context("Failed to create a package loader from your global settings")?;
 
-    let package = pkg_name.to_owned().try_into().context("pkg ref parse")?;
-    let version = wasm_pkg_loader::Version::parse(pkg_ver).context("pkg ver parse")?;
+    let package = pkg_name
+        .to_owned()
+        .try_into()
+        .with_context(|| format!("Failed to parse environment name {pkg_name} as package name"))?;
+    let version = wasm_pkg_loader::Version::parse(pkg_ver).with_context(|| {
+        format!("Failed to parse environment version {pkg_ver} as package version")
+    })?;
 
     let release = client
         .get_release(&package, &version)
         .await
-        .context("get release")?;
+        .with_context(|| format!("Failed to get {env_id} release from registry"))?;
     let stm = client
         .stream_content(&package, &release)
         .await
-        .context("stream content")?;
+        .with_context(|| format!("Failed to get {env_id} package from registry"))?;
     let bytes = stm
         .try_collect::<bytes::BytesMut>()
         .await
-        .context("collect stm")?
+        .with_context(|| format!("Failed to get {env_id} package data from registry"))?
         .to_vec();
 
     TargetEnvironment::new(env_id.to_owned(), bytes)
@@ -37,13 +45,16 @@ pub struct TargetEnvironment {
 
 impl TargetEnvironment {
     fn new(name: String, bytes: Vec<u8>) -> anyhow::Result<Self> {
-        let decoded = wit_component::decode(&bytes).context("decode wasm")?;
+        let decoded = wit_component::decode(&bytes)
+            .with_context(|| format!("Failed to decode package for environment {name}"))?;
         let package_id = decoded.package();
         let package = decoded
             .resolve()
             .packages
             .get(package_id)
-            .context("should had a package")?
+            .with_context(|| {
+                format!("The {name} environment is invalid (no package for decoded package ID)")
+            })?
             .clone();
 
         Ok(Self {

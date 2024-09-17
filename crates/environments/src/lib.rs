@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 mod environment_definition;
 mod loader;
@@ -36,7 +36,9 @@ async fn validate_application_against_environments(
         load_and_resolve_all(app, ts, resolution_context)
             .map(|css| css.map(|css| (ty.to_owned(), css)))
     });
-    let components_by_trigger_type = join_all_result(components_by_trigger_type_futs).await?;
+    let components_by_trigger_type = join_all_result(components_by_trigger_type_futs)
+        .await
+        .context("Failed to prepare components for target environment checking")?;
 
     for (trigger_type, component) in components_by_trigger_type {
         for component in &component {
@@ -126,7 +128,8 @@ async fn validate_wasm_against_world(
     "#
     );
 
-    let doc = wac_parser::Document::parse(&wac_text)?;
+    let doc = wac_parser::Document::parse(&wac_text)
+        .context("Internal error constructing WAC document for target checking")?;
 
     // TODO: if we end up needing the registry, we need to do this dance
     // for things we are providing separately, or the registry will try to

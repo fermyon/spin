@@ -125,7 +125,7 @@ fn create_source_globs(cid: &str, c: &v2::Component) -> Option<Vec<String>> {
             build
                 .watch
                 .iter()
-                .filter_map(|w| Path::new(workdir).join(w).to_str().map(String::from))
+                .map(|w| concatenate_glob_friendly(workdir, w))
                 .collect()
         })
         .unwrap_or_else(|| build.watch.clone());
@@ -134,6 +134,20 @@ fn create_source_globs(cid: &str, c: &v2::Component) -> Option<Vec<String>> {
         None
     } else {
         Some(globs)
+    }
+}
+
+/// Using Path::join on Windows correctly joins with a backslash. But the watchexec glob
+/// engines hates backslashes. So we must always use forward slashes in glob expressions,
+/// and in workdirs, and for concatenating the two. (We could use Path::join on Unix but
+/// the signature ends up a bit different because to_str returns an Option, so...)
+fn concatenate_glob_friendly(workdir: &str, watch_glob: &str) -> String {
+    if PathBuf::from(watch_glob).is_absolute() {
+        watch_glob.to_string()
+    } else if workdir.ends_with('/') {
+        format!("{workdir}{watch_glob}")
+    } else {
+        format!("{workdir}/{watch_glob}")
     }
 }
 
@@ -205,5 +219,33 @@ impl watchexec::filter::Filterer for CompositeFilterer {
             }
         }
         Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn joining_workdir_always_uses_forward_slash() {
+        assert_eq!(
+            "work/src/**/*.rs",
+            concatenate_glob_friendly("work", "src/**/*.rs")
+        );
+        assert_eq!(
+            "work/src/**/*.rs",
+            concatenate_glob_friendly("work/", "src/**/*.rs")
+        );
+
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(
+            "/global/src/**/*.rs",
+            concatenate_glob_friendly("work", "/global/src/**/*.rs")
+        );
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            "D:/global/src/**/*.rs",
+            concatenate_glob_friendly("work", "D:/global/src/**/*.rs")
+        );
     }
 }

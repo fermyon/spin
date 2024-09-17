@@ -127,12 +127,15 @@ anyhow = "1.0.75"
 conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 http-body-util = "0.1.0"
 hyper = { version = "1.0.0", features = ["full"] }
+opentelemetry = { version = "0.24.0", features = ["metrics", "trace", "logs"] }
+opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio", "logs_level_enabled", "metrics"] }
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
 # In `rustls` turn off the `aws_lc_rs` default feature and turn on `ring`.
 # If both `aws_lc_rs` and `ring` are enabled, a panic at runtime will occur.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 tracing = { version = "0.1", features = ["log"] }
+tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
 
 wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [
   "tokio",

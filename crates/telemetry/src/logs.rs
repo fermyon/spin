@@ -1,13 +1,10 @@
 use std::{ascii::escape_default, sync::OnceLock, time::Duration};
 
 use anyhow::bail;
-use opentelemetry::{
-    global,
-    logs::{Logger, LoggerProvider},
-};
+use opentelemetry::logs::{LogRecord, Logger, LoggerProvider};
 use opentelemetry_otlp::LogExporterBuilder;
 use opentelemetry_sdk::{
-    logs::{BatchConfigBuilder, BatchLogProcessor},
+    logs::{BatchConfigBuilder, BatchLogProcessor, Logger as SdkLogger},
     resource::{EnvResourceDetector, TelemetryResourceDetector},
     Resource,
 };
@@ -16,6 +13,8 @@ use crate::{
     detector::SpinResourceDetector,
     env::{self, otel_logs_enabled, OtlpProtocol},
 };
+
+static LOGGER: OnceLock<SdkLogger> = OnceLock::new();
 
 /// Handle an application log. Has the potential to both forward the log to OTel and to emit it as a
 /// tracing event.
@@ -30,20 +29,19 @@ fn app_log_to_otel(buf: &[u8]) {
         return;
     }
 
-    let logger = global::logger_provider().logger("spin");
-    if let Ok(s) = std::str::from_utf8(buf) {
-        logger.emit(
-            opentelemetry::logs::LogRecord::builder()
-                .with_body(s.to_owned())
-                .build(),
-        );
+    if let Some(logger) = LOGGER.get() {
+        if let Ok(s) = std::str::from_utf8(buf) {
+            let mut record = logger.create_log_record();
+            record.set_body(s.to_string().into());
+            logger.emit(record);
+        } else {
+            let mut record = logger.create_log_record();
+            record.set_body(escape_non_utf8_buf(buf).into());
+            record.add_attribute("app_log_non_utf8", true);
+            logger.emit(record);
+        }
     } else {
-        logger.emit(
-            opentelemetry::logs::LogRecord::builder()
-                .with_body(escape_non_utf8_buf(buf))
-                .with_attribute("app_log_non_utf8", true)
-                .build(),
-        );
+        tracing::trace!("OTel logger not initialized, failed to log");
     }
 }
 
@@ -95,7 +93,7 @@ pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<
     };
 
     let provider = opentelemetry_sdk::logs::LoggerProvider::builder()
-        .with_config(opentelemetry_sdk::logs::config().with_resource(resource))
+        .with_resource(resource)
         .with_log_processor(
             BatchLogProcessor::builder(
                 exporter_builder.build_log_exporter()?,
@@ -106,7 +104,6 @@ pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<
         )
         .build();
 
-    global::set_logger_provider(provider);
-
+    let _ = LOGGER.set(provider.logger("spin"));
     Ok(())
 }

@@ -64,14 +64,12 @@ impl Factor for SqliteFactor {
                 ))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        let get_connection_creator: host::ConnectionCreatorGetter =
-            Arc::new(move |label| connection_creators.get(label).cloned());
 
         ensure_allowed_databases_are_configured(&allowed_databases, |label| {
-            get_connection_creator(label).is_some()
+            connection_creators.contains_key(label)
         })?;
 
-        Ok(AppState::new(allowed_databases, get_connection_creator))
+        Ok(AppState::new(allowed_databases, connection_creators))
     }
 
     fn prepare<T: spin_factors::RuntimeFactors>(
@@ -84,10 +82,9 @@ impl Factor for SqliteFactor {
             .get(ctx.app_component().id())
             .cloned()
             .unwrap_or_default();
-        let get_connection_creator = ctx.app_state().get_connection_creator.clone();
         Ok(InstanceState::new(
             allowed_databases,
-            get_connection_creator,
+            ctx.app_state().connection_creators.clone(),
         ))
     }
 }
@@ -132,19 +129,19 @@ pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("da
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-    /// A function for mapping from database name to a connection creator.
-    get_connection_creator: host::ConnectionCreatorGetter,
+    /// A mapping from database label to a connection creator.
+    connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
 }
 
 impl AppState {
     /// Create a new `AppState`
     pub fn new(
         allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-        get_connection_creator: host::ConnectionCreatorGetter,
+        connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
     ) -> Self {
         Self {
             allowed_databases,
-            get_connection_creator,
+            connection_creators,
         }
     }
 
@@ -155,7 +152,9 @@ impl AppState {
         &self,
         label: &str,
     ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
-        let connection = (self.get_connection_creator)(label)?
+        let connection = self
+            .connection_creators
+            .get(label)?
             .create_connection(label)
             .await;
         Some(connection)

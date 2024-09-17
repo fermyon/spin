@@ -1,38 +1,20 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
-use spin_factor_sqlite::SqliteFactor;
+use spin_factor_sqlite::{RuntimeConfig, SqliteFactor};
 use spin_factors::{
-    anyhow::{self, bail, Context},
-    runtime_config::toml::TomlKeyTracker,
-    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
+    anyhow::{self, bail, Context as _},
+    RuntimeFactors,
 };
 use spin_factors_test::{toml, TestEnvironment};
-use spin_sqlite::RuntimeConfigResolver;
-use spin_world::async_trait;
+use spin_world::{async_trait, v2::sqlite as v2};
+use v2::HostConnection as _;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
     sqlite: SqliteFactor,
-}
-
-#[tokio::test]
-async fn sqlite_works() -> anyhow::Result<()> {
-    let factors = TestFactors {
-        sqlite: SqliteFactor::new(),
-    };
-    let env = TestEnvironment::new(factors).extend_manifest(toml! {
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        sqlite_databases = ["default"]
-    });
-    let state = env.build_instance_state().await?;
-
-    assert_eq!(
-        state.sqlite.allowed_databases(),
-        &["default".into()].into_iter().collect::<HashSet<_>>()
-    );
-
-    Ok(())
 }
 
 #[tokio::test]
@@ -57,76 +39,92 @@ async fn errors_when_non_configured_database_used() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
+async fn errors_when_database_not_allowed() -> anyhow::Result<()> {
     let factors = TestFactors {
         sqlite: SqliteFactor::new(),
     };
-    let runtime_config = toml! {
-        [sqlite_database.foo]
-        type = "spin"
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
+        [component.test-component]
+        source = "does-not-exist.wasm"
+        sqlite_databases = []
+    });
+    let mut state = env
+        .build_instance_state()
+        .await
+        .context("build_instance_state failed")?;
+
+    assert!(matches!(
+        state.sqlite.open("foo".into()).await,
+        Err(spin_world::v2::sqlite::Error::AccessDenied)
+    ));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_works_when_database_is_configured() -> anyhow::Result<()> {
+    let factors = TestFactors {
+        sqlite: SqliteFactor::new(),
     };
-    let sqlite_config = RuntimeConfigResolver::new(None, "/".into());
+    let mut connection_creators = HashMap::new();
+    connection_creators.insert("foo".to_owned(), Arc::new(MockConnectionCreator) as _);
+    let runtime_config = TestFactorsRuntimeConfig {
+        sqlite: Some(RuntimeConfig {
+            connection_creators,
+        }),
+    };
     let env = TestEnvironment::new(factors)
         .extend_manifest(toml! {
             [component.test-component]
             source = "does-not-exist.wasm"
             sqlite_databases = ["foo"]
         })
-        .runtime_config(TomlRuntimeSource::new(&runtime_config, sqlite_config))?;
-    env.build_instance_state()
+        .runtime_config(runtime_config)?;
+
+    let mut state = env
+        .build_instance_state()
         .await
         .context("build_instance_state failed")?;
+
+    assert_eq!(
+        state.sqlite.allowed_databases(),
+        &["foo".into()].into_iter().collect::<HashSet<_>>()
+    );
+
+    assert!(state.sqlite.open("foo".into()).await.is_ok());
     Ok(())
 }
 
-struct TomlRuntimeSource<'a> {
-    table: TomlKeyTracker<'a>,
-    runtime_config_resolver: RuntimeConfigResolver,
-}
-
-impl<'a> TomlRuntimeSource<'a> {
-    fn new(table: &'a toml::Table, runtime_config_resolver: RuntimeConfigResolver) -> Self {
-        Self {
-            table: TomlKeyTracker::new(table),
-            runtime_config_resolver,
-        }
-    }
-}
-
-impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeSource<'_> {
-    fn get_runtime_config(
-        &mut self,
-    ) -> anyhow::Result<Option<<SqliteFactor as Factor>::RuntimeConfig>> {
-        self.runtime_config_resolver.resolve_from_toml(&self.table)
-    }
-}
-
-impl RuntimeConfigSourceFinalizer for TomlRuntimeSource<'_> {
-    fn finalize(&mut self) -> anyhow::Result<()> {
-        self.table.validate_all_keys_used()?;
-        Ok(())
-    }
-}
-
-impl TryFrom<TomlRuntimeSource<'_>> for TestFactorsRuntimeConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TomlRuntimeSource<'_>) -> Result<Self, Self::Error> {
-        Self::from_source(value)
-    }
-}
-
-/// A connection creator that always returns an error.
-struct InvalidConnectionCreator;
+/// A connection creator that returns a mock connection.
+struct MockConnectionCreator;
 
 #[async_trait]
-impl spin_factor_sqlite::ConnectionCreator for InvalidConnectionCreator {
+impl spin_factor_sqlite::ConnectionCreator for MockConnectionCreator {
     async fn create_connection(
         &self,
         label: &str,
-    ) -> Result<Box<dyn spin_factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error>
-    {
+    ) -> Result<Box<dyn spin_factor_sqlite::Connection + 'static>, v2::Error> {
         let _ = label;
-        Err(spin_world::v2::sqlite::Error::InvalidConnection)
+        Ok(Box::new(MockConnection))
+    }
+}
+
+/// A mock connection that always errors.
+struct MockConnection;
+
+#[async_trait]
+impl spin_factor_sqlite::Connection for MockConnection {
+    async fn query(
+        &self,
+        query: &str,
+        parameters: Vec<v2::Value>,
+    ) -> Result<v2::QueryResult, v2::Error> {
+        let _ = (query, parameters);
+        Err(v2::Error::Io("Mock connection".into()))
+    }
+
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        let _ = statements;
+        bail!("Mock connection")
     }
 }

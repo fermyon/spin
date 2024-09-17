@@ -21,7 +21,6 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
-spin-sqlite = { path = "../sqlite" }
 tokio = { version = "1", features = ["macros", "rt"] }
 
 [lints]

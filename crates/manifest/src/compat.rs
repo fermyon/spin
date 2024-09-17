@@ -97,7 +97,11 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
     })
 }
 
-pub(crate) fn convert_allowed_http_to_allowed_hosts(
+/// Converts the old `allowed_http_hosts` field to the new `allowed_outbound_hosts` field.
+///
+/// If `allow_database_access` is `true`, the function will also allow access to all redis,
+/// mysql, and postgres databases as this was the default before `allowed_outbound_hosts` was introduced.
+pub fn convert_allowed_http_to_allowed_hosts(
     allowed_http_hosts: &[impl AsRef<str>],
     allow_database_access: bool,
 ) -> anyhow::Result<Vec<String>> {

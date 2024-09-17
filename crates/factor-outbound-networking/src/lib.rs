@@ -3,7 +3,6 @@ pub mod runtime_config;
 
 use std::{collections::HashMap, sync::Arc};
 
-use config::ALLOWED_HOSTS_KEY;
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
@@ -17,8 +16,8 @@ use spin_factors::{
 };
 
 pub use config::{
-    is_service_chaining_host, parse_service_chaining_target, AllowedHostConfig, AllowedHostsConfig,
-    HostConfig, OutboundUrl, SERVICE_CHAINING_DOMAIN_SUFFIX,
+    allowed_outbound_hosts, is_service_chaining_host, parse_service_chaining_target,
+    AllowedHostConfig, AllowedHostsConfig, HostConfig, OutboundUrl, SERVICE_CHAINING_DOMAIN_SUFFIX,
 };
 
 pub use runtime_config::ComponentTlsConfigs;
@@ -58,9 +57,7 @@ impl Factor for OutboundNetworkingFactor {
             .map(|component| {
                 Ok((
                     component.id().to_string(),
-                    component
-                        .get_metadata(ALLOWED_HOSTS_KEY)?
-                        .unwrap_or_default()
+                    allowed_outbound_hosts(&component)?
                         .into_boxed_slice()
                         .into(),
                 ))

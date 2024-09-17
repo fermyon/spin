@@ -18,6 +18,7 @@ spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
+spin-manifest = { path = "../manifest" }
 spin-serde = { path = "../serde" }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }

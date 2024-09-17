@@ -7390,6 +7390,7 @@ dependencies = [
  "spin-factors",
  "spin-factors-test",
  "spin-locked-app",
+ "spin-manifest",
  "spin-serde",
  "tempfile",
  "terminal",

@@ -1,12 +1,38 @@
 use std::ops::Range;
 
 use anyhow::{bail, ensure, Context};
+use spin_factors::AppComponent;
 use spin_locked_app::MetadataKey;
 
-pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
+const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
+const ALLOWED_HTTP_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_http_hosts");
 
 pub const SERVICE_CHAINING_DOMAIN: &str = "spin.internal";
 pub const SERVICE_CHAINING_DOMAIN_SUFFIX: &str = ".spin.internal";
+
+/// Get the raw values of the `allowed_outbound_hosts` locked app metadata key.
+///
+/// This has support for converting the old `allowed_http_hosts` key to the new `allowed_outbound_hosts` key.
+pub fn allowed_outbound_hosts(component: &AppComponent) -> anyhow::Result<Vec<String>> {
+    let mut allowed_hosts = component
+        .get_metadata(ALLOWED_HOSTS_KEY)
+        .with_context(|| {
+            format!(
+                "locked app metadata was malformed for key {}",
+                ALLOWED_HOSTS_KEY.as_ref()
+            )
+        })?
+        .unwrap_or_default();
+    let allowed_http = component
+        .get_metadata(ALLOWED_HTTP_KEY)
+        .map(|h| h.unwrap_or_default())
+        .unwrap_or_default();
+    let converted =
+        spin_manifest::compat::convert_allowed_http_to_allowed_hosts(&allowed_http, false)
+            .unwrap_or_default();
+    allowed_hosts.extend(converted);
+    Ok(allowed_hosts)
+}
 
 /// An address is a url-like string that contains a host, a port, and an optional scheme
 #[derive(Eq, Debug, Clone)]
@@ -716,6 +742,11 @@ mod test {
             AllowedHostConfig::new(SchemeConfig::Any, HostConfig::Any, PortConfig::Any),
             AllowedHostConfig::parse("*://*:*").unwrap()
         );
+    }
+
+    #[test]
+    fn test_missing_scheme() {
+        assert!(AllowedHostConfig::parse("example.com").is_err());
     }
 
     #[test]

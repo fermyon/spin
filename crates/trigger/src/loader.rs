@@ -5,11 +5,17 @@ use spin_factors::AppComponent;
 
 #[derive(Default)]
 pub struct ComponentLoader {
+    _private: (),
     #[cfg(feature = "unsafe-aot-compilation")]
     aot_compilation_enabled: bool,
 }
 
 impl ComponentLoader {
+    /// Create a new `ComponentLoader`
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Updates the TriggerLoader to load AOT precompiled components
     ///
     /// **Warning: This feature may bypass important security guarantees of the

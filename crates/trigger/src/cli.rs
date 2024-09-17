@@ -14,10 +14,9 @@ use spin_common::sloth;
 use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_factors::RuntimeFactors;
-use spin_factors_executor::FactorsExecutor;
+use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 
-use crate::loader::ComponentLoader;
-use crate::{Trigger, TriggerApp};
+use crate::{loader::ComponentLoader as ComponentLoaderImpl, Trigger, TriggerApp};
 pub use initial_kv_setter::InitialKvSetterHook;
 pub use launch_metadata::LaunchMetadata;
 pub use sqlite_statements::SqlStatementExecutorHook;
@@ -220,7 +219,15 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> FactorsTriggerCommand<T, 
             follow_components,
             log_dir,
         };
-        let run_fut = builder.run(app, common_options, self.builder_args).await?;
+
+        let run_fut = builder
+            .run(
+                app,
+                common_options,
+                self.builder_args,
+                &ComponentLoaderImpl::new(),
+            )
+            .await?;
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
         ctrlc::set_handler(move || abort_handle.abort())?;
@@ -302,6 +309,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         app: App,
         common_options: FactorsConfig,
         options: B::CliArgs,
+        loader: &impl ComponentLoader,
     ) -> anyhow::Result<TriggerApp<T, B::Factors>> {
         let mut core_engine_builder = {
             self.trigger.update_core_config(&mut self.engine_config)?;
@@ -319,7 +327,7 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
             executor
-                .load_app(app, runtime_config.into(), &ComponentLoader::default())
+                .load_app(app, runtime_config.into(), loader)
                 .await?
         };
 
@@ -332,8 +340,9 @@ impl<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> TriggerAppBuilder<T, B> {
         app: App,
         common_options: FactorsConfig,
         options: B::CliArgs,
+        loader: &impl ComponentLoader,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<()>>> {
-        let configured_app = self.build(app, common_options, options).await?;
+        let configured_app = self.build(app, common_options, options, loader).await?;
         Ok(self.trigger.run(configured_app))
     }
 }

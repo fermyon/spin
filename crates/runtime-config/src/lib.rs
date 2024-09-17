@@ -368,18 +368,17 @@ impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'
 
 impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_sqlite::RuntimeConfig>> {
-        Ok(self
+        let mut config = self
             .sqlite
             .resolve_from_toml(&self.toml.table)?
-            .map(|mut config| {
-                // If the user did not provide configuration for the default label, add it.
-                if !config.connection_creators.contains_key("default") {
-                    config
-                        .connection_creators
-                        .insert("default".to_owned(), self.sqlite.default());
-                }
-                config
-            }))
+            .unwrap_or_default();
+        // If the user did not provide configuration for the default label, add it.
+        if !config.connection_creators.contains_key("default") {
+            config
+                .connection_creators
+                .insert("default".to_owned(), self.sqlite.default());
+        }
+        Ok(Some(config))
     }
 }
 
@@ -445,4 +444,72 @@ fn sqlite_config_resolver(
         default_database_dir,
         local_database_dir,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use spin_factors::RuntimeFactors;
+
+    use super::*;
+
+    #[test]
+    fn sqlite_is_configured_correctly() {
+        #[derive(RuntimeFactors)]
+        struct Factors {
+            sqlite: SqliteFactor,
+        }
+        impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for FactorsRuntimeConfig {
+            type Error = anyhow::Error;
+
+            fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
+                Self::from_source(value)
+            }
+        }
+
+        impl FactorsRuntimeConfig {
+            /// Get the labels of the configured sqlite databases.
+            fn configured_labels(&self) -> Vec<&str> {
+                let mut configured_labels = self
+                    .sqlite
+                    .as_ref()
+                    .unwrap()
+                    .connection_creators
+                    .keys()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>();
+                // Sort the labels to ensure consistent ordering.
+                configured_labels.sort();
+                configured_labels
+            }
+        }
+
+        // Test that the default label is added if not provided.
+        let toml = toml::toml! {
+            [sqlite_database.foo]
+            type = "spin"
+        };
+        let config =
+            ResolvedRuntimeConfig::<FactorsRuntimeConfig>::new(toml_resolver(&toml), None, false)
+                .unwrap();
+        assert_eq!(
+            config.runtime_config.configured_labels(),
+            vec!["default", "foo"]
+        );
+
+        // Test that the default label is added with an empty toml config.
+        let toml = toml::Table::new();
+        let config =
+            ResolvedRuntimeConfig::<FactorsRuntimeConfig>::new(toml_resolver(&toml), None, false)
+                .unwrap();
+        assert_eq!(config.runtime_config.configured_labels(), vec!["default"]);
+    }
+
+    fn toml_resolver(toml: &toml::Table) -> TomlResolver<'_> {
+        TomlResolver::new(
+            toml,
+            None,
+            UserProvidedPath::Default,
+            UserProvidedPath::Default,
+        )
+    }
 }

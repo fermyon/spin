@@ -14,6 +14,7 @@ use spin_world::v2::sqlite as v2;
 
 pub use runtime_config::RuntimeConfig;
 
+#[derive(Default)]
 pub struct SqliteFactor {
     _priv: (),
 }
@@ -45,8 +46,8 @@ impl Factor for SqliteFactor {
     ) -> anyhow::Result<Self::AppState> {
         let connection_creators = ctx
             .take_runtime_config()
-            .map(|r| r.connection_creators)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .connection_creators;
 
         let allowed_databases = ctx
             .app()

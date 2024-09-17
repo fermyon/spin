@@ -17,9 +17,8 @@ struct TestFactors {
 
 #[tokio::test]
 async fn sqlite_works() -> anyhow::Result<()> {
-    let test_resolver = DefaultLabelResolver::new(Some("default"));
     let factors = TestFactors {
-        sqlite: SqliteFactor::new(test_resolver),
+        sqlite: SqliteFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
@@ -38,9 +37,8 @@ async fn sqlite_works() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn errors_when_non_configured_database_used() -> anyhow::Result<()> {
-    let test_resolver = DefaultLabelResolver::new(None);
     let factors = TestFactors {
-        sqlite: SqliteFactor::new(test_resolver),
+        sqlite: SqliteFactor::new(),
     };
     let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
@@ -60,9 +58,8 @@ async fn errors_when_non_configured_database_used() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
-    let test_resolver = DefaultLabelResolver::new(None);
     let factors = TestFactors {
-        sqlite: SqliteFactor::new(test_resolver),
+        sqlite: SqliteFactor::new(),
     };
     let runtime_config = toml! {
         [sqlite_database.foo]
@@ -116,28 +113,6 @@ impl TryFrom<TomlRuntimeSource<'_>> for TestFactorsRuntimeConfig {
 
     fn try_from(value: TomlRuntimeSource<'_>) -> Result<Self, Self::Error> {
         Self::from_source(value)
-    }
-}
-
-/// Will return an `InvalidConnectionCreator` for the supplied default database.
-struct DefaultLabelResolver {
-    default: Option<String>,
-}
-
-impl DefaultLabelResolver {
-    fn new(default: Option<&str>) -> Self {
-        Self {
-            default: default.map(Into::into),
-        }
-    }
-}
-
-impl spin_factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn spin_factor_sqlite::ConnectionCreator>> {
-        let Some(default) = &self.default else {
-            return None;
-        };
-        (default == label).then_some(Arc::new(InvalidConnectionCreator))
     }
 }
 

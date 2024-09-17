@@ -15,18 +15,13 @@ use spin_world::v2::sqlite as v2;
 pub use runtime_config::RuntimeConfig;
 
 pub struct SqliteFactor {
-    default_label_resolver: Arc<dyn DefaultLabelResolver>,
+    _priv: (),
 }
 
 impl SqliteFactor {
     /// Create a new `SqliteFactor`
-    ///
-    /// Takes a `default_label_resolver` for how to handle when a database label doesn't
-    /// have a corresponding runtime configuration.
-    pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
-        Self {
-            default_label_resolver: Arc::new(default_label_resolver),
-        }
+    pub fn new() -> Self {
+        Self { _priv: () }
     }
 }
 
@@ -69,13 +64,8 @@ impl Factor for SqliteFactor {
                 ))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        let resolver = self.default_label_resolver.clone();
-        let get_connection_creator: host::ConnectionCreatorGetter = Arc::new(move |label| {
-            connection_creators
-                .get(label)
-                .cloned()
-                .or_else(|| resolver.default(label))
-        });
+        let get_connection_creator: host::ConnectionCreatorGetter =
+            Arc::new(move |label| connection_creators.get(label).cloned());
 
         ensure_allowed_databases_are_configured(&allowed_databases, |label| {
             get_connection_creator(label).is_some()
@@ -137,14 +127,6 @@ fn ensure_allowed_databases_are_configured(
 
 /// Metadata key for a list of allowed databases for a component.
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
-
-/// Resolves a label to a default connection creator.
-pub trait DefaultLabelResolver: Send + Sync {
-    /// If there is no runtime configuration for a given database label, return a default connection creator.
-    ///
-    /// If `Option::None` is returned, the database is not allowed.
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>>;
-}
 
 #[derive(Clone)]
 pub struct AppState {

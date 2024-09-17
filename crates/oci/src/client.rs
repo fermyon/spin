@@ -360,6 +360,10 @@ impl Client {
             }
             // Can unwrap because we got to 'entry' from walking 'source'
             let rel_path = entry.path().strip_prefix(source).unwrap();
+            // Paths must be in portable (forward slash) format in the registry,
+            // so that they can be placed correctly on any host system
+            let rel_path = portable_path(rel_path);
+
             tracing::trace!("Adding new layer for asset {rel_path:?}");
             // Construct and push layer, adding its digest to the locked component files Vec
             let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
@@ -367,7 +371,7 @@ impl Client {
             let content_inline = content.inline.is_some();
             files.push(ContentPath {
                 content,
-                path: rel_path.into(),
+                path: rel_path,
             });
             // As a workaround for OCI implementations that don't support very small blobs,
             // don't push very small content that has been inlined into the manifest:
@@ -461,14 +465,14 @@ impl Client {
         let p = self
             .cache
             .manifests_dir()
-            .join(reference.registry())
+            .join(fs_safe_segment(reference.registry()))
             .join(reference.repository())
             .join(reference.tag().unwrap_or(LATEST_TAG));
 
         if !p.is_dir() {
-            fs::create_dir_all(&p)
-                .await
-                .context("cannot find directory for OCI manifest")?;
+            fs::create_dir_all(&p).await.with_context(|| {
+                format!("cannot create directory {} for OCI manifest", p.display())
+            })?;
         }
 
         Ok(p.join(MANIFEST_FILE))
@@ -483,7 +487,7 @@ impl Client {
         let p = self
             .cache
             .manifests_dir()
-            .join(reference.registry())
+            .join(fs_safe_segment(reference.registry()))
             .join(reference.repository())
             .join(reference.tag().unwrap_or(LATEST_TAG));
 
@@ -780,6 +784,41 @@ fn add_inferred(map: &mut BTreeMap<String, String>, key: &str, value: Option<Str
             e.insert(value);
         }
     }
+}
+
+/// Takes a relative path and turns it into a format that is safe
+/// for putting into a registry where it might end up on any host.
+#[cfg(target_os = "windows")]
+fn portable_path(rel_path: &Path) -> PathBuf {
+    assert!(
+        rel_path.is_relative(),
+        "portable_path requires paths to be relative"
+    );
+    let portable_path = rel_path.to_string_lossy().replace('\\', "/");
+    PathBuf::from(portable_path)
+}
+
+/// Takes a relative path and turns it into a format that is safe
+/// for putting into a registry where it might end up on any host.
+/// This is a no-op on Unix systems, but is needed for Windows.
+#[cfg(not(target_os = "windows"))]
+fn portable_path(rel_path: &Path) -> PathBuf {
+    rel_path.into()
+}
+
+/// Takes a string intended for use as part of a path and makes it
+/// compatible with the local filesystem.
+#[cfg(target_os = "windows")]
+fn fs_safe_segment(segment: &str) -> impl AsRef<Path> {
+    segment.replace(':', "_")
+}
+
+/// Takes a string intended for use as part of a path and makes it
+/// compatible with the local filesystem.
+/// This is a no-op on Unix systems, but is needed for Windows.
+#[cfg(not(target_os = "windows"))]
+fn fs_safe_segment(segment: &str) -> impl AsRef<Path> + '_ {
+    segment
 }
 
 #[cfg(test)]

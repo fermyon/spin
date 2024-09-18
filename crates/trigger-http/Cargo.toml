@@ -38,7 +38,7 @@ terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["full"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12"] }
 tracing = { workspace = true }
-url = "2.4.1"
+url = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }

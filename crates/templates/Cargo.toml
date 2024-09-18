@@ -10,7 +10,7 @@ async-trait = { workspace = true }
 bytes = "1.1"
 console = "0.15"
 dialoguer = "0.10"
-dirs = "3.0"
+dirs = { workspace = true }
 fs_extra = "1.2"
 heck = "0.4"
 indexmap = { version = "1", features = ["serde"] }
@@ -27,9 +27,9 @@ semver = "1.0"
 serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
 toml = { workspace = true }
 toml_edit = "0.20.2"
-url = "2.2.2"
+url = { workspace = true }
 walkdir = "2"

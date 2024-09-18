@@ -2001,15 +2001,6 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
-dependencies = [
- "dirs-sys 0.3.7",
-]
-
-[[package]]
-name = "dirs"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
@@ -7657,7 +7648,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytes",
- "dirs 4.0.0",
+ "dirs 5.0.1",
  "futures",
  "glob",
  "indexmap 1.9.3",
@@ -7729,7 +7720,7 @@ dependencies = [
  "async-tar",
  "base64 0.21.7",
  "chrono",
- "dirs 4.0.0",
+ "dirs 5.0.1",
  "dkregistry",
  "docker_credential",
  "futures-util",
@@ -7756,7 +7747,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "chrono",
- "dirs 4.0.0",
+ "dirs 5.0.1",
  "fd-lock 3.0.13",
  "flate2",
  "is-terminal",
@@ -7917,7 +7908,7 @@ dependencies = [
  "bytes",
  "console",
  "dialoguer 0.10.4",
- "dirs 3.0.2",
+ "dirs 5.0.1",
  "fs_extra",
  "heck 0.4.1",
  "indexmap 1.9.3",
@@ -8956,7 +8947,7 @@ name = "ui-testing"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "dirs 4.0.0",
+ "dirs 5.0.1",
  "libtest-mimic 0.6.1",
  "snapbox",
  "tokio",

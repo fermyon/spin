@@ -18,7 +18,7 @@ tracing = { workspace = true }
 tracing-appender = "0.2.2"
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["smallvec", "fmt", "ansi", "std", "env-filter", "json", "registry"] }
-url = "2.2.2"
+url = { workspace = true }
 
 [features]
 tracing-log-compat = ["tracing-subscriber/tracing-log", "tracing-opentelemetry/tracing-log"]

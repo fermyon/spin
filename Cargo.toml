@@ -42,7 +42,7 @@ rpassword = "7.0"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { workspace = true }
-sha2 = "0.10.2"
+sha2 = { workspace = true }
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
@@ -65,11 +65,11 @@ spin-trigger-redis = { path = "crates/trigger-redis" }
 terminal = { path = "crates/terminal" }
 
 subprocess = "0.2.9"
-tempfile = "3.8.0"
+tempfile = { workspace = true }
 tokio = { version = "1.23", features = ["full"] }
 toml = { workspace = true }
 tracing = { workspace = true }
-url = "2.2.2"
+url = { workspace = true }
 uuid = { version = "^1.0", features = ["v4"] }
 wasmtime = { workspace = true }
 watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
@@ -90,7 +90,6 @@ hyper = { workspace = true }
 hyper-util = { version = "0.1.2", features = ["tokio"] }
 redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
-sha2 = "0.10.1"
 test-codegen-macro = { path = "crates/test-codegen-macro" }
 test-components = { path = "tests/test-components" }
 test-environment = { workspace = true }
@@ -126,6 +125,7 @@ members = [
 anyhow = "1"
 async-trait = "0.1"
 conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+dirs = "5.0"
 futures = "0.3"
 http = "1"
 http-body-util = "0.1"
@@ -138,11 +138,14 @@ reqwest = { version = "0.12", features = ["stream", "blocking"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 serde_json = "1.0.128"
 serde = { version = "1.0.210", features = ["derive", "rc"] }
+sha2 = "0.10"
+tempfile = "3.8"
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 toml = "0.8"
 thiserror = "1"
 tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
+url = "2"
 
 wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [
   "tokio",

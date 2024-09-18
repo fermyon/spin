@@ -6,8 +6,8 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-dirs = "5.0.1"
-sha2 = "0.10"
-tempfile = "3.5"
+dirs = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["rt", "time"] }
-url = "2"
+url = { workspace = true }

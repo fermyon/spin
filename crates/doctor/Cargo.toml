@@ -12,7 +12,7 @@ serde = { workspace = true }
 similar = "2"
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 tokio = { version = "1", features = ["process"] }
 toml = { workspace = true }
@@ -21,7 +21,7 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 glob = "0.3.1"
-tempfile = "3"
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt"] }
 ui-testing = { path = "../ui-testing" }
 

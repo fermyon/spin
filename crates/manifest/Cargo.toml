@@ -13,7 +13,7 @@ spin-serde = { path = "../serde" }
 terminal = { path = "../terminal" }
 thiserror = { workspace = true }
 toml = { version = "0.8.0", features = ["preserve_order"] }
-url = "2.4.1"
+url = { workspace = true }
 wasm-pkg-common = "0.4.1"
 
 [dev-dependencies]

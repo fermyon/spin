@@ -21,7 +21,7 @@ tracing = { workspace = true }
 spin-factors-test = { path = "../factors-test" }
 spin-key-value-spin = { path = "../key-value-spin" }
 spin-key-value-redis = { path = "../key-value-redis" }
-tempfile = "3.12.0"
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt"] }
 
 

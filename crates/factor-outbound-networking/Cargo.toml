@@ -22,13 +22,13 @@ spin-manifest = { path = "../manifest" }
 spin-serde = { path = "../serde" }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
-url = "2.4.1"
+url = { workspace = true }
 urlencoding = "2.1"
 webpki-roots = "0.26"
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
-tempfile = "3.10.1"
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt"] }
 toml = { workspace = true }
 wasmtime-wasi = { workspace = true }

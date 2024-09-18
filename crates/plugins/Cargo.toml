@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 bytes = "1.1"
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "4.0"
+dirs = { workspace = true }
 fd-lock = "3.0.12"
 flate2 = "1.0.17"
 is-terminal = "0.4"
@@ -19,7 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 spin-common = { path = "../common" }
 tar = "0.4.38"
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 thiserror = { workspace = true }
 tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }

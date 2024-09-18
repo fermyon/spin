@@ -10,7 +10,7 @@ spin-app = { path = "../app" }
 spin-factors = { path = "../factors" }
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-loader = { path = "../loader" }
-tempfile = "3.10.1"
+tempfile = { workspace = true }
 toml = { workspace = true }
 
 [lints]

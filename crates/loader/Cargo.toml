@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = "1.1.0"
-dirs = "4.0"
+dirs = { workspace = true }
 futures = { workspace = true }
 glob = "0.3.0"
 indexmap = { version = "1" }
@@ -21,14 +21,14 @@ reqwest = "0.12"
 semver = "1.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = "0.10.8"
+sha2 = { workspace = true }
 shellexpand = "3.1"
 spin-common = { path = "../common" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
 spin-serde = { path = "../serde" }
-tempfile = "3.8.0"
+tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 thiserror = { workspace = true }
 tokio = "1.23"

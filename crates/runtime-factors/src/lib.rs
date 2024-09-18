@@ -41,7 +41,6 @@ impl TriggerFactors {
         working_dir: impl Into<PathBuf>,
         allow_transient_writes: bool,
         default_key_value_label_resolver: impl spin_factor_key_value::DefaultLabelResolver + 'static,
-        default_sqlite_label_resolver: impl spin_factor_sqlite::DefaultLabelResolver + 'static,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -50,7 +49,7 @@ impl TriggerFactors {
             key_value: KeyValueFactor::new(default_key_value_label_resolver),
             outbound_networking: outbound_networking_factor(),
             outbound_http: OutboundHttpFactor::default(),
-            sqlite: SqliteFactor::new(default_sqlite_label_resolver),
+            sqlite: SqliteFactor::new(),
             redis: OutboundRedisFactor::new(),
             mqtt: OutboundMqttFactor::new(NetworkedMqttClient::creator()),
             pg: OutboundPgFactor::new(),

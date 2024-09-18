@@ -7461,7 +7461,6 @@ dependencies = [
  "spin-factors",
  "spin-factors-test",
  "spin-locked-app",
- "spin-sqlite",
  "spin-world",
  "table",
  "tokio",

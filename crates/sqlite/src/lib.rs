@@ -6,7 +6,7 @@ use std::{
 };
 
 use serde::Deserialize;
-use spin_factor_sqlite::{ConnectionCreator, DefaultLabelResolver};
+use spin_factor_sqlite::ConnectionCreator;
 use spin_factors::{
     anyhow::{self, Context as _},
     runtime_config::toml::GetTomlValue,
@@ -97,13 +97,9 @@ pub struct TomlRuntimeConfig {
     pub config: toml::Table,
 }
 
-impl DefaultLabelResolver for RuntimeConfigResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>> {
-        // Only default the database labeled "default".
-        if label != "default" {
-            return None;
-        }
-
+impl RuntimeConfigResolver {
+    /// The [`ConnectionCreator`] for the 'default' label.
+    pub fn default(&self) -> Arc<dyn ConnectionCreator> {
         let path = self
             .default_database_dir
             .as_deref()
@@ -113,7 +109,7 @@ impl DefaultLabelResolver for RuntimeConfigResolver {
             let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
             Ok(Box::new(connection) as _)
         };
-        Some(Arc::new(factory))
+        Arc::new(factory)
     }
 }
 

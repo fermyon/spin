@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -14,19 +14,11 @@ use crate::{Connection, ConnectionCreator};
 
 pub struct InstanceState {
     allowed_databases: Arc<HashSet<String>>,
+    /// A resource table of connections.
     connections: table::Table<Box<dyn Connection>>,
-    get_connection_creator: ConnectionCreatorGetter,
+    /// A map from database label to connection creators.
+    connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
 }
-
-impl InstanceState {
-    pub fn allowed_databases(&self) -> &HashSet<String> {
-        &self.allowed_databases
-    }
-}
-
-/// A function that takes a database label and returns a connection creator, if one exists.
-pub type ConnectionCreatorGetter =
-    Arc<dyn Fn(&str) -> Option<Arc<dyn ConnectionCreator>> + Send + Sync>;
 
 impl InstanceState {
     /// Create a new `InstanceState`
@@ -34,15 +26,16 @@ impl InstanceState {
     /// Takes the list of allowed databases, and a function for getting a connection creator given a database label.
     pub fn new(
         allowed_databases: Arc<HashSet<String>>,
-        get_connection_creator: ConnectionCreatorGetter,
+        connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
     ) -> Self {
         Self {
             allowed_databases,
             connections: table::Table::new(256),
-            get_connection_creator,
+            connection_creators,
         }
     }
 
+    /// Get a connection for a given database label.
     fn get_connection(
         &self,
         connection: Resource<v2::Connection>,
@@ -51,6 +44,11 @@ impl InstanceState {
             .get(connection.rep())
             .map(|conn| conn.as_ref())
             .ok_or(v2::Error::InvalidConnection)
+    }
+
+    /// Get the set of allowed databases.
+    pub fn allowed_databases(&self) -> &HashSet<String> {
+        &self.allowed_databases
     }
 }
 
@@ -69,7 +67,9 @@ impl v2::HostConnection for InstanceState {
         if !self.allowed_databases.contains(&database) {
             return Err(v2::Error::AccessDenied);
         }
-        let conn = (self.get_connection_creator)(&database)
+        let conn = self
+            .connection_creators
+            .get(&database)
             .ok_or(v2::Error::NoSuchDatabase)?
             .create_connection(&database)
             .await?;

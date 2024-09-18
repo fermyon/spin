@@ -103,6 +103,7 @@ fn parse_file_and_label(config: &str) -> anyhow::Result<(&str, &str)> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::{collections::VecDeque, sync::mpsc::Sender};
 
@@ -136,12 +137,13 @@ mod tests {
         ]);
         let (tx, rx) = std::sync::mpsc::channel();
         let creator = Arc::new(MockCreator { tx });
-        let creator2 = creator.clone();
-        let get_creator = Arc::new(move |label: &str| {
-            creator.push(label);
-            Some(creator2.clone() as _)
-        });
-        let sqlite = spin_factor_sqlite::AppState::new(Default::default(), get_creator);
+        let mut connection_creators = HashMap::new();
+        connection_creators.insert(
+            "default".into(),
+            creator.clone() as Arc<dyn ConnectionCreator>,
+        );
+        connection_creators.insert("label".into(), creator);
+        let sqlite = spin_factor_sqlite::AppState::new(Default::default(), connection_creators);
         let result = hook.execute(&sqlite).await;
         assert!(result.is_ok());
 
@@ -182,7 +184,7 @@ mod tests {
             &self,
             label: &str,
         ) -> Result<Box<dyn Connection + 'static>, v2::Error> {
-            let _ = label;
+            self.push(label);
             Ok(Box::new(MockConnection {
                 tx: self.tx.clone(),
             }))

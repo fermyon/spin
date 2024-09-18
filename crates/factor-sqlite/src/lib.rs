@@ -14,19 +14,15 @@ use spin_world::v2::sqlite as v2;
 
 pub use runtime_config::RuntimeConfig;
 
+#[derive(Default)]
 pub struct SqliteFactor {
-    default_label_resolver: Arc<dyn DefaultLabelResolver>,
+    _priv: (),
 }
 
 impl SqliteFactor {
     /// Create a new `SqliteFactor`
-    ///
-    /// Takes a `default_label_resolver` for how to handle when a database label doesn't
-    /// have a corresponding runtime configuration.
-    pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
-        Self {
-            default_label_resolver: Arc::new(default_label_resolver),
-        }
+    pub fn new() -> Self {
+        Self { _priv: () }
     }
 }
 
@@ -50,8 +46,8 @@ impl Factor for SqliteFactor {
     ) -> anyhow::Result<Self::AppState> {
         let connection_creators = ctx
             .take_runtime_config()
-            .map(|r| r.connection_creators)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .connection_creators;
 
         let allowed_databases = ctx
             .app()
@@ -69,19 +65,12 @@ impl Factor for SqliteFactor {
                 ))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        let resolver = self.default_label_resolver.clone();
-        let get_connection_creator: host::ConnectionCreatorGetter = Arc::new(move |label| {
-            connection_creators
-                .get(label)
-                .cloned()
-                .or_else(|| resolver.default(label))
-        });
 
         ensure_allowed_databases_are_configured(&allowed_databases, |label| {
-            get_connection_creator(label).is_some()
+            connection_creators.contains_key(label)
         })?;
 
-        Ok(AppState::new(allowed_databases, get_connection_creator))
+        Ok(AppState::new(allowed_databases, connection_creators))
     }
 
     fn prepare<T: spin_factors::RuntimeFactors>(
@@ -94,10 +83,9 @@ impl Factor for SqliteFactor {
             .get(ctx.app_component().id())
             .cloned()
             .unwrap_or_default();
-        let get_connection_creator = ctx.app_state().get_connection_creator.clone();
         Ok(InstanceState::new(
             allowed_databases,
-            get_connection_creator,
+            ctx.app_state().connection_creators.clone(),
         ))
     }
 }
@@ -138,31 +126,23 @@ fn ensure_allowed_databases_are_configured(
 /// Metadata key for a list of allowed databases for a component.
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
 
-/// Resolves a label to a default connection creator.
-pub trait DefaultLabelResolver: Send + Sync {
-    /// If there is no runtime configuration for a given database label, return a default connection creator.
-    ///
-    /// If `Option::None` is returned, the database is not allowed.
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionCreator>>;
-}
-
 #[derive(Clone)]
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-    /// A function for mapping from database name to a connection creator.
-    get_connection_creator: host::ConnectionCreatorGetter,
+    /// A mapping from database label to a connection creator.
+    connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
 }
 
 impl AppState {
     /// Create a new `AppState`
     pub fn new(
         allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-        get_connection_creator: host::ConnectionCreatorGetter,
+        connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
     ) -> Self {
         Self {
             allowed_databases,
-            get_connection_creator,
+            connection_creators,
         }
     }
 
@@ -173,7 +153,9 @@ impl AppState {
         &self,
         label: &str,
     ) -> Option<Result<Box<dyn Connection>, v2::Error>> {
-        let connection = (self.get_connection_creator)(label)?
+        let connection = self
+            .connection_creators
+            .get(label)?
             .create_connection(label)
             .await;
         Some(connection)

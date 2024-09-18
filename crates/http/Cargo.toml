@@ -19,7 +19,7 @@ tracing = { workspace = true }
 wasmtime-wasi-http = { workspace = true, optional = true }
 
 [dev-dependencies]
-toml = "0.8.2"
+toml = { workspace = true }
 
 [features]
 default = ["runtime"]

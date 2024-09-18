@@ -67,7 +67,7 @@ terminal = { path = "crates/terminal" }
 subprocess = "0.2.9"
 tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
-toml = "0.8"
+toml = { workspace = true }
 tracing = { workspace = true }
 url = "2.2.2"
 uuid = { version = "^1.0", features = ["v4"] }
@@ -134,6 +134,7 @@ reqwest = { version = "0.12", features = ["stream", "blocking"] }
 # If both `aws_lc_rs` and `ring` are enabled, a panic at runtime will occur.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+toml = "0.8"
 tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
 

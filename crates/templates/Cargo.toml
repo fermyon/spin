@@ -29,7 +29,7 @@ spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
-toml = "0.5"
+toml = { workspace = true }
 toml_edit = "0.20.2"
 url = "2.2.2"
 walkdir = "2"

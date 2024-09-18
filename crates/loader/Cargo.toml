@@ -33,7 +33,7 @@ terminal = { path = "../terminal" }
 thiserror = "1.0.49"
 tokio = "1.23"
 tokio-util = "0.6"
-toml = "0.8.2"
+toml = { workspace = true }
 tracing = { workspace = true }
 walkdir = "2.3.2"
 wasm-pkg-loader = "0.4.1"

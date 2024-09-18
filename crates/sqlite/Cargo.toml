@@ -15,4 +15,4 @@ spin-sqlite-libsql = { path = "../sqlite-libsql" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = "1"
-toml = "0.8"
+toml = { workspace = true }

@@ -28,7 +28,7 @@ spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-spin = { path = "../key-value-spin" }
 spin-sqlite = { path = "../sqlite" }
 spin-trigger = { path = "../trigger" }
-toml = "0.8"
+toml = { workspace = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

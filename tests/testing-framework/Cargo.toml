@@ -21,6 +21,6 @@ spin-loader = { path = "../../crates/loader" }
 spin-runtime-factors = { path = "../../crates/runtime-factors" }
 spin-trigger = { path = "../../crates/trigger" }
 spin-trigger-http = { path = "../../crates/trigger-http" }
-toml = "0.8.6"
+toml = { workspace = true }
 tokio = "1.23"
 wasmtime-wasi-http = { workspace = true }

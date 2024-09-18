@@ -13,5 +13,5 @@ spin-manifest = { path = "../manifest" }
 subprocess = "0.2.8"
 terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["full"] }
-toml = "0.5"
+toml = { workspace = true }
 tracing = { workspace = true }

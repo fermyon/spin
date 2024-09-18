@@ -11,7 +11,7 @@ spin-factors = { path = "../factors" }
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-loader = { path = "../loader" }
 tempfile = "3.10.1"
-toml = "0.8.14"
+toml = { workspace = true }
 
 [lints]
 workspace = true

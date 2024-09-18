@@ -7090,7 +7090,7 @@ dependencies = [
  "subprocess",
  "terminal",
  "tokio",
- "toml 0.5.11",
+ "toml 0.8.14",
  "tracing",
 ]
 
@@ -7277,7 +7277,7 @@ dependencies = [
  "spin-locked-app",
  "thiserror",
  "tokio",
- "toml 0.5.11",
+ "toml 0.8.14",
 ]
 
 [[package]]
@@ -7937,7 +7937,7 @@ dependencies = [
  "spin-manifest",
  "tempfile",
  "tokio",
- "toml 0.5.11",
+ "toml 0.8.14",
  "toml_edit 0.20.7",
  "url",
  "walkdir",

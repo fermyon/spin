@@ -14,7 +14,7 @@ spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["macros", "sync", "rt"] }
-toml = "0.8"
+toml = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

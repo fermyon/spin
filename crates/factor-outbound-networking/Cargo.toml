@@ -30,7 +30,7 @@ webpki-roots = "0.26"
 spin-factors-test = { path = "../factors-test" }
 tempfile = "3.10.1"
 tokio = { version = "1", features = ["macros", "rt"] }
-toml = "0.8"
+toml = { workspace = true }
 wasmtime-wasi = { workspace = true }
 
 [features]

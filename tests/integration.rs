@@ -1426,7 +1426,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1469,7 +1469,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1539,7 +1539,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1604,7 +1604,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1665,7 +1665,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1727,7 +1727,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1793,7 +1793,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1851,7 +1851,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())
@@ -1908,7 +1908,7 @@ mod otel_integration_tests {
             },
             ServicesConfig::none(),
             |env| {
-                env.set_env_var("OTEL_EXPORTER_OTLP_ENDPOINT", collector_endpoint);
+                env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", collector_endpoint);
                 env.set_env_var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc");
                 env.set_env_var("OTEL_BSP_SCHEDULE_DELAY", "5");
                 Ok(())

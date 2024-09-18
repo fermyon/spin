@@ -8,11 +8,15 @@ pub use loader::ResolutionContext;
 use loader::{load_and_resolve_all, ComponentToValidate};
 
 pub async fn validate_application_against_environment_ids(
-    env_ids: impl Iterator<Item = &str>,
+    env_ids: &[impl AsRef<str>],
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
-) -> anyhow::Result<()> {
-    let envs = join_all_result(env_ids.map(load_environment)).await?;
+) -> anyhow::Result<Vec<anyhow::Error>> {
+    if env_ids.is_empty() {
+        return Ok(Default::default());
+    }
+
+    let envs = join_all_result(env_ids.iter().map(load_environment)).await?;
     validate_application_against_environments(&envs, app, resolution_context).await
 }
 
@@ -20,7 +24,7 @@ async fn validate_application_against_environments(
     envs: &[TargetEnvironment],
     app: &spin_manifest::schema::v2::AppManifest,
     resolution_context: &ResolutionContext,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<anyhow::Error>> {
     use futures::FutureExt;
 
     for trigger_type in app.triggers.keys() {
@@ -40,31 +44,45 @@ async fn validate_application_against_environments(
         .await
         .context("Failed to prepare components for target environment checking")?;
 
+    let mut errs = vec![];
+
     for (trigger_type, component) in components_by_trigger_type {
         for component in &component {
-            validate_component_against_environments(envs, &trigger_type, component).await?;
+            errs.extend(
+                validate_component_against_environments(envs, &trigger_type, component).await?,
+            );
         }
     }
 
-    Ok(())
+    Ok(errs)
 }
 
 async fn validate_component_against_environments(
     envs: &[TargetEnvironment],
     trigger_type: &TriggerType,
     component: &ComponentToValidate<'_>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<anyhow::Error>> {
+    let mut errs = vec![];
+
     for env in envs {
         let worlds = env.worlds(trigger_type);
-        validate_wasm_against_any_world(env, &worlds, component).await?;
+        if let Some(e) = validate_wasm_against_any_world(env, &worlds, component)
+            .await
+            .err()
+        {
+            errs.push(e);
+        }
     }
 
-    tracing::info!(
-        "Validated component {} {} against all target worlds",
-        component.id(),
-        component.source_description()
-    );
-    Ok(())
+    if errs.is_empty() {
+        tracing::info!(
+            "Validated component {} {} against all target worlds",
+            component.id(),
+            component.source_description()
+        );
+    }
+
+    Ok(errs)
 }
 
 async fn validate_wasm_against_any_world(

@@ -1,7 +1,9 @@
 use anyhow::Context;
 
-pub async fn load_environment(env_id: &str) -> anyhow::Result<TargetEnvironment> {
+pub async fn load_environment(env_id: impl AsRef<str>) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
+
+    let env_id = env_id.as_ref();
 
     let (pkg_name, pkg_ver) = env_id.split_once('@').with_context(|| format!("Failed to parse target environment {env_id} as package reference - is the target correct?"))?;
 

@@ -32,7 +32,11 @@ pub struct BuildCommand {
     /// By default, if the application manifest specifies one or more deployment targets, Spin
     /// checks that all components are compatible with those deployment targets. Specify
     /// this option to bypass those target checks.
-    #[clap(long = "skip-target-checks", alias = "skip-target-check", takes_value = false)]
+    #[clap(
+        long = "skip-target-checks",
+        alias = "skip-target-check",
+        takes_value = false
+    )]
     skip_target_checks: bool,
 
     /// Run the application after building.

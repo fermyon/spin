@@ -4,7 +4,8 @@ use std::{collections::BTreeMap, path::Path};
 
 use spin_manifest::{schema::v2, ManifestVersion};
 
-use crate::deployment::DeploymentTargets;
+pub type DeploymentTarget = String;
+pub type DeploymentTargets = Vec<DeploymentTarget>;
 
 /// Returns a map of component IDs to [`v2::ComponentBuildConfig`]s for the
 /// given (v1 or v2) manifest path. If the manifest cannot be loaded, the
@@ -49,13 +50,7 @@ fn build_configs_from_manifest(
 fn deployment_targets_from_manifest(
     manifest: &spin_manifest::schema::v2::AppManifest,
 ) -> DeploymentTargets {
-    let target_environments = manifest.application.targets.clone();
-    // let components = manifest
-    //     .components
-    //     .iter()
-    //     .map(|(id, c)| (id.to_string(), c.source.clone()))
-    //     .collect();
-    DeploymentTargets::new(target_environments)
+    manifest.application.targets.clone()
 }
 
 async fn fallback_load_build_configs(
@@ -83,13 +78,6 @@ async fn fallback_load_build_configs(
 async fn fallback_load_deployment_targets(
     manifest_file: impl AsRef<Path>,
 ) -> Result<DeploymentTargets> {
-    // fn try_parse_component_source(c: (&String, &toml::Value)) -> Option<(String, spin_manifest::schema::v2::ComponentSource)> {
-    //     let (id, ctab) = c;
-    //     let cs = ctab.as_table()
-    //         .and_then(|c| c.get("source"))
-    //         .and_then(|cs| spin_manifest::schema::v2::ComponentSource::deserialize(cs.clone()).ok());
-    //     cs.map(|cs| (id.to_string(), cs))
-    // }
     let manifest_text = tokio::fs::read_to_string(manifest_file).await?;
     Ok(match ManifestVersion::detect(&manifest_text)? {
         ManifestVersion::V1 => Default::default(),
@@ -106,12 +94,7 @@ async fn fallback_load_deployment_targets(
                 .filter_map(|t| t.as_str())
                 .map(|s| s.to_owned())
                 .collect();
-            // let components = table
-            //     .get("component")
-            //     .and_then(|cs| cs.as_table())
-            //     .map(|table| table.iter().filter_map(try_parse_component_source).collect())
-            //     .unwrap_or_default();
-            DeploymentTargets::new(target_environments)
+            target_environments
         }
     })
 }

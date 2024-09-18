@@ -10,7 +10,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-tracing = "0.1"
+tracing = { workspace = true }
 wasm-encoder = "0.200.0"
 wasm-metadata = "0.200.0"
 wasmparser = "0.200.0"

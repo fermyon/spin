@@ -24,7 +24,7 @@ spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-tracing = { version = "0.1", features = ["log"] }
+tracing = { workspace = true }
 url = "2.3.1"
 
 [dev-dependencies]

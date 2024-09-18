@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{bail, Result};
+use opentelemetry::global;
 use opentelemetry_otlp::MetricsExporterBuilder;
 use opentelemetry_sdk::{
     metrics::{
@@ -56,6 +57,8 @@ pub(crate) fn otel_metrics_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         .with_reader(reader)
         .with_resource(resource)
         .build();
+
+    global::set_meter_provider(meter_provider.clone());
 
     Ok(MetricsLayer::new(meter_provider))
 }

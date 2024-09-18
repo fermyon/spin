@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::bail;
-use opentelemetry::trace::TracerProvider;
+use opentelemetry::{global, trace::TracerProvider};
 use opentelemetry_otlp::SpanExporterBuilder;
 use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
@@ -49,6 +49,8 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         .with_exporter(exporter_builder)
         .with_trace_config(opentelemetry_sdk::trace::Config::default().with_resource(resource))
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+
+    global::set_tracer_provider(tracer_provider.clone());
 
     let env_filter = match EnvFilter::try_from_env("SPIN_OTEL_TRACING_LEVEL") {
         Ok(filter) => filter,

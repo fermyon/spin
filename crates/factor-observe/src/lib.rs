@@ -146,7 +146,7 @@ impl ObserveContext {
         };
 
         // If there are no active guest spans then there is nothing to do
-        let Some(current_span_id) = state.active_spans.last() else {
+        let Some(active_span) = state.active_spans.last() else {
             return;
         };
 
@@ -166,7 +166,7 @@ impl ObserveContext {
         // Now reparent the current span to the last active guest span
         let span_context = state
             .guest_spans
-            .get(*current_span_id)
+            .get(*active_span)
             .unwrap()
             .inner
             .span_context()

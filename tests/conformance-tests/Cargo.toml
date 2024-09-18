@@ -9,7 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 testing-framework = { path = "../testing-framework" }
 conformance-tests = { workspace = true }
 test-environment = { workspace = true }

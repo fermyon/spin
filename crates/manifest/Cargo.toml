@@ -5,21 +5,21 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.75"
+anyhow = { workspace = true }
 indexmap = { version = "1", features = ["serde"] }
 semver = { version = "1.0", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true }
 spin-serde = { path = "../serde" }
 terminal = { path = "../terminal" }
-thiserror = "1"
+thiserror = { workspace = true }
 toml = { version = "0.8.0", features = ["preserve_order"] }
 url = "2.4.1"
 wasm-pkg-common = "0.4.1"
 
 [dev-dependencies]
-anyhow = "1.0.75"
+anyhow = { workspace = true }
 glob = "0.3.1"
-serde_json = "1.0"
+serde_json = { workspace = true }
 ui-testing = { path = "../ui-testing" }
 
 [[test]]

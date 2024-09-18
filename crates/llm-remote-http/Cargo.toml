@@ -5,11 +5,11 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
-http = "0.2"
+anyhow = { workspace = true }
+http = { workspace = true }
 reqwest = { version = "0.11", features = ["gzip", "json"] }
-serde = { version = "1.0.150", features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
 spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }

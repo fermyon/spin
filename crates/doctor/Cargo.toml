@@ -5,10 +5,10 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1"
-async-trait = "0.1"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 reqwest = { version = "0.11", features = ["stream"] }
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 similar = "2"
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }

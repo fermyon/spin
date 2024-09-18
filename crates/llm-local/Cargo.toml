@@ -5,7 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 candle = { git = "https://github.com/huggingface/candle", rev = "b80348d22f8f0dadb6cc4101bde031d5de69a9a5", package = "candle-core" }
 candle-nn = { git = "https://github.com/huggingface/candle", rev = "b80348d22f8f0dadb6cc4101bde031d5de69a9a5" }
 chrono = "0.4.26"
@@ -17,7 +17,7 @@ lru = "0.9.0"
 num_cpus = "1"
 rand = "0.8.5"
 safetensors = "0.3.3"
-serde = { version = "1.0.150", features = ["derive"] }
+serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }

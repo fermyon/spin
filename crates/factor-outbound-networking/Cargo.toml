@@ -5,14 +5,14 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1"
+anyhow = { workspace = true }
 futures-util = "0.3"
-http = "1.1.0"
+http = { workspace = true }
 ipnet = "2.9.0"
 rustls = { workspace = true }
 rustls-pemfile = { version = "2.1.2", optional = true }
 rustls-pki-types = "1.7.0"
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 spin-expressions = { path = "../expressions" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }

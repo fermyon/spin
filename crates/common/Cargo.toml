@@ -5,7 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 dirs = "5.0.1"
 sha2 = "0.10"
 tempfile = "3.5"

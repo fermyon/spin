@@ -5,7 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-async-trait = "0.1"
+async-trait = { workspace = true }
 bytes = "1.0"
 cap-primitives = "3.0.0"
 spin-common = { path = "../common" }

@@ -21,7 +21,7 @@ mod test {
 
     #[test]
     fn if_path_does_not_exist_then_get_at_is_none() {
-        let document = toml::toml! {
+        let document: toml::Value = toml::toml! {
             name = "test"
 
             [application.redis.trigger]
@@ -29,7 +29,8 @@ mod test {
 
             [[trigger.redis]]
             channel = "messages"
-        };
+        }
+        .into();
 
         assert!(get_at(document.clone(), &["name", "snort"]).is_none());
         assert!(get_at(document.clone(), &["snort", "fie"]).is_none());
@@ -45,7 +46,7 @@ mod test {
 
     #[test]
     fn if_path_does_exist_then_get_at_finds_it() {
-        let document = toml::toml! {
+        let document: toml::Value = toml::toml! {
             name = "test"
 
             [application.redis.trigger]
@@ -53,7 +54,8 @@ mod test {
 
             [[trigger.redis]]
             channel = "messages"
-        };
+        }
+        .into();
 
         assert!(get_at(document.clone(), &["name"])
             .expect("should find name")

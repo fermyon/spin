@@ -41,7 +41,7 @@ reqwest = { workspace = true }
 rpassword = "7.0"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.82"
+serde_json = { workspace = true }
 sha2 = "0.10.2"
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
@@ -123,18 +123,23 @@ members = [
 ]
 
 [workspace.dependencies]
-anyhow = "1.0.75"
+anyhow = "1"
+async-trait = "0.1"
 conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
-http-body-util = "0.1.0"
-hyper = { version = "1.0.0", features = ["full"] }
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["full"] }
 opentelemetry = { version = "0.24.0", features = ["metrics", "trace", "logs"] }
 opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio", "logs_level_enabled", "metrics"] }
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
 # In `rustls` turn off the `aws_lc_rs` default feature and turn on `ring`.
 # If both `aws_lc_rs` and `ring` are enabled, a panic at runtime will occur.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+serde_json = "1.0.128"
+serde = { version = "1.0.210", features = ["derive", "rc"] }
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 toml = "0.8"
+thiserror = "1"
 tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
 

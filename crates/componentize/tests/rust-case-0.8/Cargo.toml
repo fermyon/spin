@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 case-helper = { path = "../case-helper" }
-anyhow = "1.0.80"
+anyhow = { workspace = true }
 wit-bindgen = "0.8"
 
 [workspace]

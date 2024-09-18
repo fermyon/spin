@@ -8,11 +8,11 @@ edition = { workspace = true }
 doctest = false
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 futures = "0.3"
 redis = { version = "0.26.1", features = ["tokio-comp"] }
-serde = "1.0.188"
+serde = { workspace = true }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factors = { path = "../factors" }
 spin-telemetry = { path = "../telemetry" }

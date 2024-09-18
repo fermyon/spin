@@ -11,7 +11,7 @@ doctest = false
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = "3"
-futures = "0.3"
+futures = { workspace = true }
 futures-util = "0.3.8"
 http = { workspace = true }
 http-body-util = { workspace = true }

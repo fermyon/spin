@@ -126,6 +126,7 @@ members = [
 anyhow = "1"
 async-trait = "0.1"
 conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+futures = "0.3"
 http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["full"] }

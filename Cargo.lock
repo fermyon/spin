@@ -6099,7 +6099,6 @@ version = "0.11.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd67538700a17451e7cba03ac727fb961abb7607553461627b97de0b89cf4a62"
 dependencies = [
- "async-compression",
  "base64 0.21.7",
  "bytes",
  "encoding_rs",
@@ -7252,7 +7251,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "glob",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "serde 1.0.210",
  "similar",
  "spin-common",
@@ -7643,8 +7642,7 @@ name = "spin-llm-remote-http"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "http 1.1.0",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "serde 1.0.210",
  "serde_json",
  "spin-telemetry",
@@ -7668,7 +7666,7 @@ dependencies = [
  "mime_guess",
  "path-absolutize",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "semver",
  "serde 1.0.210",
  "serde_json",
@@ -7737,7 +7735,7 @@ dependencies = [
  "futures-util",
  "itertools 0.12.1",
  "oci-distribution 0.11.0 (git+https://github.com/fermyon/oci-distribution?rev=7e4ce9be9bcd22e78a28f06204931f10c44402ba)",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "serde 1.0.210",
  "serde_json",
  "spin-common",
@@ -7763,7 +7761,7 @@ dependencies = [
  "flate2",
  "is-terminal",
  "path-absolutize",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "semver",
  "serde 1.0.210",
  "serde_json",

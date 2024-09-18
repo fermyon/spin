@@ -58,7 +58,7 @@ impl AppSource {
 
     pub async fn build(&self) -> anyhow::Result<()> {
         match self {
-            Self::File(path) => spin_build::build(path, &[]).await,
+            Self::File(path) => spin_build::build(path, &[], false).await,
             _ => Ok(()),
         }
     }

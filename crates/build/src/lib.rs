@@ -17,7 +17,7 @@ use subprocess::{Exec, Redirection};
 use crate::manifest::component_build_configs;
 
 /// If present, run the build command of each component.
-pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()> {
+pub async fn build(manifest_file: &Path, component_ids: &[String], skip_target_checks: bool) -> Result<()> {
     let (components, deployment_targets, manifest) = component_build_configs(manifest_file)
         .await
         .with_context(|| {
@@ -37,7 +37,8 @@ pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()>
     build_result?;
 
     if let Ok(manifest) = &manifest {
-        if !deployment_targets.is_empty() {
+        let should_check_targets = !skip_target_checks && !deployment_targets.is_empty();
+        if should_check_targets {
             let resolution_context =
                 spin_environments::ResolutionContext::new(manifest_file.parent().unwrap()).await?;
             spin_environments::validate_application_against_environment_ids(
@@ -163,6 +164,6 @@ mod tests {
     #[tokio::test]
     async fn can_load_even_if_trigger_invalid() {
         let bad_trigger_file = test_data_root().join("bad_trigger.toml");
-        build(&bad_trigger_file, &[]).await.unwrap();
+        build(&bad_trigger_file, &[], true).await.unwrap();
     }
 }

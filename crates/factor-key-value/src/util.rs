@@ -13,21 +13,7 @@ use tokio::{
 };
 use tracing::Instrument;
 
-const DEFAULT_CACHE_SIZE: usize = 256;
-
-pub struct EmptyStoreManager;
-
-#[async_trait]
-impl StoreManager for EmptyStoreManager {
-    async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
-        Err(Error::NoSuchStore)
-    }
-
-    fn is_defined(&self, _store_name: &str) -> bool {
-        false
-    }
-}
-
+/// A [`StoreManager`] which delegates to other `StoreManager`s based on the store label.
 pub struct DelegatingStoreManager {
     delegates: HashMap<String, Arc<dyn StoreManager>>,
 }
@@ -88,6 +74,8 @@ pub struct CachingStoreManager<T> {
     capacity: NonZeroUsize,
     inner: T,
 }
+
+const DEFAULT_CACHE_SIZE: usize = 256;
 
 impl<T> CachingStoreManager<T> {
     pub fn new(inner: T) -> Self {

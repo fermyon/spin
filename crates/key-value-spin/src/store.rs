@@ -159,8 +159,7 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
-        let mut kv = KeyValueDispatch::new();
-        kv.init(
+        let mut kv = KeyValueDispatch::new(
             ["default", "foo"]
                 .into_iter()
                 .map(ToOwned::to_owned)

@@ -1,4 +1,3 @@
-use crate::util::EmptyStoreManager;
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::key_value;
@@ -40,21 +39,20 @@ pub struct KeyValueDispatch {
 }
 
 impl KeyValueDispatch {
-    pub fn new() -> Self {
-        Self::new_with_capacity(DEFAULT_STORE_TABLE_CAPACITY)
+    pub fn new(allowed_stores: HashSet<String>, manager: Arc<dyn StoreManager>) -> Self {
+        Self::new_with_capacity(allowed_stores, manager, DEFAULT_STORE_TABLE_CAPACITY)
     }
 
-    pub fn new_with_capacity(capacity: u32) -> Self {
+    pub fn new_with_capacity(
+        allowed_stores: HashSet<String>,
+        manager: Arc<dyn StoreManager>,
+        capacity: u32,
+    ) -> Self {
         Self {
-            allowed_stores: HashSet::new(),
-            manager: Arc::new(EmptyStoreManager),
+            allowed_stores,
+            manager,
             stores: Table::new(capacity),
         }
-    }
-
-    pub fn init(&mut self, allowed_stores: HashSet<String>, manager: Arc<dyn StoreManager>) {
-        self.allowed_stores = allowed_stores;
-        self.manager = manager;
     }
 
     pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
@@ -63,12 +61,6 @@ impl KeyValueDispatch {
 
     pub fn allowed_stores(&self) -> &HashSet<String> {
         &self.allowed_stores
-    }
-}
-
-impl Default for KeyValueDispatch {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

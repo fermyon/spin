@@ -51,7 +51,7 @@ impl Factor for KeyValueFactor {
 
         let delegating_manager = DelegatingStoreManager::new(store_managers);
         let caching_manager = CachingStoreManager::new(delegating_manager);
-        let store_manager_manager = Arc::new(caching_manager);
+        let store_manager = Arc::new(caching_manager);
 
         // Build component -> allowed stores map
         let mut component_allowed_stores = HashMap::new();
@@ -65,7 +65,7 @@ impl Factor for KeyValueFactor {
             for label in &key_value_stores {
                 // TODO: port nicer errors from KeyValueComponent (via error type?)
                 ensure!(
-                    store_manager_manager.is_defined(label),
+                    store_manager.is_defined(label),
                     "unknown key_value_stores label {label:?} for component {component_id:?}"
                 );
             }
@@ -74,7 +74,7 @@ impl Factor for KeyValueFactor {
         }
 
         Ok(AppState {
-            store_manager: store_manager_manager,
+            store_manager,
             component_allowed_stores,
         })
     }
@@ -150,8 +150,10 @@ impl FactorInstanceBuilder for InstanceBuilder {
             store_manager,
             allowed_stores,
         } = self;
-        let mut dispatch = KeyValueDispatch::new_with_capacity(u32::MAX);
-        dispatch.init(allowed_stores, store_manager);
-        Ok(dispatch)
+        Ok(KeyValueDispatch::new_with_capacity(
+            allowed_stores,
+            store_manager,
+            u32::MAX,
+        ))
     }
 }

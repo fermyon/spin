@@ -74,7 +74,10 @@ impl v2::HostConnection for crate::InstanceState {
         payload: Vec<u8>,
     ) -> Result<(), Error> {
         let conn = self.get_conn(connection).await.map_err(other_error)?;
-        conn.publish(&channel, &payload)
+        // The `let () =` syntax is needed to suppress a warning when the result type is inferred.
+        // You can read more about the issue here: <https://github.com/redis-rs/redis-rs/issues/1228>
+        let () = conn
+            .publish(&channel, &payload)
             .await
             .map_err(other_error)?;
         Ok(())
@@ -99,7 +102,9 @@ impl v2::HostConnection for crate::InstanceState {
         value: Vec<u8>,
     ) -> Result<(), Error> {
         let conn = self.get_conn(connection).await.map_err(other_error)?;
-        conn.set(&key, &value).await.map_err(other_error)?;
+        // The `let () =` syntax is needed to suppress a warning when the result type is inferred.
+        // You can read more about the issue here: <https://github.com/redis-rs/redis-rs/issues/1228>
+        let () = conn.set(&key, &value).await.map_err(other_error)?;
         Ok(())
     }
 

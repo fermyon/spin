@@ -100,7 +100,23 @@ impl RuntimeConfigResolver {
     /// Resolves a toml table into a runtime config.
     ///
     /// The default stores are also added to the runtime config.
-    pub fn resolve_from_toml(
+    pub fn resolve(&self, table: Option<&impl GetTomlValue>) -> anyhow::Result<RuntimeConfig> {
+        let mut runtime_config = self.resolve_from_toml(table)?.unwrap_or_default();
+
+        for (&label, config) in &self.defaults {
+            if !runtime_config.store_managers.contains_key(label) {
+                let store_manager = self
+                    .store_manager_from_config(config.clone())
+                    .with_context(|| {
+                        format!("could not configure key-value store with label '{label}'")
+                    })?;
+                runtime_config.add_store_manager(label.to_owned(), store_manager);
+            }
+        }
+        Ok(runtime_config)
+    }
+
+    fn resolve_from_toml(
         &self,
         table: Option<&impl GetTomlValue>,
     ) -> anyhow::Result<Option<RuntimeConfig>> {
@@ -117,16 +133,6 @@ impl RuntimeConfigResolver {
             runtime_config.add_store_manager(label.clone(), store_manager);
         }
 
-        for (&label, config) in &self.defaults {
-            if !runtime_config.store_managers.contains_key(label) {
-                let store_manager = self
-                    .store_manager_from_config(config.clone())
-                    .with_context(|| {
-                        format!("could not configure key-value store with label '{label}'")
-                    })?;
-                runtime_config.add_store_manager(label.to_owned(), store_manager);
-            }
-        }
         Ok(Some(runtime_config))
     }
 

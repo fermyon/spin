@@ -52,7 +52,23 @@ impl RuntimeConfigResolver {
     /// ```
     ///
     /// Configuration is automatically added for the 'default' label if it is not provided.
-    pub fn resolve_from_toml(
+    pub fn resolve(
+        &self,
+        table: &impl GetTomlValue,
+    ) -> anyhow::Result<spin_factor_sqlite::runtime_config::RuntimeConfig> {
+        let mut runtime_config = self.resolve_from_toml(table)?.unwrap_or_default();
+        // If the user did not provide configuration for the default label, add it.
+        if !runtime_config.connection_creators.contains_key("default") {
+            runtime_config
+                .connection_creators
+                .insert("default".to_owned(), self.default());
+        }
+
+        Ok(runtime_config)
+    }
+
+    /// Get the runtime configuration for SQLite databases from a TOML table.
+    fn resolve_from_toml(
         &self,
         table: &impl GetTomlValue,
     ) -> anyhow::Result<Option<spin_factor_sqlite::runtime_config::RuntimeConfig>> {
@@ -61,15 +77,10 @@ impl RuntimeConfigResolver {
         };
         let config: std::collections::HashMap<String, TomlRuntimeConfig> =
             table.clone().try_into()?;
-        let mut connection_creators = config
+        let connection_creators = config
             .into_iter()
             .map(|(k, v)| Ok((k, self.get_connection_creator(v)?)))
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-
-        // If the user did not provide configuration for the default label, add it.
-        if connection_creators.contains_key("default") {
-            connection_creators.insert("default".to_owned(), self.default());
-        }
 
         Ok(Some(spin_factor_sqlite::runtime_config::RuntimeConfig {
             connection_creators,

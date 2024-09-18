@@ -300,7 +300,7 @@ impl FactorRuntimeConfigSource<KeyValueFactor> for TomlRuntimeConfigSource<'_, '
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<spin_factor_key_value::RuntimeConfig>> {
-        self.key_value.resolve_from_toml(Some(&self.toml.table))
+        Ok(Some(self.key_value.resolve(Some(&self.toml.table))?))
     }
 }
 
@@ -368,7 +368,7 @@ impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'
 
 impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_sqlite::RuntimeConfig>> {
-        self.sqlite.resolve_from_toml(&self.toml.table)
+        Ok(Some(self.sqlite.resolve(&self.toml.table)?))
     }
 }
 
@@ -438,32 +438,53 @@ fn sqlite_config_resolver(
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::HashMap, sync::Arc};
+
     use spin_factors::RuntimeFactors;
 
     use super::*;
 
+    /// Define a test factor with the given field and factor type.
+    macro_rules! define_test_factor {
+        ($field:ident : $factor:ty) => {
+            #[derive(RuntimeFactors)]
+            struct TestFactors {
+                $field: $factor,
+            }
+            impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for TestFactorsRuntimeConfig {
+                type Error = anyhow::Error;
+
+                fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
+                    Self::from_source(value)
+                }
+            }
+            fn resolve_toml(toml: toml::Table) -> ResolvedRuntimeConfig<TestFactorsRuntimeConfig> {
+                ResolvedRuntimeConfig::<TestFactorsRuntimeConfig>::new(
+                    toml_resolver(&toml),
+                    None,
+                    false,
+                )
+                .unwrap()
+            }
+        };
+    }
+
     #[test]
     fn sqlite_is_configured_correctly() {
-        #[derive(RuntimeFactors)]
-        struct Factors {
-            sqlite: SqliteFactor,
-        }
-        impl TryFrom<TomlRuntimeConfigSource<'_, '_>> for FactorsRuntimeConfig {
-            type Error = anyhow::Error;
+        define_test_factor!(sqlite: SqliteFactor);
 
-            fn try_from(value: TomlRuntimeConfigSource<'_, '_>) -> Result<Self, Self::Error> {
-                Self::from_source(value)
+        impl TestFactorsRuntimeConfig {
+            /// Get the connection creators for the configured sqlite databases.
+            fn connection_creators(
+                &self,
+            ) -> &HashMap<String, Arc<dyn spin_factor_sqlite::ConnectionCreator>> {
+                &self.sqlite.as_ref().unwrap().connection_creators
             }
-        }
 
-        impl FactorsRuntimeConfig {
             /// Get the labels of the configured sqlite databases.
             fn configured_labels(&self) -> Vec<&str> {
                 let mut configured_labels = self
-                    .sqlite
-                    .as_ref()
-                    .unwrap()
-                    .connection_creators
+                    .connection_creators()
                     .keys()
                     .map(|s| s.as_str())
                     .collect::<Vec<_>>();
@@ -478,20 +499,36 @@ mod tests {
             [sqlite_database.foo]
             type = "spin"
         };
-        let config =
-            ResolvedRuntimeConfig::<FactorsRuntimeConfig>::new(toml_resolver(&toml), None, false)
-                .unwrap();
         assert_eq!(
-            config.runtime_config.configured_labels(),
+            resolve_toml(toml).runtime_config.configured_labels(),
             vec!["default", "foo"]
         );
 
         // Test that the default label is added with an empty toml config.
         let toml = toml::Table::new();
-        let config =
-            ResolvedRuntimeConfig::<FactorsRuntimeConfig>::new(toml_resolver(&toml), None, false)
-                .unwrap();
-        assert_eq!(config.runtime_config.configured_labels(), vec!["default"]);
+        let runtime_config = resolve_toml(toml).runtime_config;
+        assert_eq!(runtime_config.configured_labels(), vec!["default"]);
+    }
+
+    #[test]
+    fn key_value_is_configured_correctly() {
+        define_test_factor!(key_value: KeyValueFactor);
+        impl TestFactorsRuntimeConfig {
+            /// Get whether the store manager exists for the given label.
+            fn has_store_manager(&self, label: &str) -> bool {
+                self.key_value.as_ref().unwrap().has_store_manager(label)
+            }
+        }
+
+        // Test that the default label is added if not provided.
+        let toml = toml::toml! {
+            [key_value_store.foo]
+            type = "spin"
+        };
+        let runtime_config = resolve_toml(toml).runtime_config;
+        assert!(["default", "foo"]
+            .iter()
+            .all(|label| { runtime_config.has_store_manager(label) }));
     }
 
     fn toml_resolver(toml: &toml::Table) -> TomlResolver<'_> {

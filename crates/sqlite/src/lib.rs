@@ -1,6 +1,7 @@
 //! Spin's default handling of the runtime configuration for SQLite databases.
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -49,6 +50,8 @@ impl RuntimeConfigResolver {
     /// type = "$database-type"
     /// ... extra type specific configuration ...
     /// ```
+    ///
+    /// Configuration is automatically added for the 'default' label if it is not provided.
     pub fn resolve_from_toml(
         &self,
         table: &impl GetTomlValue,
@@ -58,10 +61,16 @@ impl RuntimeConfigResolver {
         };
         let config: std::collections::HashMap<String, TomlRuntimeConfig> =
             table.clone().try_into()?;
-        let connection_creators = config
+        let mut connection_creators = config
             .into_iter()
             .map(|(k, v)| Ok((k, self.get_connection_creator(v)?)))
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<anyhow::Result<HashMap<_, _>>>()?;
+
+        // If the user did not provide configuration for the default label, add it.
+        if connection_creators.contains_key("default") {
+            connection_creators.insert("default".to_owned(), self.default());
+        }
+
         Ok(Some(spin_factor_sqlite::runtime_config::RuntimeConfig {
             connection_creators,
         }))

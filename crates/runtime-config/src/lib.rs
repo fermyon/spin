@@ -368,17 +368,7 @@ impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'
 
 impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_sqlite::RuntimeConfig>> {
-        let mut config = self
-            .sqlite
-            .resolve_from_toml(&self.toml.table)?
-            .unwrap_or_default();
-        // If the user did not provide configuration for the default label, add it.
-        if !config.connection_creators.contains_key("default") {
-            config
-                .connection_creators
-                .insert("default".to_owned(), self.sqlite.default());
-        }
-        Ok(Some(config))
+        self.sqlite.resolve_from_toml(&self.toml.table)
     }
 }
 

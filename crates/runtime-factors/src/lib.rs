@@ -40,13 +40,12 @@ impl TriggerFactors {
         state_dir: Option<PathBuf>,
         working_dir: impl Into<PathBuf>,
         allow_transient_writes: bool,
-        default_key_value_label_resolver: impl spin_factor_key_value::DefaultLabelResolver + 'static,
         use_gpu: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             wasi: wasi_factor(working_dir, allow_transient_writes),
             variables: VariablesFactor::default(),
-            key_value: KeyValueFactor::new(default_key_value_label_resolver),
+            key_value: KeyValueFactor::new(),
             outbound_networking: outbound_networking_factor(),
             outbound_http: OutboundHttpFactor::default(),
             sqlite: SqliteFactor::new(),

@@ -197,7 +197,7 @@ pub struct Component {
 
 /// Component dependencies
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(try_from = "Map<DependencyName, ComponentDependency>")]
+#[serde(transparent)]
 pub struct ComponentDependencies {
     /// `dependencies = { "foo:bar" = ">= 0.1.0" }`
     pub inner: Map<DependencyName, ComponentDependency>,

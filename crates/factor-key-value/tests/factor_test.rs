@@ -11,10 +11,10 @@ struct TestFactors {
     key_value: KeyValueFactor,
 }
 
-impl Into<TestFactorsRuntimeConfig> for RuntimeConfig {
-    fn into(self) -> TestFactorsRuntimeConfig {
-        TestFactorsRuntimeConfig {
-            key_value: Some(self),
+impl From<RuntimeConfig> for TestFactorsRuntimeConfig {
+    fn from(value: RuntimeConfig) -> Self {
+        Self {
+            key_value: Some(value),
         }
     }
 }

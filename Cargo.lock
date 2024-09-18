@@ -7794,11 +7794,15 @@ dependencies = [
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-factors-test",
  "spin-key-value-azure",
  "spin-key-value-redis",
  "spin-key-value-spin",
  "spin-sqlite",
  "spin-trigger",
+ "spin-world",
+ "tempfile",
+ "tokio",
  "toml 0.8.14",
 ]
 

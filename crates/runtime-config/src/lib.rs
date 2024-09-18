@@ -441,6 +441,7 @@ mod tests {
     use std::{collections::HashMap, sync::Arc};
 
     use spin_factors::RuntimeFactors;
+    use spin_factors_test::TestEnvironment;
 
     use super::*;
 
@@ -458,10 +459,13 @@ mod tests {
                     Self::from_source(value)
                 }
             }
-            fn resolve_toml(toml: toml::Table) -> ResolvedRuntimeConfig<TestFactorsRuntimeConfig> {
+            fn resolve_toml(
+                toml: toml::Table,
+                path: impl AsRef<std::path::Path>,
+            ) -> ResolvedRuntimeConfig<TestFactorsRuntimeConfig> {
                 ResolvedRuntimeConfig::<TestFactorsRuntimeConfig>::new(
                     toml_resolver(&toml),
-                    None,
+                    Some(path.as_ref()),
                     false,
                 )
                 .unwrap()
@@ -500,13 +504,13 @@ mod tests {
             type = "spin"
         };
         assert_eq!(
-            resolve_toml(toml).runtime_config.configured_labels(),
+            resolve_toml(toml, ".").runtime_config.configured_labels(),
             vec!["default", "foo"]
         );
 
         // Test that the default label is added with an empty toml config.
         let toml = toml::Table::new();
-        let runtime_config = resolve_toml(toml).runtime_config;
+        let runtime_config = resolve_toml(toml, "config.toml").runtime_config;
         assert_eq!(runtime_config.configured_labels(), vec!["default"]);
     }
 
@@ -525,10 +529,59 @@ mod tests {
             [key_value_store.foo]
             type = "spin"
         };
-        let runtime_config = resolve_toml(toml).runtime_config;
+        let runtime_config = resolve_toml(toml, "config.toml").runtime_config;
         assert!(["default", "foo"]
             .iter()
-            .all(|label| { runtime_config.has_store_manager(label) }));
+            .all(|label| runtime_config.has_store_manager(label)));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn custom_spin_key_value_works_with_custom_paths() -> anyhow::Result<()> {
+        use spin_world::v2::key_value::HostStore;
+        define_test_factor!(key_value: KeyValueFactor);
+        let tmp_dir = tempfile::TempDir::with_prefix("example")?;
+        let absolute_path = tmp_dir.path().join("foo/custom.db");
+        let relative_path = tmp_dir.path().join("custom.db");
+        // Check that the dbs do not exist yet - they will exist by the end of the test
+        assert!(!absolute_path.exists());
+        assert!(!relative_path.exists());
+
+        let path_str = absolute_path.to_str().unwrap();
+        let runtime_config = toml::toml! {
+            [key_value_store.absolute]
+            type = "spin"
+            path = path_str
+
+            [key_value_store.relative]
+            type = "spin"
+            path = "custom.db"
+        };
+        let factors = TestFactors {
+            key_value: KeyValueFactor::new(),
+        };
+        let env = TestEnvironment::new(factors)
+            .extend_manifest(toml::toml! {
+                [component.test-component]
+                source = "does-not-exist.wasm"
+                key_value_stores = ["absolute", "relative"]
+            })
+            .runtime_config(
+                resolve_toml(runtime_config, tmp_dir.path().join("runtime-config.toml"))
+                    .runtime_config,
+            )?;
+        let mut state = env.build_instance_state().await?;
+
+        // Actually get a key since store creation is lazy
+        let store = state.key_value.open("absolute".to_owned()).await??;
+        let _ = state.key_value.get(store, "foo".to_owned()).await??;
+
+        let store = state.key_value.open("relative".to_owned()).await??;
+        let _ = state.key_value.get(store, "foo".to_owned()).await??;
+
+        // Check that the dbs have been created
+        assert!(absolute_path.exists());
+        assert!(relative_path.exists());
+        Ok(())
     }
 
     fn toml_resolver(toml: &toml::Table) -> TomlResolver<'_> {

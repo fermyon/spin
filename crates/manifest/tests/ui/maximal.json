@@ -90,28 +90,26 @@
       },
       "dependencies_inherit_configuration": true,
       "dependencies": {
-        "inner": {
-          "a:b/c": {
-            "version": "^1.2.3",
-            "registry": "my-registry.com",
-            "package": "a:b",
-            "export": "foo"
-          },
-          "foo:bar/baz@0.1.0": {
-            "path": "path/to/component.wasm",
-            "export": null
-          },
-          "fib:fub/fob": {
-            "path": "path/to/component.wasm",
-            "export": "my-export"
-          },
-          "fizz:buzz": ">=0.1.0",
-          "abc:xyz@0.1.0": {
-            "version": "=0.1.0",
-            "registry": null,
-            "package": null,
-            "export": null
-          }
+        "a:b/c": {
+          "version": "^1.2.3",
+          "registry": "my-registry.com",
+          "package": "a:b",
+          "export": "foo"
+        },
+        "foo:bar/baz@0.1.0": {
+          "path": "path/to/component.wasm",
+          "export": null
+        },
+        "fib:fub/fob": {
+          "path": "path/to/component.wasm",
+          "export": "my-export"
+        },
+        "fizz:buzz": ">=0.1.0",
+        "abc:xyz@0.1.0": {
+          "version": "=0.1.0",
+          "registry": null,
+          "package": null,
+          "export": null
         }
       }
     }

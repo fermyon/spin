@@ -197,18 +197,10 @@ pub struct Component {
 
 /// Component dependencies
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(try_from = "Map<DependencyName, ComponentDependency>")]
+#[serde(transparent)]
 pub struct ComponentDependencies {
     /// `dependencies = { "foo:bar" = ">= 0.1.0" }`
     pub inner: Map<DependencyName, ComponentDependency>,
-}
-
-impl TryFrom<Map<DependencyName, ComponentDependency>> for ComponentDependencies {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Map<DependencyName, ComponentDependency>) -> Result<Self, Self::Error> {
-        Ok(ComponentDependencies { inner: value })
-    }
 }
 
 impl ComponentDependencies {

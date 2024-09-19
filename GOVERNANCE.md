@@ -11,7 +11,6 @@ The Spin project consists of several codebases with different release cycles. Th
     - [Spin JavaScript SDK](https://github.com/fermyon/spin-js-sdk)
     - [Spin Rust SDK](https://github.com/fermyon/spin-rust-sdk)
     - [Spin .NET SDK](https://github.com/fermyon/spin-dotnet-sdk)
-    - [Spin Nim SDK](https://github.com/fermyon/spin-nim-sdk)
 - Plugins:
     - [Spin Plugins Index Repository](https://github.com/fermyon/spin-plugins)
     - [Fermyon Platform Plugin](https://github.com/fermyon/platform-plugin)

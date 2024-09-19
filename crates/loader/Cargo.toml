@@ -7,16 +7,16 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bytes = "1.1.0"
+bytes = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
-glob = "0.3.0"
+glob = { workspace = true }
 indexmap = { version = "1" }
 itertools = { workspace = true }
 lazy_static = "1.4.0"
 mime_guess = { version = "2.0" }
 path-absolutize = { version = "3.0.11", features = ["use_unix_paths_on_wasm"] }
-regex = "1.5.4"
+regex = { workspace = true }
 reqwest = "0.12"
 semver = "1.0"
 serde = { workspace = true }

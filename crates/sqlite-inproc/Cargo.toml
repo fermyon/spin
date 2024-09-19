@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 once_cell = "1"
-rand = "0.8"
+rand = { workspace = true }
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-world = { path = "../world" }

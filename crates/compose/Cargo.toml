@@ -17,7 +17,6 @@ spin-app = { path = "../app" }
 spin-componentize = { workspace = true }
 spin-serde = { path = "../serde" }
 thiserror = { workspace = true }
-tokio = { version = "1.23", features = ["fs"] }
 wac-graph = "0.5.0"
 
 [lints]

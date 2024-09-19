@@ -20,7 +20,7 @@ wit-parser = "0.200.0"
 [dev-dependencies]
 async-trait = { workspace = true }
 cap-std = "2.0.1"
-rand = "0.8.5"
+rand = { workspace = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 serde = { workspace = true }

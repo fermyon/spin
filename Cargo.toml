@@ -16,33 +16,44 @@ rust-version = "1.79"
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = "0.1"
-bytes = "1.1"
+async-trait = { workspace = true }
+bytes = { workspace = true }
 chrono = "0.4"
 clap = { version = "3.2.24", features = ["derive", "env"] }
 clearscreen = "2.0.1"
 comfy-table = "5.0"
 command-group = "2.1"
-ctrlc = { version = "3.2", features = ["termination"] }
+ctrlc = { version = "3.4", features = ["termination"] }
 dialoguer = "0.10"
-dirs = "4.0"
-futures = "0.3"
-glob = "0.3.1"
-indicatif = "0.17.3"
+dirs = { workspace = true }
+futures = { workspace = true }
+glob = { workspace = true }
+indicatif = "0.17"
 is-terminal = "0.4"
 itertools = { workspace = true }
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
 path-absolutize = "3.0.11"
-rand = "0.8"
-regex = "1.5.5"
+rand = { workspace = true }
+regex = { workspace = true }
 reqwest = { workspace = true }
 rpassword = "7.0"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+subprocess = "0.2.9"
+tempfile = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+toml = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { version = "1.0", features = ["v4"] }
+wasmtime = { workspace = true }
+watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
+watchexec-filterer-globset = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
+
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
@@ -64,17 +75,6 @@ spin-trigger-http = { path = "crates/trigger-http" }
 spin-trigger-redis = { path = "crates/trigger-redis" }
 terminal = { path = "crates/terminal" }
 
-subprocess = "0.2.9"
-tempfile = { workspace = true }
-tokio = { version = "1.23", features = ["full"] }
-toml = { workspace = true }
-tracing = { workspace = true }
-url = { workspace = true }
-uuid = { version = "^1.0", features = ["v4"] }
-wasmtime = { workspace = true }
-watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
-watchexec-filterer-globset = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
-
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
 # '--features openssl/vendored', which is used for Linux releases.
@@ -87,7 +87,7 @@ conformance-tests = { workspace = true }
 hex = "0.4.3"
 http-body-util = { workspace = true }
 hyper = { workspace = true }
-hyper-util = { version = "0.1.2", features = ["tokio"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
@@ -124,26 +124,30 @@ members = [
 [workspace.dependencies]
 anyhow = "1"
 async-trait = "0.1"
+bytes = "1"
 conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 dirs = "5.0"
 futures = "0.3"
+glob = "0.3"
 http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["full"] }
 itertools = "0.13"
 opentelemetry = { version = "0.24.0", features = ["metrics", "trace", "logs"] }
 opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio", "logs_level_enabled", "metrics"] }
+rand = "0.8"
+regex = "1"
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
 # In `rustls` turn off the `aws_lc_rs` default feature and turn on `ring`.
 # If both `aws_lc_rs` and `ring` are enabled, a panic at runtime will occur.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
-serde_json = "1.0.128"
-serde = { version = "1.0.210", features = ["derive", "rc"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
 sha2 = "0.10"
 tempfile = "3.8"
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
-toml = "0.8"
 thiserror = "1"
+toml = "0.8"
 tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
 url = "2"

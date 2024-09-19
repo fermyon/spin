@@ -7,7 +7,7 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bytes = "1.1"
+bytes = { workspace = true }
 console = "0.15"
 dialoguer = "0.10"
 dirs = { workspace = true }
@@ -22,7 +22,7 @@ liquid-derive = "0.26"
 liquid-lib = "0.26"
 path-absolutize = "3.0.13"
 pathdiff = "0.2.1"
-regex = "1.5.4"
+regex = { workspace = true }
 semver = "1.0"
 serde = { workspace = true }
 spin-common = { path = "../common" }

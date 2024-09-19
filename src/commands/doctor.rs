@@ -5,7 +5,7 @@ use clap::Parser;
 use dialoguer::{console::Emoji, Confirm, Select};
 use spin_doctor::{Diagnosis, DryRunNotSupported, PatientDiagnosis};
 
-use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
+use crate::opts::APP_MANIFEST_FILE_OPT;
 
 #[derive(Parser, Debug)]
 #[clap(about = "Detect and fix problems with Spin applications")]
@@ -18,21 +18,29 @@ pub struct DoctorCommand {
         short = 'f',
         long = "from",
         alias = "file",
-        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app_source: PathBuf,
+    pub app_source: Option<PathBuf>,
 }
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let (manifest_file, is_default) =
+            spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
 
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
-        println!(
-            "{icon}Checking {}...",
-            manifest_file.display(),
-            icon = Emoji("🩺 ", "")
-        );
+        if is_default {
+            println!(
+                "{icon}Checking {}...",
+                manifest_file.display(),
+                icon = Emoji("🩺 ", "")
+            );
+        } else {
+            println!(
+                "{icon}Checking file from parent directory {}...",
+                manifest_file.display(),
+                icon = Emoji("🩺 ", "")
+            );
+        }
 
         let mut checkup = spin_doctor::Checkup::new(manifest_file)?;
         let mut has_problems = false;

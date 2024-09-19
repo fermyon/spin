@@ -2,7 +2,7 @@ use crate::opts::*;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
-use spin_common::arg_parser::parse_kv;
+use spin_common::{arg_parser::parse_kv, ui::quoted_path};
 use spin_oci::{client::InferPredefinedAnnotations, Client};
 use std::{io::Read, path::PathBuf, time::Duration};
 
@@ -37,9 +37,8 @@ pub struct Push {
         short = 'f',
         long = "from",
         alias = "file",
-        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app_source: PathBuf,
+    pub app_source: Option<PathBuf>,
 
     /// Ignore server certificate errors
     #[clap(
@@ -71,7 +70,16 @@ pub struct Push {
 
 impl Push {
     pub async fn run(self) -> Result<()> {
-        let app_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let (app_file, is_default) =
+            spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
+        if !is_default {
+            terminal::einfo!(
+                "Using 'spin.toml' from parent directory:",
+                "{}",
+                quoted_path(&app_file)
+            );
+        }
+
         if self.build {
             spin_build::build(&app_file, &[]).await?;
         }

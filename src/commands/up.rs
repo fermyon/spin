@@ -382,7 +382,19 @@ impl UpCommand {
             );
             AppSource::Unresolvable(msg)
         } else {
-            AppSource::None
+            match spin_common::paths::search_upwards_for_manifest() {
+                Some((manifest_path, is_default)) => {
+                    if !is_default {
+                        terminal::einfo!(
+                            "Using 'spin.toml' from parent directory:",
+                            "{}",
+                            quoted_path(&manifest_path)
+                        );
+                    }
+                    AppSource::File(manifest_path)
+                }
+                None => AppSource::None,
+            }
         }
     }
 

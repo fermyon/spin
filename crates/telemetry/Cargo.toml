@@ -9,14 +9,14 @@ anyhow = { workspace = true }
 http0 = { version = "0.2.9", package = "http" }
 http1 = { version = "1.0.0", package = "http" }
 opentelemetry = { workspace = true }
-opentelemetry-otlp = { version = "0.17.0", default-features = false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic", "logs"] }
-opentelemetry-semantic-conventions = "0.14.0"
+opentelemetry-otlp = { version = "0.25", default-features = false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic", "logs"] }
+opentelemetry-semantic-conventions = "0.25"
 opentelemetry_sdk = { workspace = true }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
-tracing-appender = "0.2.2"
+tracing-appender = "0.2"
 tracing-opentelemetry = { workspace = true }
-tracing-subscriber = { version = "0.3.17", default-features = false, features = ["smallvec", "fmt", "ansi", "std", "env-filter", "json", "registry"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["smallvec", "fmt", "ansi", "std", "env-filter", "json", "registry"] }
 url = { workspace = true }
 
 [features]

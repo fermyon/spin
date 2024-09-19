@@ -1186,7 +1186,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a969e13a7589e9e3e4207e153bae624ade2b5622fb4684a4923b23ec3d57719"
 dependencies = [
  "serde 1.0.210",
- "toml 0.8.14",
+ "toml 0.8.15",
 ]
 
 [[package]]
@@ -1214,6 +1214,12 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 
 [[package]]
 name = "cfg_aliases"
@@ -1354,7 +1360,20 @@ dependencies = [
  "nix 0.26.4",
  "terminfo",
  "thiserror",
- "which",
+ "which 4.4.2",
+ "winapi",
+]
+
+[[package]]
+name = "clearscreen"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f8c93eb5f77c9050c7750e14f13ef1033a40a0aac70c6371535b6763a01438c"
+dependencies = [
+ "nix 0.28.0",
+ "terminfo",
+ "thiserror",
+ "which 6.0.3",
  "winapi",
 ]
 
@@ -1395,13 +1414,13 @@ dependencies = [
 
 [[package]]
 name = "comfy-table"
-version = "5.0.1"
+version = "7.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b103d85ca6e209388771bfb7aa6b68a7aeec4afbf6f0a0264bfbf50360e5212e"
+checksum = "b34115915337defe99b2aff5c2ce6771e5fbc4079f4b506301f5cf394c8452f7"
 dependencies = [
  "crossterm",
- "strum",
- "strum_macros",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "unicode-width",
 ]
 
@@ -1460,7 +1479,7 @@ dependencies = [
  "anyhow",
  "flate2",
  "json5",
- "libtest-mimic 0.7.3",
+ "libtest-mimic",
  "reqwest 0.12.7",
  "serde 1.0.210",
  "tar",
@@ -1709,17 +1728,14 @@ checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
 name = "crossterm"
-version = "0.23.2"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2102ea4f781910f8a5b98dd061f4c2023f479ce7bb1236330099ceb5a93cf17"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.6.0",
  "crossterm_winapi",
  "libc",
- "mio 0.8.11",
  "parking_lot",
- "signal-hook",
- "signal-hook-mio",
  "winapi",
 ]
 
@@ -2070,8 +2086,8 @@ dependencies = [
  "serde_ignored",
  "serde_json",
  "sha2",
- "strum",
- "strum_macros",
+ "strum 0.23.0",
+ "strum_macros 0.23.1",
  "tar",
  "thiserror",
  "tokio",
@@ -3987,17 +4003,6 @@ dependencies = [
 
 [[package]]
 name = "libtest-mimic"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d8de370f98a6cb8a4606618e53e802f93b094ddec0f96988eaec2c27e6e9ce7"
-dependencies = [
- "clap 4.5.4",
- "termcolor",
- "threadpool",
-]
-
-[[package]]
-name = "libtest-mimic"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc0bda45ed5b3a2904262c1bb91e526127aa70e7ef3758aba2ef93cf896b9b58"
@@ -4435,18 +4440,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mio"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e04d1dcff3aae0704555fe5fee3bcfaf3d1fdf8a7e521d5b9d2b42acb52cec"
-dependencies = [
- "hermit-abi 0.3.9",
- "libc",
- "wasi 0.11.0+wasi-snapshot-preview1",
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "monostate"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4570,13 +4563,25 @@ dependencies = [
 
 [[package]]
 name = "nix"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+dependencies = [
+ "bitflags 2.6.0",
+ "cfg-if",
+ "cfg_aliases 0.1.1",
+ "libc",
+]
+
+[[package]]
+name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
- "cfg_aliases",
+ "cfg_aliases 0.2.1",
  "libc",
 ]
 
@@ -4635,7 +4640,7 @@ dependencies = [
  "inotify",
  "kqueue",
  "libc",
- "mio 0.8.11",
+ "mio",
  "walkdir",
  "windows-sys 0.45.0",
 ]
@@ -4967,9 +4972,9 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry"
-version = "0.24.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c365a63eec4f55b7efeceb724f1336f26a9cf3427b70e59e2cd2a5b947fba96"
+checksum = "803801d3d3b71cd026851a53f974ea03df3d179cb758b260136a6c9e22e196af"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -4981,9 +4986,9 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-http"
-version = "0.13.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad31e9de44ee3538fb9d64fe3376c1362f406162434609e79aea2a41a0af78ab"
+checksum = "88d8c2b76e5f7848a289aa9666dbe56b16f8a22a4c5246ef37a14941818d2913"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4994,9 +4999,9 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-otlp"
-version = "0.17.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b925a602ffb916fb7421276b86756027b37ee708f9dce2dbdcc51739f07e727"
+checksum = "596b1719b3cab83addb20bcbffdf21575279d9436d9ccccfe651a3bf0ab5ab06"
 dependencies = [
  "async-trait",
  "futures-core",
@@ -5014,9 +5019,9 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-proto"
-version = "0.7.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ee9f20bff9c984511a02f082dc8ede839e4a9bf15cc2487c8d6fea5ad850d9"
+checksum = "2c43620e8f93359eb7e627a3b16ee92d8585774986f24f2ab010817426c5ce61"
 dependencies = [
  "opentelemetry",
  "opentelemetry_sdk",
@@ -5026,15 +5031,15 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-semantic-conventions"
-version = "0.14.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9ab5bd6c42fb9349dcf28af2ba9a0667f697f9bdcca045d39f2cec5543e2910"
+checksum = "9b8e442487022a943e2315740e443dc5ee95fd541c18f509a5a6251b408a9f95"
 
 [[package]]
 name = "opentelemetry_sdk"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692eac490ec80f24a17828d49b40b60f5aeaccdfe6a503f939713afd22bc28df"
+checksum = "e0da0d6b47a3dbc6e9c9e36a0520e25cf943e046843818faaa3f87365a548c82"
 dependencies = [
  "async-trait",
  "futures-channel",
@@ -6808,27 +6813,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "signal-hook"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
-name = "signal-hook-mio"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29ad2e15f37ec9a6cc544097b78a1ec90001e9f71b81338ca39f430adaca99af"
-dependencies = [
- "libc",
- "mio 0.8.11",
- "signal-hook",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6997,7 +6981,7 @@ dependencies = [
  "subprocess",
  "terminal",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -7011,7 +6995,7 @@ dependencies = [
  "cargo-target-dep",
  "chrono",
  "clap 3.2.25",
- "clearscreen",
+ "clearscreen 3.0.0",
  "comfy-table",
  "command-group",
  "conformance",
@@ -7068,7 +7052,7 @@ dependencies = [
  "test-environment",
  "testing-framework",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "url",
  "uuid",
@@ -7104,7 +7088,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "wasm-encoder 0.200.0",
  "wasm-metadata 0.200.0",
@@ -7164,8 +7148,8 @@ dependencies = [
  "tempfile",
  "terminal",
  "tokio",
- "toml 0.8.14",
- "toml_edit 0.22.14",
+ "toml 0.8.15",
+ "toml_edit 0.22.16",
  "tracing",
  "ui-testing",
 ]
@@ -7180,7 +7164,7 @@ dependencies = [
  "spin-locked-app",
  "thiserror",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
 ]
 
 [[package]]
@@ -7200,7 +7184,7 @@ dependencies = [
  "table",
  "tempfile",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -7218,7 +7202,7 @@ dependencies = [
  "spin-locked-app",
  "spin-world",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "url",
 ]
@@ -7311,7 +7295,7 @@ dependencies = [
  "tempfile",
  "terminal",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "url",
  "urlencoding",
@@ -7367,7 +7351,7 @@ dependencies = [
  "spin-world",
  "table",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -7385,7 +7369,7 @@ dependencies = [
  "spin-factors-test",
  "spin-world",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "vaultrs",
 ]
@@ -7414,7 +7398,7 @@ dependencies = [
  "spin-app",
  "spin-factors-derive",
  "thiserror",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "wasmtime",
 ]
@@ -7452,7 +7436,7 @@ dependencies = [
  "spin-factors-derive",
  "spin-loader",
  "tempfile",
- "toml 0.8.14",
+ "toml 0.8.15",
 ]
 
 [[package]]
@@ -7469,7 +7453,7 @@ dependencies = [
  "serde 1.0.210",
  "spin-app",
  "spin-locked-app",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "wasmtime-wasi-http",
 ]
@@ -7584,7 +7568,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "ui-testing",
  "walkdir",
@@ -7616,7 +7600,7 @@ dependencies = [
  "spin-serde",
  "terminal",
  "thiserror",
- "toml 0.8.14",
+ "toml 0.8.15",
  "ui-testing",
  "url",
  "wasm-pkg-common",
@@ -7704,7 +7688,7 @@ dependencies = [
  "spin-world",
  "tempfile",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
 ]
 
 [[package]]
@@ -7759,7 +7743,7 @@ dependencies = [
  "spin-world",
  "table",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
 ]
 
 [[package]]
@@ -7836,8 +7820,8 @@ dependencies = [
  "spin-manifest",
  "tempfile",
  "tokio",
- "toml 0.8.14",
- "toml_edit 0.22.14",
+ "toml 0.8.15",
+ "toml_edit 0.22.16",
  "url",
  "walkdir",
 ]
@@ -7867,7 +7851,7 @@ dependencies = [
  "spin-world",
  "tempfile",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -8017,6 +8001,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cae14b91c7d11c9a851d3fbc80a963198998c2a64eec840477fa92d8ce9b70bb"
 
 [[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+
+[[package]]
 name = "strum_macros"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8027,6 +8017,19 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -8274,7 +8277,7 @@ dependencies = [
  "temp-dir",
  "test-environment",
  "tokio",
- "toml 0.8.14",
+ "toml 0.8.15",
  "wasmtime-wasi-http",
 ]
 
@@ -8419,27 +8422,28 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.40.0"
+version = "1.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b070231665d27ad9ec9b8df639893f46727666c6767db40317fbe920a5d998"
+checksum = "eb2caba9f80616f438e09748d5acda951967e1ea58508ef53d9c6402485a46df"
 dependencies = [
  "backtrace",
  "bytes",
  "libc",
- "mio 1.0.2",
+ "mio",
+ "num_cpus",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.5.6",
  "tokio-macros",
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "2.4.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
+checksum = "5f5ae998a069d4b5aba8ee9dad856af7d520c3699e6159b185c2acd48155d39a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8563,15 +8567,15 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.14"
+version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f49eb2ab21d2f26bd6db7bf383edc527a7ebaee412d17af4d40fdccd442f335"
+checksum = "ac2caab0bf757388c6c0ae23b3293fdb463fee59434529014f85e3263b995c28"
 dependencies = [
  "indexmap 2.5.0",
  "serde 1.0.210",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
 ]
 
 [[package]]
@@ -8596,9 +8600,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.14"
+version = "0.22.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
+checksum = "278f3d518e152219c994ce877758516bca5e118eaed6996192a774fb9fbf0788"
 dependencies = [
  "indexmap 2.5.0",
  "serde 1.0.210",
@@ -8727,9 +8731,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-opentelemetry"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9784ed4da7d921bc8df6963f8c80a0e4ce34ba6ba76668acadd3edbd985ff3b"
+checksum = "5eabc56d23707ad55ba2a0750fc24767125d5a0f51993ba41ad2c441cc7b8dea"
 dependencies = [
  "js-sys",
  "once_cell",
@@ -8829,7 +8833,7 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "dirs 5.0.1",
- "libtest-mimic 0.6.1",
+ "libtest-mimic",
  "snapbox",
  "tokio",
 ]
@@ -8926,9 +8930,9 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "url"
-version = "2.5.0"
+version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31e6302e3bb753d46e83516cae55ae196fc0c309407cf11ab35cc51a4c2a4633"
+checksum = "22784dbdf76fdde8af1aeda5622b546b422b6fc585325248a2bf9f5e41e94d6c"
 dependencies = [
  "form_urlencoded",
  "idna",
@@ -9441,7 +9445,7 @@ dependencies = [
  "serde 1.0.210",
  "serde_json",
  "thiserror",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -9467,7 +9471,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -9649,7 +9653,7 @@ dependencies = [
  "serde 1.0.210",
  "serde_derive",
  "sha2",
- "toml 0.8.14",
+ "toml 0.8.15",
  "windows-sys 0.52.0",
  "zstd 0.13.1",
 ]
@@ -9915,7 +9919,7 @@ dependencies = [
  "async-priority-channel",
  "async-recursion",
  "atomic-take",
- "clearscreen",
+ "clearscreen 2.0.1",
  "command-group",
  "futures",
  "ignore-files",
@@ -10021,6 +10025,18 @@ dependencies = [
  "home",
  "once_cell",
  "rustix 0.38.32",
+]
+
+[[package]]
+name = "which"
+version = "6.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ee928febd44d98f2f459a4a79bd4d928591333a494a10a868418ac1b39cf1f"
+dependencies = [
+ "either",
+ "home",
+ "rustix 0.38.32",
+ "winsafe",
 ]
 
 [[package]]
@@ -10419,6 +10435,12 @@ dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "winsafe"
+version = "0.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "winx"

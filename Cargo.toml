@@ -20,9 +20,9 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 chrono = "0.4"
 clap = { version = "3.2.24", features = ["derive", "env"] }
-clearscreen = "2.0.1"
-comfy-table = "5.0"
-command-group = "2.1"
+clearscreen = "3"
+comfy-table = "7"
+command-group = "2"
 ctrlc = { version = "3.4", features = ["termination"] }
 dialoguer = "0.10"
 dirs = { workspace = true }
@@ -132,23 +132,23 @@ http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["full"] }
 itertools = "0.13"
-opentelemetry = { version = "0.24.0", features = ["metrics", "trace", "logs"] }
-opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio", "logs_level_enabled", "metrics"] }
+opentelemetry = { version = "0.25", features = ["metrics", "trace", "logs"] }
+opentelemetry_sdk = { version = "0.25", features = ["rt-tokio", "logs_level_enabled", "metrics"] }
 rand = "0.8"
 regex = "1"
 reqwest = { version = "0.12", features = ["stream", "blocking"] }
 # In `rustls` turn off the `aws_lc_rs` default feature and turn on `ring`.
 # If both `aws_lc_rs` and `ring` are enabled, a panic at runtime will occur.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
-serde = { version = "1.0", features = ["derive", "rc"] }
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1.0"
 sha2 = "0.10"
-tempfile = "3.8"
+tempfile = "3"
 test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
 thiserror = "1"
 toml = "0.8"
 tracing = { version = "0.1", features = ["log"] }
-tracing-opentelemetry = { version = "0.25.0", default-features = false, features = ["metrics"] }
+tracing-opentelemetry = { version = "0.26", default-features = false, features = ["metrics"] }
 url = "2"
 
 wasi-common-preview1 = { version = "22.0.0", package = "wasi-common", features = [

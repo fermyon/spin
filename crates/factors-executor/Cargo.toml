@@ -9,7 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-anyhow = "1"
+anyhow = { workspace = true }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-factors = { path = "../factors" }

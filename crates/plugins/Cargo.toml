@@ -5,23 +5,23 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
-bytes = "1.1"
+anyhow = { workspace = true }
+bytes = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "4.0"
-fd-lock = "3.0.12"
-flate2 = "1.0.17"
+dirs = { workspace = true }
+fd-lock = "4"
+flate2 = "1"
 is-terminal = "0.4"
-path-absolutize = "3.0.11"
-reqwest = { version = "0.11", features = ["json"] }
+path-absolutize = "3"
+reqwest = { version = "0.12", features = ["json"] }
 semver = { version = "1.0", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
 spin-common = { path = "../common" }
-tar = "0.4.38"
-tempfile = "3.3.0"
+tar = "0.4"
+tempfile = { workspace = true }
 terminal = { path = "../terminal" }
-thiserror = "1"
-tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["fs", "process", "rt", "macros"] }
 tracing = { workspace = true }
-url = { version = "2.2.2", features = ["serde"] }
+url = { version = "2", features = ["serde"] }

@@ -9,12 +9,12 @@ azure_core = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4ca
 azure_identity = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4caa251c3903d5eae848b41bb1d02a4d65231c" }
 azure_security_keyvault = { git = "https://github.com/azure/azure-sdk-for-rust", rev = "8c4caa251c3903d5eae848b41bb1d02a4d65231c" }
 dotenvy = "0.15"
-serde = { version = "1.0", features = ["rc"] }
+serde = { workspace = true }
 spin-expressions = { path = "../expressions" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-toml = "0.8"
+toml = { workspace = true }
 tracing = { workspace = true }
 vaultrs = "0.6.2"
 

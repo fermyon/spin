@@ -5,23 +5,23 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1"
-async-trait = "0.1"
-reqwest = { version = "0.11", features = ["stream"] }
-serde = { version = "1", features = ["derive"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { version = "0.12", features = ["stream"] }
+serde = { workspace = true }
 similar = "2"
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 tokio = { version = "1", features = ["process"] }
-toml = "0.8.2"
-toml_edit = { version = "0.20.2", features = ["serde"] }
+toml = { workspace = true }
+toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
-glob = "0.3.1"
-tempfile = "3"
+glob = { workspace = true }
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt"] }
 ui-testing = { path = "../ui-testing" }
 

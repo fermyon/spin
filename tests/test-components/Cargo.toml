@@ -5,5 +5,5 @@ edition = "2021"
 
 
 [build-dependencies]
-cargo_toml = "0.17.1"
-wit-component = "0.19.0"
+cargo_toml = "0.17"
+wit-component = "0.217"

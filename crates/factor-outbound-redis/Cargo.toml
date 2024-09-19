@@ -5,7 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp", "aio"] }
 spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }

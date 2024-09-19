@@ -90,7 +90,7 @@ impl RemoteHttpLlmEngine {
         tracing::info!("Sending remote inference request to {infer_url}");
 
         let resp = client
-            .request(http::Method::POST, infer_url)
+            .request(reqwest::Method::POST, infer_url)
             .headers(headers)
             .body(body)
             .send()
@@ -137,7 +137,7 @@ impl RemoteHttpLlmEngine {
 
         let resp = client
             .request(
-                http::Method::POST,
+                reqwest::Method::POST,
                 self.url.join("/embed").map_err(|_| {
                     wasi_llm::Error::RuntimeError("Failed to create URL".to_string())
                 })?,

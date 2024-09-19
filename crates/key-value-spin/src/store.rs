@@ -1,10 +1,10 @@
 use anyhow::Result;
-use once_cell::sync::OnceCell;
 use rusqlite::Connection;
 use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Error, Store, StoreManager};
 use std::{
     path::PathBuf,
+    sync::OnceLock,
     sync::{Arc, Mutex},
 };
 use tokio::task;
@@ -17,7 +17,7 @@ pub enum DatabaseLocation {
 
 pub struct KeyValueSqlite {
     location: DatabaseLocation,
-    connection: OnceCell<Arc<Mutex<Connection>>>,
+    connection: OnceLock<Arc<Mutex<Connection>>>,
 }
 
 impl KeyValueSqlite {
@@ -29,8 +29,31 @@ impl KeyValueSqlite {
     pub fn new(location: DatabaseLocation) -> Self {
         Self {
             location,
-            connection: OnceCell::new(),
+            connection: OnceLock::new(),
         }
+    }
+
+    fn create_connection(&self) -> Result<Arc<Mutex<Connection>>, Error> {
+        let connection = match &self.location {
+            DatabaseLocation::InMemory => Connection::open_in_memory(),
+            DatabaseLocation::Path(path) => Connection::open(path),
+        }
+        .map_err(log_error)?;
+
+        connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS spin_key_value (
+                           store TEXT NOT NULL,
+                           key   TEXT NOT NULL,
+                           value BLOB NOT NULL,
+
+                           PRIMARY KEY (store, key)
+                        )",
+                [],
+            )
+            .map_err(log_error)?;
+
+        Ok(Arc::new(Mutex::new(connection)))
     }
 }
 
@@ -38,28 +61,13 @@ impl KeyValueSqlite {
 impl StoreManager for KeyValueSqlite {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         let connection = task::block_in_place(|| {
-            self.connection.get_or_try_init(|| {
-                let connection = match &self.location {
-                    DatabaseLocation::InMemory => Connection::open_in_memory(),
-                    DatabaseLocation::Path(path) => Connection::open(path),
-                }
-                .map_err(log_error)?;
-
-                connection
-                    .execute(
-                        "CREATE TABLE IF NOT EXISTS spin_key_value (
-                           store TEXT NOT NULL,
-                           key   TEXT NOT NULL,
-                           value BLOB NOT NULL,
-
-                           PRIMARY KEY (store, key)
-                        )",
-                        [],
-                    )
-                    .map_err(log_error)?;
-
-                Ok(Arc::new(Mutex::new(connection)))
-            })
+            if let Some(c) = self.connection.get() {
+                return Ok(c);
+            }
+            // Only create the connection if we failed to get it.
+            // We might do duplicate work here if there's a race, but that's fine.
+            let new = self.create_connection()?;
+            Ok(self.connection.get_or_init(|| new))
         })?;
 
         Ok(Arc::new(SqliteStore {

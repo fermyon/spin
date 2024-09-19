@@ -3,11 +3,11 @@
 //! This library is used by Spin to print out messages in an appropriate format
 //! that is easy for users to read. This is not meant as a general purpose library.
 
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 use termcolor::{ColorSpec, StandardStream, StandardStreamLock, WriteColor};
 
-static COLOR_OUT: OnceCell<StandardStream> = OnceCell::new();
-static COLOR_ERR: OnceCell<StandardStream> = OnceCell::new();
+static COLOR_OUT: OnceLock<StandardStream> = OnceLock::new();
+static COLOR_ERR: OnceLock<StandardStream> = OnceLock::new();
 
 /// A wrapper around a standard stream lock that resets the color on drop
 pub struct ColorText(StandardStreamLock<'static>);

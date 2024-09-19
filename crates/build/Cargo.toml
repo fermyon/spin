@@ -5,13 +5,13 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.57"
-futures = "0.3.21"
-serde = { version = "1.0", features = ["derive"] }
+anyhow = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-subprocess = "0.2.8"
+subprocess = "0.2"
 terminal = { path = "../terminal" }
-tokio = { version = "1.23", features = ["full"] }
-toml = "0.5"
+tokio = { version = "1", features = ["full"] }
+toml = { workspace = true }
 tracing = { workspace = true }

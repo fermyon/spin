@@ -14,7 +14,7 @@ llm-metal = ["spin-factor-llm/llm-metal"]
 llm-cublas = ["spin-factor-llm/llm-cublas"]
 
 [dependencies]
-anyhow = "1"
+anyhow = { workspace = true }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 spin-common = { path = "../common" }
 spin-factor-key-value = { path = "../factor-key-value" }

@@ -9,14 +9,14 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-async-trait = "0.1"
-serde = { version = "1.0", features = ["rc"] }
+async-trait = { workspace = true }
+serde = { workspace = true }
 spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = "1"
-toml = "0.8"
+toml = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

@@ -1,11 +1,11 @@
 use std::{
     path::PathBuf,
+    sync::OnceLock,
     sync::{Arc, Mutex},
 };
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use once_cell::sync::OnceCell;
 use spin_factor_sqlite::Connection;
 use spin_world::v2::sqlite;
 
@@ -45,12 +45,12 @@ impl InProcDatabaseLocation {
 /// A connection to a sqlite database
 pub struct InProcConnection {
     location: InProcDatabaseLocation,
-    connection: OnceCell<Arc<Mutex<rusqlite::Connection>>>,
+    connection: OnceLock<Arc<Mutex<rusqlite::Connection>>>,
 }
 
 impl InProcConnection {
     pub fn new(location: InProcDatabaseLocation) -> Result<Self, sqlite::Error> {
-        let connection = OnceCell::new();
+        let connection = OnceLock::new();
         Ok(Self {
             location,
             connection,
@@ -58,16 +58,22 @@ impl InProcConnection {
     }
 
     pub fn db_connection(&self) -> Result<Arc<Mutex<rusqlite::Connection>>, sqlite::Error> {
-        self.connection
-            .get_or_try_init(|| {
-                match &self.location {
-                    InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
-                    InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
-                }
-                .map_err(|e| sqlite::Error::Io(e.to_string()))
-                .map(|c| Arc::new(Mutex::new(c)))
-            })
-            .cloned()
+        if let Some(c) = self.connection.get() {
+            return Ok(c.clone());
+        }
+        // Only create the connection if we failed to get it.
+        // We might do duplicate work here if there's a race, but that's fine.
+        let new = self.create_connection()?;
+        Ok(self.connection.get_or_init(|| new)).cloned()
+    }
+
+    fn create_connection(&self) -> Result<Arc<Mutex<rusqlite::Connection>>, sqlite::Error> {
+        let connection = match &self.location {
+            InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
+            InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
+        }
+        .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+        Ok(Arc::new(Mutex::new(connection)))
     }
 }
 

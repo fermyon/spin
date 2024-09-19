@@ -1,7 +1,7 @@
 use anyhow::{bail, ensure, Context, Result};
 use async_trait::async_trait;
 use toml::Value;
-use toml_edit::{Document, InlineTable, Item, Table};
+use toml_edit::{DocumentMut, InlineTable, Item, Table};
 
 use crate::{Diagnosis, Diagnostic, PatientApp, Treatment};
 
@@ -149,7 +149,7 @@ impl ManifestTreatment for TriggerDiagnosis {
         }
     }
 
-    async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
+    async fn treat_manifest(&self, doc: &mut DocumentMut) -> anyhow::Result<()> {
         match self {
             Self::MissingAppTrigger => {
                 // Get or insert missing trigger config

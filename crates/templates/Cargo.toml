@@ -5,31 +5,31 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
-bytes = "1.1"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
 console = "0.15"
 dialoguer = "0.10"
-dirs = "3.0"
-fs_extra = "1.2"
-heck = "0.4"
-indexmap = { version = "1", features = ["serde"] }
-itertools = "0.10.3"
-lazy_static = "1.4.0"
-liquid = "0.23"
-liquid-core = "0.23"
-liquid-derive = "0.23"
-liquid-lib = "0.23"
-path-absolutize = "3.0.13"
-pathdiff = "0.2.1"
-regex = "1.5.4"
-semver = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+dirs = { workspace = true }
+fs_extra = "1"
+heck = "0.5"
+indexmap = { version = "2", features = ["serde"] }
+itertools = { workspace = true }
+lazy_static = "1"
+liquid = "0.26"
+liquid-core = "0.26"
+liquid-derive = "0.26"
+liquid-lib = "0.26"
+path-absolutize = "3"
+pathdiff = "0.2"
+regex = { workspace = true }
+semver = "1"
+serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-tempfile = "3.3.0"
-tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
-toml = "0.5"
-toml_edit = "0.20.2"
-url = "2.2.2"
+tempfile = { workspace = true }
+tokio = { version = "1", features = ["fs", "process", "rt", "macros"] }
+toml = { workspace = true }
+toml_edit = "0.22"
+url = { workspace = true }
 walkdir = "2"

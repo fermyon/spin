@@ -5,14 +5,14 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 rumqttc = { version = "0.24", features = ["url"] }
 spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
-tokio = { version = "1.0", features = ["sync"] }
+tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

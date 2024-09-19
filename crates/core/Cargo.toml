@@ -5,8 +5,8 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 tracing = { workspace = true }
 wasmtime = { workspace = true }
 

@@ -69,12 +69,12 @@ impl TemplateOutput {
 }
 
 fn merge_toml(existing: &str, target: &str, text: &str) -> anyhow::Result<String> {
-    use toml_edit::{Document, Entry, Item};
+    use toml_edit::{DocumentMut, Entry, Item};
 
-    let mut doc: Document = existing
+    let mut doc: DocumentMut = existing
         .parse()
         .context("Can't merge into the existing manifest - it's not valid TOML")?;
-    let merging: Document = text
+    let merging: DocumentMut = text
         .parse()
         .context("Can't merge snippet - it's not valid TOML")?;
     let merging = merging.as_table();

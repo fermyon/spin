@@ -11,13 +11,13 @@ rust-version.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-indexmap = "2.2.6"
+indexmap = "2"
 semver = "1"
 spin-app = { path = "../app" }
 spin-componentize = { workspace = true }
 spin-serde = { path = "../serde" }
 thiserror = { workspace = true }
-wac-graph = "0.5.0"
+wac-graph = "0.6"
 
 [lints]
 workspace = true

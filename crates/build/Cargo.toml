@@ -10,8 +10,8 @@ futures = { workspace = true }
 serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
-subprocess = "0.2.8"
+subprocess = "0.2"
 terminal = { path = "../terminal" }
-tokio = { version = "1.23", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 toml = { workspace = true }
 tracing = { workspace = true }

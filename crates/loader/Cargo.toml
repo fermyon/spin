@@ -39,7 +39,7 @@ walkdir = "2.3.2"
 wasm-pkg-loader = "0.4.1"
 
 [dev-dependencies]
-tokio = { version = "1.23", features = ["rt", "macros"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 ui-testing = { path = "../ui-testing" }
 
 [features]

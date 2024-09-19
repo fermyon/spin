@@ -23,7 +23,7 @@ spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tokenizers = "0.13.4"
-tokio = { version = "1.32.0", features = ["macros", "sync"] }
+tokio = { version = "1", features = ["macros", "sync"] }
 tracing = { workspace = true }
 
 [features]

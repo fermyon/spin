@@ -18,7 +18,7 @@ spin-factors = { path = "../factors" }
 spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
-tokio = { version = "1.39.3", features = ["macros", "rt"] }
+tokio = { version = "1", features = ["macros", "rt"] }
 tracing = { workspace = true }
 
 [lints]

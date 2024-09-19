@@ -19,15 +19,15 @@ wit-parser = "0.200.0"
 
 [dev-dependencies]
 async-trait = { workspace = true }
-cap-std = "2.0.1"
+cap-std = "2.0"
 rand = { workspace = true }
-rand_chacha = "0.3.1"
-rand_core = "0.6.4"
+rand_chacha = "0.3"
+rand_core = "0.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
-tokio = { version = "1.36.0", features = ["macros", "rt", "fs"] }
+tokio = { version = "1", features = ["macros", "rt", "fs"] }
 toml = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
-wat = "1.200.0"
+wat = "1"

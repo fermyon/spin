@@ -6,7 +6,7 @@ use std::{collections::VecDeque, fmt::Debug, fs, path::PathBuf};
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use spin_common::ui::quoted_path;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 /// Diagnoses for app manifest format problems.
 pub mod manifest;
@@ -81,7 +81,7 @@ pub struct PatientApp {
     /// Path to an app manifest file.
     pub manifest_path: PathBuf,
     /// Parsed app manifest TOML document.
-    pub manifest_doc: Document,
+    pub manifest_doc: DocumentMut,
 }
 
 impl PatientApp {
@@ -100,7 +100,7 @@ impl PatientApp {
             )
         })?;
 
-        let manifest_doc: Document = contents.parse().with_context(|| {
+        let manifest_doc: DocumentMut = contents.parse().with_context(|| {
             format!(
                 "Couldn't parse manifest file at {} as valid TOML",
                 quoted_path(&path)

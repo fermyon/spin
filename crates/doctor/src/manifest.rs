@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use spin_common::ui::quoted_path;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 use crate::Treatment;
 
@@ -22,7 +22,7 @@ pub trait ManifestTreatment {
     fn summary(&self) -> String;
 
     /// Attempt to fix this problem. See [`Treatment::treat`].
-    async fn treat_manifest(&self, doc: &mut Document) -> Result<()>;
+    async fn treat_manifest(&self, doc: &mut DocumentMut) -> Result<()>;
 }
 
 #[async_trait]

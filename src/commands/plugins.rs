@@ -91,11 +91,11 @@ pub struct Install {
     pub remote_manifest_src: Option<Url>,
 
     /// Skips prompt to accept the installation of the plugin.
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[clap(short = 'y', long = "yes", num_args = 0)]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, num_args = 0)]
     pub override_compatibility_check: bool,
 
     /// Specific version of a plugin to be install from the centralized plugins
@@ -181,7 +181,7 @@ pub struct Upgrade {
         conflicts_with = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        takes_value = false,
+        num_args = 0
     )]
     pub all: bool,
 
@@ -204,11 +204,11 @@ pub struct Upgrade {
     pub remote_manifest_src: Option<Url>,
 
     /// Skips prompt to accept the installation of the plugin[s].
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[clap(short = 'y', long = "yes", num_args = 0)]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, num_args = 0)]
     pub override_compatibility_check: bool,
 
     /// Specific version of a plugin to be install from the centralized plugins
@@ -224,7 +224,7 @@ pub struct Upgrade {
     pub version: Option<Version>,
 
     /// Allow downgrading a plugin's version.
-    #[clap(short = 'd', long = "downgrade", takes_value = false)]
+    #[clap(short = 'd', long = "downgrade", num_args = 0)]
     pub downgrade: bool,
 }
 
@@ -571,15 +571,15 @@ fn latest_and_rest(
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
-    #[clap(long = "installed", takes_value = false, group = "which")]
+    #[clap(long = "installed", num_args = 0, group = "which")]
     pub installed: bool,
 
     /// List all versions of plugins. This is the default behaviour.
-    #[clap(long = "all", takes_value = false, group = "which")]
+    #[clap(long = "all", num_args = 0, group = "which")]
     pub all: bool,
 
     /// List latest and installed versions of plugins.
-    #[clap(long = "summary", takes_value = false, group = "which")]
+    #[clap(long = "summary", num_args = 0, group = "which")]
     pub summary: bool,
 
     /// Filter the list to plugins containing this string.

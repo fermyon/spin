@@ -83,12 +83,12 @@ pub struct UpCommand {
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// Pass an environment variable (key=value) to all components of the application.
-    #[clap(short = 'e', long = "env", parse(try_from_str = parse_env_var))]
+    #[clap(short = 'e', long = "env", value_parser(parse_env_var))]
     pub env: Vec<(String, String)>,
 
     /// Temporary directory for the static assets of the components.
@@ -104,13 +104,13 @@ pub struct UpCommand {
     ///
     /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
     /// without a restart.  This cannot be used with registry apps or apps which use file patterns and/or exclusions.
-    #[clap(long, takes_value = false)]
+    #[clap(long, num_args = 0)]
     pub direct_mounts: bool,
 
     /// For local apps, specifies to perform `spin build` before running the application.
     ///
     /// This is ignored on remote applications, as they are already built.
-    #[clap(long, takes_value = false, env = ALWAYS_BUILD_ENV)]
+    #[clap(long, num_args = 0, env = ALWAYS_BUILD_ENV)]
     pub build: bool,
 
     /// All other args, to be passed through to the trigger

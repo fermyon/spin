@@ -27,7 +27,7 @@ pub struct LoginCommand {
 }
 
 impl DeployCommand {
-    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
+    pub async fn run(self, app: clap::Command) -> Result<()> {
         let mut cmd = vec!["cloud".to_string(), "deploy".to_string()];
         cmd.append(&mut self.args.clone());
         execute_external_subcommand(cmd, app).await
@@ -35,7 +35,7 @@ impl DeployCommand {
 }
 
 impl LoginCommand {
-    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
+    pub async fn run(self, app: clap::Command) -> Result<()> {
         let mut cmd = vec!["cloud".to_string(), "login".to_string()];
         cmd.append(&mut self.args.clone());
         execute_external_subcommand(cmd, app).await

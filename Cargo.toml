@@ -19,7 +19,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 chrono = "0.4"
-clap = { version = "3.2.24", features = ["derive", "env"] }
+clap = { version = "4", features = ["derive", "env", "string"] }
 clearscreen = "3"
 comfy-table = "7"
 command-group = "2"

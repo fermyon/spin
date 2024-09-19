@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::{future::Future, sync::Arc};
 
 use anyhow::{Context, Result};
-use clap::{Args, IntoApp, Parser};
+use clap::{Args, CommandFactory, Parser};
 use spin_app::App;
 use spin_common::sloth;
 use spin_common::ui::quoted_path;
@@ -38,7 +38,6 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
 #[clap(
-    usage = "spin [COMMAND] [OPTIONS]",
     next_help_heading = help_heading::<T, B::Factors>()
 )]
 pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> {
@@ -58,7 +57,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
         long = "disable-cache",
         env = DISABLE_WASMTIME_CACHE,
         conflicts_with = WASMTIME_CACHE_FILE,
-        takes_value = false,
+        num_args = 0,
     )]
     pub disable_cache: bool,
 
@@ -79,7 +78,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
     #[clap(
         name = FOLLOW_LOG_OPT,
         long = "follow",
-        multiple_occurrences = true,
+        num_args = 1,
     )]
     pub follow_components: Vec<String>,
 

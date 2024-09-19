@@ -94,7 +94,7 @@ pub struct TriggerAppArgs {
     /// Set a key/value pair (key=value) in the application's
     /// default store. Any existing value will be overwritten.
     /// Can be used multiple times.
-    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    #[clap(long = "key-value", value_parser(parse_kv))]
     pub key_values: Vec<(String, String)>,
 
     /// Run a SQLite statement such as a migration against the default database.

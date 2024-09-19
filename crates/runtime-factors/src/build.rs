@@ -38,7 +38,6 @@ impl RuntimeFactorsBuilder for FactorsBuilder {
             runtime_config.state_dir(),
             config.working_dir.clone(),
             args.allow_transient_write,
-            runtime_config.key_value_resolver.clone(),
             use_gpu,
         )
         .context("failed to create factors")?;

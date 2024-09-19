@@ -1,7 +1,6 @@
 //! Runtime configuration implementation used by Spin CLI.
 
-use crate::StoreManager;
-use crate::{DefaultLabelResolver, RuntimeConfig};
+use crate::{RuntimeConfig, StoreManager};
 use anyhow::Context as _;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -99,7 +98,25 @@ impl RuntimeConfigResolver {
     }
 
     /// Resolves a toml table into a runtime config.
-    pub fn resolve_from_toml(
+    ///
+    /// The default stores are also added to the runtime config.
+    pub fn resolve(&self, table: Option<&impl GetTomlValue>) -> anyhow::Result<RuntimeConfig> {
+        let mut runtime_config = self.resolve_from_toml(table)?.unwrap_or_default();
+
+        for (&label, config) in &self.defaults {
+            if !runtime_config.store_managers.contains_key(label) {
+                let store_manager = self
+                    .store_manager_from_config(config.clone())
+                    .with_context(|| {
+                        format!("could not configure key-value store with label '{label}'")
+                    })?;
+                runtime_config.add_store_manager(label.to_owned(), store_manager);
+            }
+        }
+        Ok(runtime_config)
+    }
+
+    fn resolve_from_toml(
         &self,
         table: Option<&impl GetTomlValue>,
     ) -> anyhow::Result<Option<RuntimeConfig>> {
@@ -115,6 +132,7 @@ impl RuntimeConfigResolver {
             })?;
             runtime_config.add_store_manager(label.clone(), store_manager);
         }
+
         Ok(Some(runtime_config))
     }
 
@@ -131,15 +149,6 @@ impl RuntimeConfigResolver {
             format!("the store type '{config_type}' was not registered with the config resolver")
         })?;
         maker(config.config)
-    }
-}
-
-impl DefaultLabelResolver for RuntimeConfigResolver {
-    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
-        let config = self.defaults.get(label)?;
-        // TODO(rylev): The unwrap here is not ideal. We should return a Result instead.
-        // Piping that through `DefaultLabelResolver` is a bit awkward, though.
-        Some(self.store_manager_from_config(config.clone()).unwrap())
     }
 }
 

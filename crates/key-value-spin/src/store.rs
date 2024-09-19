@@ -159,19 +159,15 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
-        let mut kv = KeyValueDispatch::new();
-        kv.init(
+        let mut kv = KeyValueDispatch::new(
             ["default", "foo"]
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
-            Arc::new(DelegatingStoreManager::new(
-                [(
-                    "default".to_owned(),
-                    Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as _,
-                )],
-                Arc::new(|_: &str| -> Option<Arc<dyn StoreManager>> { None }),
-            )),
+            Arc::new(DelegatingStoreManager::new([(
+                "default".to_owned(),
+                Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as _,
+            )])),
         );
 
         assert!(matches!(

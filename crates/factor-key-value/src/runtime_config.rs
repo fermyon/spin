@@ -18,6 +18,16 @@ impl RuntimeConfig {
     pub fn add_store_manager(&mut self, label: String, store_manager: Arc<dyn StoreManager>) {
         self.store_managers.insert(label, store_manager);
     }
+
+    /// Returns whether a store manager exists for the store with the given label.
+    pub fn has_store_manager(&self, label: &str) -> bool {
+        self.store_managers.contains_key(label)
+    }
+
+    /// Returns the store manager for the store with the given label.
+    pub fn get_store_manager(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
+        self.store_managers.get(label).cloned()
+    }
 }
 
 impl IntoIterator for RuntimeConfig {

@@ -30,5 +30,12 @@ spin-sqlite = { path = "../sqlite" }
 spin-trigger = { path = "../trigger" }
 toml = "0.8"
 
+[dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
+spin-world = { path = "../world" }
+tokio = { version = "1", features = ["macros"] }
+tempfile = "3.2"
+toml = "0.8"
+
 [lints]
 workspace = true

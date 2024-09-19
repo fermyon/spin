@@ -13,39 +13,15 @@ use tokio::{
 };
 use tracing::Instrument;
 
-const DEFAULT_CACHE_SIZE: usize = 256;
-
-pub struct EmptyStoreManager;
-
-#[async_trait]
-impl StoreManager for EmptyStoreManager {
-    async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
-        Err(Error::NoSuchStore)
-    }
-
-    fn is_defined(&self, _store_name: &str) -> bool {
-        false
-    }
-}
-
-/// A function that takes a store label and returns the default store manager, if one exists.
-pub type DefaultManagerGetter = Arc<dyn Fn(&str) -> Option<Arc<dyn StoreManager>> + Send + Sync>;
-
+/// A [`StoreManager`] which delegates to other `StoreManager`s based on the store label.
 pub struct DelegatingStoreManager {
     delegates: HashMap<String, Arc<dyn StoreManager>>,
-    default_manager: DefaultManagerGetter,
 }
 
 impl DelegatingStoreManager {
-    pub fn new(
-        delegates: impl IntoIterator<Item = (String, Arc<dyn StoreManager>)>,
-        default_manager: DefaultManagerGetter,
-    ) -> Self {
+    pub fn new(delegates: impl IntoIterator<Item = (String, Arc<dyn StoreManager>)>) -> Self {
         let delegates = delegates.into_iter().collect();
-        Self {
-            delegates,
-            default_manager,
-        }
+        Self { delegates }
     }
 }
 
@@ -54,12 +30,7 @@ impl StoreManager for DelegatingStoreManager {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         match self.delegates.get(name) {
             Some(store) => store.get(name).await,
-            None => {
-                (self.default_manager)(name)
-                    .ok_or(Error::NoSuchStore)?
-                    .get(name)
-                    .await
-            }
+            None => Err(Error::NoSuchStore),
         }
     }
 
@@ -71,7 +42,7 @@ impl StoreManager for DelegatingStoreManager {
         if let Some(store) = self.delegates.get(store_name) {
             return store.summary(store_name);
         }
-        (self.default_manager)(store_name)?.summary(store_name)
+        None
     }
 }
 
@@ -103,6 +74,8 @@ pub struct CachingStoreManager<T> {
     capacity: NonZeroUsize,
     inner: T,
 }
+
+const DEFAULT_CACHE_SIZE: usize = 256;
 
 impl<T> CachingStoreManager<T> {
     pub fn new(inner: T) -> Self {

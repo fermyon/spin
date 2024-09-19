@@ -203,14 +203,6 @@ pub struct ComponentDependencies {
     pub inner: Map<DependencyName, ComponentDependency>,
 }
 
-impl TryFrom<Map<DependencyName, ComponentDependency>> for ComponentDependencies {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Map<DependencyName, ComponentDependency>) -> Result<Self, Self::Error> {
-        Ok(ComponentDependencies { inner: value })
-    }
-}
-
 impl ComponentDependencies {
     /// This method validates the correct specification of dependencies in a
     /// component section of the manifest. See the documentation on the methods

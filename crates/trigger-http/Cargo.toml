@@ -16,8 +16,8 @@ futures-util = "0.3"
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
-hyper-util = { version = "0.1.2", features = ["tokio"] }
-indexmap = "1"
+hyper-util = { version = "0.1", features = ["tokio"] }
+indexmap = "2"
 percent-encoding = "2"
 rustls = { workspace = true }
 rustls-pemfile = "2.1.2"
@@ -42,7 +42,7 @@ url = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
-webpki-roots = { version = "0.26.0" }
+webpki-roots = { version = "0.26" }
 
 [lints]
 workspace = true

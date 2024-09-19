@@ -148,21 +148,7 @@ fn hyper_method(m: Method) -> http::Method {
 async fn response_from_hyper(mut resp: crate::Response) -> Result<Response, HttpError> {
     let status = resp.status().as_u16();
 
-    let headers = resp
-        .headers()
-        .into_iter()
-        .map(|(key, val)| {
-            Ok((
-                key.to_string(),
-                val.to_str()
-                    .map_err(|_| {
-                        tracing::error!("Non-ascii response header {key} = {val:?}");
-                        HttpError::RuntimeError
-                    })?
-                    .to_string(),
-            ))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let headers = headers_from_map(resp.headers());
 
     let body = resp
         .body_mut()
@@ -205,21 +191,7 @@ fn log_reqwest_error(err: reqwest::Error) -> HttpError {
 async fn response_from_reqwest(res: reqwest::Response) -> Result<Response, HttpError> {
     let status = res.status().as_u16();
 
-    let headers = res
-        .headers()
-        .into_iter()
-        .map(|(key, val)| {
-            Ok((
-                key.to_string(),
-                val.to_str()
-                    .map_err(|_| {
-                        tracing::error!("Non-ascii response header {key} = {val:?}");
-                        HttpError::RuntimeError
-                    })?
-                    .to_string(),
-            ))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let headers = headers_from_map(res.headers());
 
     let body = res
         .bytes()
@@ -232,4 +204,21 @@ async fn response_from_reqwest(res: reqwest::Response) -> Result<Response, HttpE
         headers: Some(headers),
         body: Some(body),
     })
+}
+
+fn headers_from_map(map: &http::HeaderMap) -> Vec<(String, String)> {
+    map.iter()
+        .filter_map(|(key, val)| {
+            Some((
+                key.to_string(),
+                val.to_str()
+                    .ok()
+                    .or_else(|| {
+                        tracing::warn!("Non-ascii response header value for {key}");
+                        None
+                    })?
+                    .to_string(),
+            ))
+        })
+        .collect()
 }

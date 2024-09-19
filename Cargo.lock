@@ -1390,7 +1390,7 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
 ]
 
 [[package]]
@@ -2997,7 +2997,7 @@ dependencies = [
  "indexmap 2.5.0",
  "slab",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
 ]
 
@@ -3016,7 +3016,7 @@ dependencies = [
  "indexmap 2.5.0",
  "slab",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
 ]
 
@@ -3939,7 +3939,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tower",
  "tracing",
 ]
@@ -4499,7 +4499,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-native-tls",
- "tokio-util 0.7.10",
+ "tokio-util",
  "twox-hash",
  "url",
 ]
@@ -5881,7 +5881,7 @@ dependencies = [
  "sha1 0.6.1",
  "tokio",
  "tokio-native-tls",
- "tokio-util 0.7.10",
+ "tokio-util",
  "url",
 ]
 
@@ -5904,7 +5904,7 @@ dependencies = [
  "sha1_smol",
  "socket2 0.5.6",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "url",
 ]
 
@@ -6052,7 +6052,7 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.24.1",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -6101,7 +6101,7 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-socks",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -7579,7 +7579,7 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "glob",
- "indexmap 1.9.3",
+ "indexmap 2.5.0",
  "itertools 0.13.0",
  "lazy_static 1.4.0",
  "mime_guess",
@@ -7600,7 +7600,7 @@ dependencies = [
  "terminal",
  "thiserror",
  "tokio",
- "tokio-util 0.6.10",
+ "tokio-util",
  "toml 0.8.14",
  "tracing",
  "ui-testing",
@@ -7663,7 +7663,7 @@ dependencies = [
  "spin-manifest",
  "tempfile",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
  "walkdir",
 ]
@@ -8495,7 +8495,7 @@ dependencies = [
  "rand 0.8.5",
  "socket2 0.5.6",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "whoami",
 ]
 
@@ -8550,20 +8550,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
 dependencies = [
  "futures-core",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
-name = "tokio-util"
-version = "0.6.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
-dependencies = [
- "bytes",
- "futures-core",
- "futures-sink",
- "log",
  "pin-project-lite",
  "tokio",
 ]
@@ -8682,7 +8668,7 @@ dependencies = [
  "rand 0.8.5",
  "slab",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -9150,7 +9136,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
  "url",
  "walkdir",
@@ -9497,7 +9483,7 @@ dependencies = [
  "sha2",
  "thiserror",
  "tokio",
- "tokio-util 0.7.10",
+ "tokio-util",
  "toml 0.8.14",
  "tracing",
  "tracing-subscriber",

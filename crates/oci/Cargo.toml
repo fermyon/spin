@@ -17,7 +17,7 @@ dirs = { workspace = true }
 dkregistry = { git = "https://github.com/fermyon/dkregistry-rs", rev = "161cf2b66996ed97c7abaf046e38244484814de3" }
 docker_credential = "1.0"
 futures-util = "0.3"
-itertools = "0.12.1"
+itertools = { workspace = true }
 oci-distribution = { git = "https://github.com/fermyon/oci-distribution", rev = "7e4ce9be9bcd22e78a28f06204931f10c44402ba" }
 reqwest = "0.12"
 serde = { workspace = true }

@@ -14,12 +14,12 @@ dirs = { workspace = true }
 fs_extra = "1.2"
 heck = "0.4"
 indexmap = { version = "1", features = ["serde"] }
-itertools = "0.10.3"
+itertools = { workspace = true }
 lazy_static = "1.4.0"
-liquid = "0.23"
-liquid-core = "0.23"
-liquid-derive = "0.23"
-liquid-lib = "0.23"
+liquid = "0.26"
+liquid-core = "0.26"
+liquid-derive = "0.26"
+liquid-lib = "0.26"
 path-absolutize = "3.0.13"
 pathdiff = "0.2.1"
 regex = "1.5.4"

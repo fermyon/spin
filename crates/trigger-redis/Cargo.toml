@@ -11,7 +11,7 @@ doctest = false
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-redis = { version = "0.26.1", features = ["tokio-comp"] }
+redis = { version = "0.27", features = ["tokio-comp"] }
 serde = { workspace = true }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factors = { path = "../factors" }

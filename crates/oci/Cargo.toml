@@ -6,16 +6,16 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-async-compression = { version = "0.4.3", features = ["gzip", "tokio"] }
+async-compression = { version = "0.4", features = ["gzip", "tokio"] }
 # Fork with nested async-std dependency bumped to satisfy Windows build; branch/revision is protected
 async-tar = { git = "https://github.com/vdice/async-tar", rev = "71e037f9652971e7a55b412a8e47a37b06f9c29d" }
-base64 = "0.21"
+base64 = "0.22"
 chrono = "0.4"
 # Fork with updated auth to support ACR login
 # Ref https://github.com/camallo/dkregistry-rs/pull/263
 dirs = { workspace = true }
 dkregistry = { git = "https://github.com/fermyon/dkregistry-rs", rev = "161cf2b66996ed97c7abaf046e38244484814de3" }
-docker_credential = "1.0"
+docker_credential = "1"
 futures-util = "0.3"
 itertools = { workspace = true }
 oci-distribution = { git = "https://github.com/fermyon/oci-distribution", rev = "7e4ce9be9bcd22e78a28f06204931f10c44402ba" }
@@ -28,6 +28,6 @@ spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
 tempfile = { workspace = true }
 tokio = { version = "1", features = ["fs"] }
-tokio-util = { version = "0.7.9", features = ["compat"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 tracing = { workspace = true }
-walkdir = "2.3"
+walkdir = "2"

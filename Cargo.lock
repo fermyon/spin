@@ -709,7 +709,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static 1.4.0",
  "lazycell",
  "proc-macro2",
@@ -2352,17 +2352,6 @@ checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 
 [[package]]
 name = "fd-lock"
-version = "3.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef033ed5e9bad94e55838ca0ca906db0e043f517adda0c8b79c7a8c66c93c1b5"
-dependencies = [
- "cfg-if",
- "rustix 0.38.32",
- "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "fd-lock"
 version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e5768da2206272c81ef0b5e951a41862938a6070da63bcea197899942d3b947"
@@ -3909,7 +3898,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -4243,15 +4232,6 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e7d46de488603ffdd5f30afbc64fbba2378214a2c3a2fb83abf3d33126df17"
-dependencies = [
- "hashbrown 0.13.2",
-]
-
-[[package]]
-name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
@@ -4496,9 +4476,9 @@ checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
 
 [[package]]
 name = "mysql_async"
-version = "0.33.0"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6750b17ce50f8f112ef1a8394121090d47c596b56a6a17569ca680a9626e2ef2"
+checksum = "a0b66e411c31265e879d9814d03721f2daa7ad07337b6308cb4bb0cde7e6fd47"
 dependencies = [
  "bytes",
  "crossbeam",
@@ -4507,12 +4487,9 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "keyed_priority_queue",
- "lazy_static 1.4.0",
- "lru 0.12.3",
- "mio 0.8.11",
+ "lru",
  "mysql_common",
  "native-tls",
- "once_cell",
  "pem",
  "percent-encoding",
  "pin-project",
@@ -4530,9 +4507,9 @@ dependencies = [
 
 [[package]]
 name = "mysql_common"
-version = "0.31.0"
+version = "0.32.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06f19e4cfa0ab5a76b627cec2d81331c49b034988eaf302c3bafeada684eadef"
+checksum = "478b0ff3f7d67b79da2b96f56f334431aef65e15ba4b29dd74a4236e29582bdc"
 dependencies = [
  "base64 0.21.7",
  "bindgen",
@@ -4558,7 +4535,7 @@ dependencies = [
  "subprocess",
  "thiserror",
  "uuid",
- "zstd 0.12.4",
+ "zstd 0.13.1",
 ]
 
 [[package]]
@@ -5629,7 +5606,7 @@ checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "log",
  "multimap",
  "once_cell",
@@ -5649,7 +5626,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19de2de2a00075bf566bee3bd4db014b11587e84184d3f7a791bc17f1a8e9e48"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "syn 2.0.58",
@@ -7217,7 +7194,6 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "dotenvy",
  "serde 1.0.210",
  "spin-locked-app",
  "thiserror",
@@ -7230,7 +7206,7 @@ name = "spin-factor-key-value"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "lru 0.9.0",
+ "lru",
  "serde 1.0.210",
  "spin-core",
  "spin-factors",
@@ -7567,7 +7543,7 @@ dependencies = [
  "candle-nn",
  "chrono",
  "llm",
- "lru 0.9.0",
+ "lru",
  "num_cpus",
  "rand 0.8.5",
  "safetensors",
@@ -7671,7 +7647,7 @@ dependencies = [
  "anyhow",
  "async-compression",
  "async-tar",
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "dirs 5.0.1",
  "dkregistry",
@@ -7701,7 +7677,7 @@ dependencies = [
  "bytes",
  "chrono",
  "dirs 5.0.1",
- "fd-lock 3.0.13",
+ "fd-lock",
  "flate2",
  "is-terminal",
  "path-absolutize",
@@ -7879,7 +7855,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml 0.8.14",
- "toml_edit 0.20.7",
+ "toml_edit 0.22.14",
  "url",
  "walkdir",
 ]
@@ -8187,7 +8163,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cap-fs-ext",
  "cap-std 3.0.0",
- "fd-lock 4.0.2",
+ "fd-lock",
  "io-lifetimes 2.0.3",
  "rustix 0.38.32",
  "windows-sys 0.52.0",
@@ -8652,17 +8628,6 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.20.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70f427fce4d84c72b5b732388bf4a9f4531b53f74e2887e3ecb2481f68f66d81"
-dependencies = [
- "indexmap 2.5.0",
- "toml_datetime",
- "winnow 0.5.40",
-]
-
-[[package]]
-name = "toml_edit"
 version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
@@ -8854,7 +8819,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -10782,15 +10747,6 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a27595e173641171fc74a1232b7b1c7a7cb6e18222c11e9dfb9888fa424c53c"
-dependencies = [
- "zstd-safe 6.0.6",
-]
-
-[[package]]
-name = "zstd"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d789b1514203a1120ad2429eae43a7bd32b90976a7bb8a05f7ec02fa88cc23a"
@@ -10803,16 +10759,6 @@ name = "zstd-safe"
 version = "5.0.2+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d2a5585e04f9eea4b2a3d1eca508c4dee9592a89ef6f450c11719da0726f4db"
-dependencies = [
- "libc",
- "zstd-sys",
-]
-
-[[package]]
-name = "zstd-safe"
-version = "6.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
 dependencies = [
  "libc",
  "zstd-sys",

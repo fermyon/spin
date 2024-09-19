@@ -8,9 +8,9 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 futures-util = "0.3"
 http = { workspace = true }
-ipnet = "2.9.0"
+ipnet = "2"
 rustls = { workspace = true }
-rustls-pemfile = { version = "2.1.2", optional = true }
+rustls-pemfile = { version = "2", optional = true }
 rustls-pki-types = "1.7.0"
 serde = { workspace = true }
 spin-expressions = { path = "../expressions" }

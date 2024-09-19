@@ -30,6 +30,6 @@ spin-manifest = { path = "../manifest" }
 tempfile = { workspace = true }
 tokio = { version = "1", features = ["fs", "process", "rt", "macros"] }
 toml = { workspace = true }
-toml_edit = "0.20.2"
+toml_edit = "0.22"
 url = { workspace = true }
 walkdir = "2"

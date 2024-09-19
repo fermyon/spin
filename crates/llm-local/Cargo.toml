@@ -13,7 +13,7 @@ llm = { git = "https://github.com/rustformers/llm", rev = "2f6ffd4435799ceaa1d1b
   "tokenizers-remote",
   "llama",
 ], default-features = false }
-lru = "0.9.0"
+lru = "0.12"
 num_cpus = "1"
 rand = { workspace = true }
 safetensors = "0.3.3"

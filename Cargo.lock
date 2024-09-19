@@ -7218,7 +7218,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dotenvy",
- "once_cell",
  "serde 1.0.210",
  "spin-locked-app",
  "thiserror",
@@ -7551,7 +7550,6 @@ name = "spin-key-value-spin"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "once_cell",
  "rusqlite",
  "serde 1.0.210",
  "spin-core",
@@ -7812,7 +7810,6 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "once_cell",
  "rand 0.8.5",
  "rusqlite",
  "spin-factor-sqlite",
@@ -7841,7 +7838,6 @@ dependencies = [
  "anyhow",
  "http 0.2.12",
  "http 1.1.0",
- "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
@@ -8252,7 +8248,6 @@ name = "terminal"
 version = "2.8.0-pre0"
 dependencies = [
  "atty",
- "once_cell",
  "termcolor",
 ]
 

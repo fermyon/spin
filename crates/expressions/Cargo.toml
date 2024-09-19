@@ -8,7 +8,6 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 dotenvy = "0.15"
-once_cell = "1"
 serde = { workspace = true }
 spin-locked-app = { path = "../locked-app" }
 thiserror = { workspace = true }

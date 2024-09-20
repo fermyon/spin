@@ -10,12 +10,16 @@ pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 
 /// Attempts to find a manifest. If a path is provided, that path is resolved
 /// using `resolve_manifest_file_path`; otherwise, a directory search is carried out
-/// using `search_upwards_for_manifest`. If a manifest is found, a boolean is
-/// also returned indicating if it was the default: this can be used to
-/// notify the user that a non-default manifest is being used.
-pub fn find_manifest_file_path(provided_path: Option<impl AsRef<Path>>) -> Result<(PathBuf, bool)> {
+/// using `search_upwards_for_manifest`. If we had to search, and a manifest is found,
+/// a (non-zero) usize is returned indicating how far above the current directory it
+/// was found. (A usize of 0 indicates that the manifest was provided or found
+/// in the current directory.) This can be used to notify the user that a
+/// non-default manifest is being used.
+pub fn find_manifest_file_path(
+    provided_path: Option<impl AsRef<Path>>,
+) -> Result<(PathBuf, usize)> {
     match provided_path {
-        Some(provided_path) => resolve_manifest_file_path(provided_path).map(|p| (p, true)),
+        Some(provided_path) => resolve_manifest_file_path(provided_path).map(|p| (p, 0)),
         None => search_upwards_for_manifest()
             .ok_or_else(|| anyhow!("\"{}\" not found", DEFAULT_MANIFEST_FILE)),
     }
@@ -52,25 +56,38 @@ pub fn resolve_manifest_file_path(provided_path: impl AsRef<Path>) -> Result<Pat
 /// Starting from the current directory, searches upward through
 /// the directory tree for a manifest (that is, a file with the default
 /// manifest name `spin.toml`). If found, the path to the manifest
-/// is returned, with a boolean flag indicating if the found path was
-/// the default (i.e. `spin.toml` in the current directory).
+/// is returned, with a usize indicating how far above the current directory it
+/// was found. (A usize of 0 indicates that the manifest was provided or found
+/// in the current directory.) This can be used to notify the user that a
+/// non-default manifest is being used.
 /// If no matching file is found, the function returns None.
-pub fn search_upwards_for_manifest() -> Option<(PathBuf, bool)> {
-    let mut inferred_dir = std::env::current_dir().unwrap();
-    let mut is_default = true;
+///
+/// The search is abandoned if it reaches the root directory, or the
+/// root of a Git repository, without finding a 'spin.toml'.
+pub fn search_upwards_for_manifest() -> Option<(PathBuf, usize)> {
+    let candidate = PathBuf::from(DEFAULT_MANIFEST_FILE);
 
-    loop {
-        let candidate = inferred_dir.join(DEFAULT_MANIFEST_FILE);
+    if candidate.is_file() {
+        return Some((candidate, 0));
+    }
 
-        if candidate.is_file() {
-            return Some((candidate, is_default));
+    for distance in 1..20 {
+        let inferred_dir = PathBuf::from("../".repeat(distance));
+        if !inferred_dir.is_dir() {
+            return None;
         }
 
-        is_default = false;
-        let parent = inferred_dir.parent()?;
+        let candidate = inferred_dir.join(DEFAULT_MANIFEST_FILE);
+        if candidate.is_file() {
+            return Some((candidate, distance));
+        }
 
-        inferred_dir = parent.to_owned();
+        if is_git_root(&inferred_dir) {
+            return None;
+        }
     }
+
+    None
 }
 
 /// Resolves the parent directory of a path, returning an error if the path
@@ -84,6 +101,10 @@ pub fn parent_dir(path: impl AsRef<Path>) -> Result<PathBuf> {
         parent = Path::new(".");
     }
     Ok(parent.into())
+}
+
+fn is_git_root(dir: &Path) -> bool {
+    dir.join(".git").is_dir()
 }
 
 #[cfg(test)]

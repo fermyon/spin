@@ -2,9 +2,11 @@ use std::{ffi::OsString, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
-use spin_common::ui::quoted_path;
 
-use crate::opts::{APP_MANIFEST_FILE_OPT, BUILD_UP_OPT};
+use crate::{
+    directory_rels::notify_if_nondefault_rel,
+    opts::{APP_MANIFEST_FILE_OPT, BUILD_UP_OPT},
+};
 
 use super::up::UpCommand;
 
@@ -37,15 +39,9 @@ pub struct BuildCommand {
 
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
-        let (manifest_file, is_default) =
+        let (manifest_file, distance) =
             spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
-        if !is_default {
-            terminal::einfo!(
-                "Using 'spin.toml' from parent directory:",
-                "{}",
-                quoted_path(&manifest_file)
-            );
-        }
+        notify_if_nondefault_rel(&manifest_file, distance);
 
         spin_build::build(&manifest_file, &self.component_id).await?;
 

@@ -8,12 +8,13 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
-use spin_common::{paths::parent_dir, ui::quoted_path};
+use spin_common::paths::parent_dir;
 use uuid::Uuid;
 use watchexec::Watchexec;
 
-use crate::opts::{
-    APP_MANIFEST_FILE_OPT, WATCH_CLEAR_OPT, WATCH_DEBOUNCE_OPT, WATCH_SKIP_BUILD_OPT,
+use crate::{
+    directory_rels::notify_if_nondefault_rel,
+    opts::{APP_MANIFEST_FILE_OPT, WATCH_CLEAR_OPT, WATCH_DEBOUNCE_OPT, WATCH_SKIP_BUILD_OPT},
 };
 
 mod buildifier;
@@ -91,15 +92,10 @@ impl WatchCommand {
         //     has just done so.  Subsequent asset changes _do_ clear the screen.
 
         let spin_bin = std::env::current_exe()?;
-        let (manifest_file, is_default) =
+        let (manifest_file, distance) =
             spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
-        if !is_default {
-            terminal::einfo!(
-                "Using 'spin.toml' from parent directory:",
-                "{}",
-                quoted_path(&manifest_file)
-            );
-        }
+        notify_if_nondefault_rel(&manifest_file, distance);
+
         let manifest_file = manifest_file.absolutize()?.to_path_buf(); // or watchexec misses files in subdirectories
         let manifest_dir = parent_dir(&manifest_file)?;
 

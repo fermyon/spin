@@ -17,30 +17,28 @@ pub struct DoctorCommand {
         name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "from",
-        alias = "file",
+        alias = "file"
     )]
     pub app_source: Option<PathBuf>,
 }
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
-        let (manifest_file, is_default) =
+        let (manifest_file, distance) =
             spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
-
-        println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
-        if is_default {
-            println!(
-                "{icon}Checking {}...",
-                manifest_file.display(),
-                icon = Emoji("🩺 ", "")
-            );
-        } else {
-            println!(
-                "{icon}Checking file from parent directory {}...",
-                manifest_file.display(),
-                icon = Emoji("🩺 ", "")
+        if distance > 0 {
+            anyhow::bail!(
+                "No spin.toml in current directory - did you mean '--from {}'?",
+                manifest_file.display()
             );
         }
+
+        println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
+        println!(
+            "{icon}Checking {}...",
+            manifest_file.display(),
+            icon = Emoji("🩺 ", "")
+        );
 
         let mut checkup = spin_doctor::Checkup::new(manifest_file)?;
         let mut has_problems = false;

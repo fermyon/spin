@@ -10,11 +10,17 @@ use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
 use tokio::{sync::oneshot, task};
 use tracing::{instrument, Instrument, Level};
-use wasmtime_wasi_http::{body::HyperIncomingBody as Body, proxy::Proxy, WasiHttpView};
+use wasmtime_wasi_http::{
+    body::HyperIncomingBody as Body,
+    proxy::exports::wasi::http::incoming_handler::Guest as IncomingHandler, WasiHttpView,
+};
 
 use crate::{
     headers::prepare_request_headers,
-    server::{HandlerType, HttpExecutor, WASI_HTTP_EXPORT_2023_10_18, WASI_HTTP_EXPORT_2023_11_10},
+    server::{
+        HandlerType, HttpExecutor, WASI_HTTP_EXPORT_0_2_0, WASI_HTTP_EXPORT_0_2_1,
+        WASI_HTTP_EXPORT_2023_10_18, WASI_HTTP_EXPORT_2023_11_10,
+    },
     TriggerInstanceBuilder,
 };
 
@@ -65,47 +71,55 @@ impl HttpExecutor for WasiHttpExecutor {
         drop(wasi_http);
 
         enum Handler {
-            Latest(Proxy),
+            Latest(IncomingHandler),
             Handler2023_11_10(IncomingHandler2023_11_10),
             Handler2023_10_18(IncomingHandler2023_10_18),
         }
 
-        let handler =
-            {
-                let mut exports = instance.exports(&mut store);
-                match self.handler_type {
-                    HandlerType::Wasi2023_10_18 => {
-                        let mut instance = exports
+        let handler = {
+            let mut exports = instance.exports(&mut store);
+            match self.handler_type {
+                HandlerType::Wasi2023_10_18 => {
+                    let mut instance =
+                        exports
                             .instance(WASI_HTTP_EXPORT_2023_10_18)
                             .ok_or_else(|| {
                                 anyhow!("export of `{WASI_HTTP_EXPORT_2023_10_18}` not an instance")
                             })?;
-                        Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(&mut instance)?)
-                    }
-                    HandlerType::Wasi2023_11_10 => {
-                        let mut instance = exports
+                    Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(&mut instance)?)
+                }
+                HandlerType::Wasi2023_11_10 => {
+                    let mut instance =
+                        exports
                             .instance(WASI_HTTP_EXPORT_2023_11_10)
                             .ok_or_else(|| {
                                 anyhow!("export of `{WASI_HTTP_EXPORT_2023_11_10}` not an instance")
                             })?;
-                        Handler::Handler2023_11_10(IncomingHandler2023_11_10::new(&mut instance)?)
-                    }
-                    HandlerType::Wasi0_2 => {
-                        drop(exports);
-                        Handler::Latest(Proxy::new(&mut store, &instance)?)
-                    }
-                    HandlerType::Spin => unreachable!("should have used SpinHttpExecutor"),
-                    HandlerType::Wagi => unreachable!("should have used WagiExecutor instead"),
+                    Handler::Handler2023_11_10(IncomingHandler2023_11_10::new(&mut instance)?)
                 }
-            };
+                HandlerType::Wasi0_2 => {
+                    let handler = if let Some(mut export) = exports.instance(WASI_HTTP_EXPORT_0_2_1)
+                    {
+                        IncomingHandler::new(&mut export)
+                    } else if let Some(mut export) = exports.instance(WASI_HTTP_EXPORT_0_2_0) {
+                        IncomingHandler::new(&mut export)
+                    } else {
+                        Err(anyhow!("export of `{WASI_HTTP_EXPORT_0_2_0}` or `{WASI_HTTP_EXPORT_0_2_1}` not an instance"))
+                    }?;
+
+                    Handler::Latest(handler)
+                }
+                HandlerType::Spin => unreachable!("should have used SpinHttpExecutor"),
+                HandlerType::Wagi => unreachable!("should have used WagiExecutor instead"),
+            }
+        };
 
         let span = tracing::debug_span!("execute_wasi");
         let handle = task::spawn(
             async move {
                 let result = match handler {
-                    Handler::Latest(proxy) => {
-                        proxy
-                            .wasi_http_incoming_handler()
+                    Handler::Latest(handler) => {
+                        handler
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await

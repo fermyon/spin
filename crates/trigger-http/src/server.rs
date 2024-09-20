@@ -478,6 +478,7 @@ pub enum HandlerType {
 pub const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
 pub const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-11-10";
 pub const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
+pub const WASI_HTTP_EXPORT_0_2_1: &str = "wasi:http/incoming-handler@0.2.1";
 
 impl HandlerType {
     /// Determine the handler type from the exports of a component
@@ -503,7 +504,7 @@ impl HandlerType {
             match name {
                 WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
                 WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
-                WASI_HTTP_EXPORT_0_2_0 => set(HandlerType::Wasi0_2)?,
+                WASI_HTTP_EXPORT_0_2_0 | WASI_HTTP_EXPORT_0_2_1 => set(HandlerType::Wasi0_2)?,
                 "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
                 _ => {}
             }
@@ -515,6 +516,7 @@ impl HandlerType {
                 `{WASI_HTTP_EXPORT_2023_10_18}`, \
                 `{WASI_HTTP_EXPORT_2023_11_10}`, \
                 `{WASI_HTTP_EXPORT_0_2_0}`, \
+                `{WASI_HTTP_EXPORT_0_2_1}`, \
                  or `fermyon:spin/inbound-http` but it exported none of those"
             )
         })

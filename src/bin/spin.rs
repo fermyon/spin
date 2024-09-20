@@ -107,7 +107,11 @@ fn version() -> &'static str {
 #[derive(Parser)]
 #[clap(
     name = "spin",
-    version = version()
+    version = version(),
+    // Display help in alphabetical order instead of default WYSIWYG order.
+    next_display_order = None,
+    styles= spin_cli::commands::help_styles(),
+    max_term_width = 100,
 )]
 enum SpinApp {
     #[clap(subcommand, alias = "template")]

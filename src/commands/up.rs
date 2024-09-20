@@ -40,7 +40,10 @@ const MULTI_TRIGGER_LET_ALL_START: tokio::time::Duration = tokio::time::Duration
 #[clap(
     about = "Start the Spin application",
     allow_hyphen_values = true,
-    disable_help_flag = true
+    disable_help_flag = true,
+    // We need to reapply styles here because the `help` field is handled manually.
+    styles= crate::commands::help_styles(),
+    max_term_width = 100,
 )]
 pub struct UpCommand {
     #[clap(short = 'h', long = "help")]

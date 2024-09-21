@@ -24,7 +24,7 @@ pub struct BuildCommand {
     pub app_source: PathBuf,
 
     /// Component ID to build. This can be specified multiple times. The default is all components.
-    #[clap(short = 'c', long, multiple = true)]
+    #[clap(short = 'c', long, num_args = 1)]
     pub component_id: Vec<String>,
 
     /// Run the application after building.

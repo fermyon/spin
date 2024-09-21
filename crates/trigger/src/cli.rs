@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::{future::Future, sync::Arc};
 
 use anyhow::{Context, Result};
-use clap::{Args, IntoApp, Parser};
+use clap::{Args, CommandFactory, Parser};
 use spin_app::App;
 use spin_common::sloth;
 use spin_common::ui::quoted_path;
@@ -38,8 +38,9 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
 #[clap(
-    usage = "spin [COMMAND] [OPTIONS]",
-    next_help_heading = help_heading::<T, B::Factors>()
+    next_help_heading = help_heading::<T, B::Factors>(),
+    styles = help_styles(),
+    max_term_width = 100,
 )]
 pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilder> {
     /// Log directory for the stdout and stderr of components. Setting to
@@ -58,7 +59,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
         long = "disable-cache",
         env = DISABLE_WASMTIME_CACHE,
         conflicts_with = WASMTIME_CACHE_FILE,
-        takes_value = false,
+        num_args = 0,
     )]
     pub disable_cache: bool,
 
@@ -79,7 +80,7 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
     #[clap(
         name = FOLLOW_LOG_OPT,
         long = "follow",
-        multiple_occurrences = true,
+        num_args = 1,
     )]
     pub follow_components: Vec<String>,
 
@@ -120,6 +121,15 @@ pub struct FactorsTriggerCommand<T: Trigger<B::Factors>, B: RuntimeFactorsBuilde
 
     #[clap(long = "launch-metadata-only", hide = true)]
     pub launch_metadata_only: bool,
+}
+
+/// The styles of the help output.
+fn help_styles() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+        .header(clap::builder::styling::AnsiColor::Yellow.on_default())
+        .usage(clap::builder::styling::AnsiColor::Green.on_default())
+        .literal(clap::builder::styling::AnsiColor::Green.on_default())
+        .placeholder(clap::builder::styling::AnsiColor::Green.on_default())
 }
 
 /// Configuration options that are common to all triggers.

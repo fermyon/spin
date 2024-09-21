@@ -46,12 +46,12 @@ pub struct Push {
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// Specifies to perform `spin build` before pushing the application.
-    #[clap(long, takes_value = false, env = ALWAYS_BUILD_ENV)]
+    #[clap(long, num_args = 0, env = ALWAYS_BUILD_ENV)]
     pub build: bool,
 
     /// Reference in the registry of the Spin application.
@@ -65,7 +65,7 @@ pub struct Push {
 
     /// Specifies the OCI image manifest annotations (in key=value format).
     /// Any existing value will be overwritten. Can be used multiple times.
-    #[clap(long = "annotation", parse(try_from_str = parse_kv))]
+    #[clap(long = "annotation", value_parser(parse_kv))]
     pub annotations: Vec<(String, String)>,
 }
 
@@ -110,7 +110,7 @@ pub struct Pull {
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0
     )]
     pub insecure: bool,
 
@@ -148,11 +148,7 @@ pub struct Login {
     pub password: Option<String>,
 
     /// Take the password from stdin
-    #[clap(
-        long = "password-stdin",
-        takes_value = false,
-        conflicts_with = "password"
-    )]
+    #[clap(long = "password-stdin", num_args = 0, conflicts_with = "password")]
     pub password_stdin: bool,
 
     /// OCI registry server (e.g. ghcr.io)

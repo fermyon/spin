@@ -458,7 +458,7 @@ impl Uninstall {
 #[derive(Parser, Debug)]
 pub struct List {
     /// Filter templates matching all provided tags.
-    #[clap(long = "tag", multiple_occurrences = true)]
+    #[clap(long = "tag", num_args = 1)]
     pub tags: Vec<String>,
 
     /// The format in which to list the templates.
@@ -466,7 +466,7 @@ pub struct List {
     pub format: ListFormat,
 
     /// Whether to show additional template details in the list.
-    #[clap(long = "verbose", takes_value = false)]
+    #[clap(long = "verbose", num_args = 0)]
     pub verbose: bool,
 }
 

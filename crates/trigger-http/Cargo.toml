@@ -10,7 +10,7 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-clap = "3"
+clap = "4"
 futures = { workspace = true }
 futures-util = "0.3"
 http = { workspace = true }

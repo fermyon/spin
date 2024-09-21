@@ -20,3 +20,12 @@ pub mod templates;
 pub mod up;
 /// Command for rebuilding and restarting a Spin app when files change.
 pub mod watch;
+
+/// The styles of the help output.
+pub fn help_styles() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+        .header(clap::builder::styling::AnsiColor::Yellow.on_default())
+        .usage(clap::builder::styling::AnsiColor::Green.on_default())
+        .literal(clap::builder::styling::AnsiColor::Green.on_default())
+        .placeholder(clap::builder::styling::AnsiColor::Green.on_default())
+}

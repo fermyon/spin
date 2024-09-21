@@ -50,13 +50,13 @@ async fn _main() -> anyhow::Result<()> {
     let mut cmd = SpinApp::command();
     for plugin in &plugin_help_entries {
         let subcmd = clap::Command::new(plugin.display_text())
-            .about(plugin.about.as_str())
+            .about(plugin.about.as_str().to_owned())
             .allow_hyphen_values(true)
             .disable_help_flag(true)
             .arg(
                 clap::Arg::new("command")
                     .allow_hyphen_values(true)
-                    .multiple_values(true),
+                    .num_args(1),
             );
         cmd = cmd.subcommand(subcmd);
     }
@@ -107,7 +107,11 @@ fn version() -> &'static str {
 #[derive(Parser)]
 #[clap(
     name = "spin",
-    version = version()
+    version = version(),
+    // Display help in alphabetical order instead of default WYSIWYG order.
+    next_display_order = None,
+    styles= spin_cli::commands::help_styles(),
+    max_term_width = 100,
 )]
 enum SpinApp {
     #[clap(subcommand, alias = "template")]
@@ -148,7 +152,7 @@ enum TriggerCommands {
 
 impl SpinApp {
     /// The main entry point to Spin.
-    pub async fn run(self, app: clap::Command<'_>) -> Result<(), Error> {
+    pub async fn run(self, app: clap::Command) -> Result<(), Error> {
         match self {
             Self::Templates(cmd) => cmd.run().await,
             Self::Up(cmd) => cmd.run().await,

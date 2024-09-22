@@ -135,6 +135,15 @@ pub enum ComponentDependency {
         /// Optional export name
         export: Option<String>,
     },
+    /// `... = { url = "https://example.com/component.wasm", sha256 = "..." }`
+    HTTP {
+        /// URL to Wasm
+        url: String,
+        /// SHA256 Checksum of the component. The string should start with 'sha256:'
+        digest: String,
+        /// Optional export name
+        export: Option<String>,
+    },
 }
 
 /// Component definition

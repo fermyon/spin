@@ -313,6 +313,14 @@ impl LocalLoader {
                 let content = file_content_ref(self.app_root.join(path))?;
                 (content, export)
             }
+            v2::ComponentDependency::HTTP {
+                url,
+                digest,
+                export,
+            } => {
+                let content = self.load_http_source(&url, &digest).await?;
+                (content, export)
+            }
         };
 
         Ok(LockedComponentDependency {

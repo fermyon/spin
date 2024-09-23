@@ -24,7 +24,7 @@ clearscreen = "3"
 comfy-table = "7"
 command-group = "2"
 ctrlc = { version = "3.4", features = ["termination"] }
-dialoguer = "0.10"
+dialoguer = "0.11"
 dirs = { workspace = true }
 futures = { workspace = true }
 glob = { workspace = true }

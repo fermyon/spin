@@ -6,15 +6,15 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-native-tls = "0.2.11"
-postgres-native-tls = "0.5.0"
+native-tls = "0.2"
+postgres-native-tls = "0.5"
 spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-tokio-postgres = "0.7.7"
+tokio-postgres = "0.7"
 tracing = { workspace = true }
 
 [dev-dependencies]

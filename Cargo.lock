@@ -894,7 +894,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr",
  "rayon",
- "safetensors 0.4.4",
+ "safetensors",
  "thiserror",
  "yoke",
  "zip",
@@ -930,7 +930,7 @@ dependencies = [
  "metal",
  "num-traits 0.2.18",
  "rayon",
- "safetensors 0.4.4",
+ "safetensors",
  "serde 1.0.210",
  "thiserror",
 ]
@@ -4183,15 +4183,6 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e7d46de488603ffdd5f30afbc64fbba2378214a2c3a2fb83abf3d33126df17"
-dependencies = [
- "hashbrown 0.13.2",
-]
-
-[[package]]
-name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
@@ -4460,7 +4451,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "keyed_priority_queue",
- "lru 0.12.3",
+ "lru",
  "mysql_common",
  "native-tls",
  "pem",
@@ -6403,16 +6394,6 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 
 [[package]]
 name = "safetensors"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d93279b86b3de76f820a8854dd06cbc33cfa57a417b19c47f6a25280112fb1df"
-dependencies = [
- "serde 1.0.210",
- "serde_json",
-]
-
-[[package]]
-name = "safetensors"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7725d4d98fa515472f43a6e2bbf956c48e06b89bb50593a040e5945160214450"
@@ -7175,7 +7156,7 @@ name = "spin-factor-key-value"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "lru 0.12.3",
+ "lru",
  "serde 1.0.210",
  "spin-core",
  "spin-factors",
@@ -7512,10 +7493,10 @@ dependencies = [
  "candle-nn",
  "candle-transformers",
  "chrono",
- "lru 0.9.0",
+ "lru",
  "num_cpus",
  "rand 0.8.5",
- "safetensors 0.3.3",
+ "safetensors",
  "serde 1.0.210",
  "serde_json",
  "spin-common",
@@ -8415,9 +8396,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokenizers"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e500fad1dd3af3d626327e6a3fe5050e664a6eaa4708b8ca92f1794aaf73e6fd"
+checksum = "c8a24d7f7d6be5b9d1377418b893ab1808af0074f5d1bb2c64784452ddd2aa70"
 dependencies = [
  "aho-corasick",
  "derive_builder 0.20.0",

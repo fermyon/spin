@@ -1,4 +1,4 @@
-use crate::opts::*;
+use crate::{directory_rels::notify_if_nondefault_rel, opts::*};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -37,9 +37,8 @@ pub struct Push {
         short = 'f',
         long = "from",
         alias = "file",
-        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app_source: PathBuf,
+    pub app_source: Option<PathBuf>,
 
     /// Ignore server certificate errors
     #[clap(
@@ -71,7 +70,10 @@ pub struct Push {
 
 impl Push {
     pub async fn run(self) -> Result<()> {
-        let app_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let (app_file, distance) =
+            spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
+        notify_if_nondefault_rel(&app_file, distance);
+
         if self.build {
             spin_build::build(&app_file, &[]).await?;
         }

@@ -128,6 +128,16 @@ macro_rules! ceprint {
     };
 }
 
+#[macro_export]
+macro_rules! ceprintln {
+    ($color:expr, $($arg:tt)*) => {
+        use std::io::Write;
+        let mut out = $crate::ColorText::stderr($color);
+        let _ = writeln!(out, $($arg)*);
+        drop(out); // Reset colors
+    };
+}
+
 pub mod colors {
     use termcolor::{Color, ColorSpec};
 

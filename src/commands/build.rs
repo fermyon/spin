@@ -3,7 +3,10 @@ use std::{ffi::OsString, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 
-use crate::opts::{APP_MANIFEST_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
+use crate::{
+    directory_rels::notify_if_nondefault_rel,
+    opts::{APP_MANIFEST_FILE_OPT, BUILD_UP_OPT},
+};
 
 use super::up::UpCommand;
 
@@ -19,9 +22,8 @@ pub struct BuildCommand {
         short = 'f',
         long = "from",
         alias = "file",
-        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app_source: PathBuf,
+    pub app_source: Option<PathBuf>,
 
     /// Component ID to build. This can be specified multiple times. The default is all components.
     #[clap(short = 'c', long, multiple = true)]
@@ -37,7 +39,10 @@ pub struct BuildCommand {
 
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let (manifest_file, distance) =
+            spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
+        notify_if_nondefault_rel(&manifest_file, distance);
+
         spin_build::build(&manifest_file, &self.component_id).await?;
 
         if self.up {

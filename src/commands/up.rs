@@ -19,7 +19,7 @@ use spin_oci::OciLoader;
 use spin_trigger::cli::{LaunchMetadata, SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
-use crate::opts::*;
+use crate::{directory_rels::notify_if_nondefault_rel, opts::*};
 
 use self::app_source::{AppSource, ResolvedAppSource};
 
@@ -401,7 +401,13 @@ impl UpCommand {
             );
             AppSource::Unresolvable(msg)
         } else {
-            AppSource::None
+            match spin_common::paths::search_upwards_for_manifest() {
+                Some((manifest_path, distance)) => {
+                    notify_if_nondefault_rel(&manifest_path, distance);
+                    AppSource::File(manifest_path)
+                }
+                None => AppSource::None,
+            }
         }
     }
 

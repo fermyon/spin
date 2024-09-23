@@ -1,5 +1,6 @@
 pub mod build_info;
 pub mod commands;
+mod directory_rels;
 pub(crate) mod opts;
 pub mod subprocess;
 

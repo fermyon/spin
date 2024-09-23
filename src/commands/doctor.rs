@@ -5,7 +5,7 @@ use clap::Parser;
 use dialoguer::{console::Emoji, Confirm, Select};
 use spin_doctor::{Diagnosis, DryRunNotSupported, PatientDiagnosis};
 
-use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
+use crate::opts::APP_MANIFEST_FILE_OPT;
 
 #[derive(Parser, Debug)]
 #[clap(about = "Detect and fix problems with Spin applications")]
@@ -17,15 +17,21 @@ pub struct DoctorCommand {
         name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "from",
-        alias = "file",
-        default_value = DEFAULT_MANIFEST_FILE
+        alias = "file"
     )]
-    pub app_source: PathBuf,
+    pub app_source: Option<PathBuf>,
 }
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let (manifest_file, distance) =
+            spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
+        if distance > 0 {
+            anyhow::bail!(
+                "No spin.toml in current directory - did you mean '--from {}'?",
+                manifest_file.display()
+            );
+        }
 
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
         println!(

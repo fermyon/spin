@@ -1,11 +1,8 @@
 #![allow(clippy::from_over_into)]
 
-use {
-    wasm_encoder::{
-        EntityType, ExportKind, GlobalType, HeapType, MemoryType, RefType, TableType, TagKind,
-        TagType, ValType,
-    },
-    wasmparser::{ExternalKind, TypeRef},
+use wasm_encoder::{
+    AbstractHeapType, EntityType, ExportKind, GlobalType, HeapType, MemoryType, RefType, TableType,
+    TagKind, TagType, ValType,
 };
 
 struct IntoHeapType(wasmparser::HeapType);
@@ -13,20 +10,26 @@ struct IntoHeapType(wasmparser::HeapType);
 impl Into<HeapType> for IntoHeapType {
     fn into(self) -> HeapType {
         match self.0 {
-            wasmparser::HeapType::Func => HeapType::Func,
-            wasmparser::HeapType::Extern => HeapType::Extern,
             wasmparser::HeapType::Concrete(_) => {
                 panic!("user-defined heap types not yet supported")
             }
-            wasmparser::HeapType::Any => HeapType::Any,
-            wasmparser::HeapType::None => HeapType::None,
-            wasmparser::HeapType::NoExtern => HeapType::NoExtern,
-            wasmparser::HeapType::NoFunc => HeapType::NoFunc,
-            wasmparser::HeapType::Eq => HeapType::Eq,
-            wasmparser::HeapType::Struct => HeapType::Struct,
-            wasmparser::HeapType::Array => HeapType::Array,
-            wasmparser::HeapType::I31 => HeapType::I31,
-            wasmparser::HeapType::Exn => HeapType::Exn,
+            wasmparser::HeapType::Abstract { ty, shared } => {
+                let ty = match ty {
+                    wasmparser::AbstractHeapType::Func => AbstractHeapType::Func,
+                    wasmparser::AbstractHeapType::Extern => AbstractHeapType::Extern,
+                    wasmparser::AbstractHeapType::Any => AbstractHeapType::Any,
+                    wasmparser::AbstractHeapType::None => AbstractHeapType::None,
+                    wasmparser::AbstractHeapType::NoExtern => AbstractHeapType::NoExtern,
+                    wasmparser::AbstractHeapType::NoFunc => AbstractHeapType::NoFunc,
+                    wasmparser::AbstractHeapType::Eq => AbstractHeapType::Eq,
+                    wasmparser::AbstractHeapType::Struct => AbstractHeapType::Struct,
+                    wasmparser::AbstractHeapType::Array => AbstractHeapType::Array,
+                    wasmparser::AbstractHeapType::I31 => AbstractHeapType::I31,
+                    wasmparser::AbstractHeapType::Exn => AbstractHeapType::Exn,
+                    wasmparser::AbstractHeapType::NoExn => AbstractHeapType::NoExn,
+                };
+                HeapType::Abstract { shared, ty }
+            }
         }
     }
 }
@@ -67,28 +70,32 @@ impl Into<TagKind> for IntoTagKind {
     }
 }
 
-pub struct IntoEntityType(pub TypeRef);
+pub struct IntoEntityType(pub wasmparser::TypeRef);
 
 impl Into<EntityType> for IntoEntityType {
     fn into(self) -> EntityType {
         match self.0 {
-            TypeRef::Func(index) => EntityType::Function(index),
-            TypeRef::Table(ty) => EntityType::Table(TableType {
+            wasmparser::TypeRef::Func(index) => EntityType::Function(index),
+            wasmparser::TypeRef::Table(ty) => EntityType::Table(TableType {
                 element_type: IntoRefType(ty.element_type).into(),
                 minimum: ty.initial,
                 maximum: ty.maximum,
+                table64: ty.table64,
+                shared: ty.shared,
             }),
-            TypeRef::Memory(ty) => EntityType::Memory(MemoryType {
+            wasmparser::TypeRef::Memory(ty) => EntityType::Memory(MemoryType {
                 minimum: ty.initial,
                 maximum: ty.maximum,
                 memory64: ty.memory64,
                 shared: ty.shared,
+                page_size_log2: ty.page_size_log2,
             }),
-            TypeRef::Global(ty) => EntityType::Global(GlobalType {
+            wasmparser::TypeRef::Global(ty) => EntityType::Global(GlobalType {
                 val_type: IntoValType(ty.content_type).into(),
                 mutable: ty.mutable,
+                shared: ty.shared,
             }),
-            TypeRef::Tag(ty) => EntityType::Tag(TagType {
+            wasmparser::TypeRef::Tag(ty) => EntityType::Tag(TagType {
                 kind: IntoTagKind(ty.kind).into(),
                 func_type_idx: ty.func_type_idx,
             }),
@@ -96,16 +103,16 @@ impl Into<EntityType> for IntoEntityType {
     }
 }
 
-pub struct IntoExportKind(pub ExternalKind);
+pub struct IntoExportKind(pub wasmparser::ExternalKind);
 
 impl Into<ExportKind> for IntoExportKind {
     fn into(self) -> ExportKind {
         match self.0 {
-            ExternalKind::Func => ExportKind::Func,
-            ExternalKind::Table => ExportKind::Table,
-            ExternalKind::Memory => ExportKind::Memory,
-            ExternalKind::Global => ExportKind::Global,
-            ExternalKind::Tag => ExportKind::Tag,
+            wasmparser::ExternalKind::Func => ExportKind::Func,
+            wasmparser::ExternalKind::Table => ExportKind::Table,
+            wasmparser::ExternalKind::Memory => ExportKind::Memory,
+            wasmparser::ExternalKind::Global => ExportKind::Global,
+            wasmparser::ExternalKind::Tag => ExportKind::Tag,
         }
     }
 }

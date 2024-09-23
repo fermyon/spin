@@ -135,6 +135,9 @@ pub fn componentize_old_bindgen(module: &[u8]) -> Result<Vec<u8>> {
         .collect::<HashSet<&str>>();
 
     let (adapter, mut bindgen) = metadata::decode(SPIN_ADAPTER)?;
+    let adapter = adapter.expect(
+        "adapter module was malformed, and did not contain a 'component-type' custom section",
+    );
 
     let world = bindgen
         .resolve

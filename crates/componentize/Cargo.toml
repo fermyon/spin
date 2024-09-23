@@ -11,11 +11,11 @@ rust-version.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 tracing = { workspace = true }
-wasm-encoder = "0.200.0"
-wasm-metadata = "0.200.0"
-wasmparser = "0.200.0"
-wit-component = "0.200.0"
-wit-parser = "0.200.0"
+wasm-encoder = "0.217"
+wasm-metadata = "0.217"
+wasmparser = "0.217"
+wit-component = "0.217"
+wit-parser = "0.217"
 
 [dev-dependencies]
 async-trait = { workspace = true }

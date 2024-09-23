@@ -9,7 +9,7 @@ anyhow = { workspace = true }
 http0 = { version = "0.2.9", package = "http" }
 http1 = { version = "1.0.0", package = "http" }
 opentelemetry = { workspace = true }
-opentelemetry-otlp = { version = "0.25", default-features = false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic", "logs"] }
+opentelemetry-otlp = { version = "0.25", features = ["http-proto", "http", "reqwest-client"] }
 opentelemetry-semantic-conventions = "0.25"
 opentelemetry_sdk = { workspace = true }
 terminal = { path = "../terminal" }

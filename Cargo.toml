@@ -24,23 +24,23 @@ clearscreen = "3"
 comfy-table = "7"
 command-group = "2"
 ctrlc = { version = "3.4", features = ["termination"] }
-dialoguer = "0.10"
+dialoguer = "0.11"
 dirs = { workspace = true }
 futures = { workspace = true }
 glob = { workspace = true }
 indicatif = "0.17"
 is-terminal = "0.4"
 itertools = { workspace = true }
-lazy_static = "1.4.0"
-levenshtein = "1.0.5"
+lazy_static = "1.5"
+levenshtein = "1"
 nix = { version = "0.29", features = ["signal"] }
-path-absolutize = "3.0.11"
+path-absolutize = "3"
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
-rpassword = "7.0"
-semver = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+rpassword = "7"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 subprocess = "0.2"

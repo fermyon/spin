@@ -11,7 +11,7 @@ http = { workspace = true }
 ipnet = "2"
 rustls = { workspace = true }
 rustls-pemfile = { version = "2", optional = true }
-rustls-pki-types = "1.7.0"
+rustls-pki-types = "1.8"
 serde = { workspace = true }
 spin-expressions = { path = "../expressions" }
 spin-factor-variables = { path = "../factor-variables" }
@@ -23,7 +23,7 @@ spin-serde = { path = "../serde" }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
 url = { workspace = true }
-urlencoding = "2.1"
+urlencoding = "2"
 webpki-roots = "0.26"
 
 [dev-dependencies]

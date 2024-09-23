@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use redis::{aio::Connection, parse_redis_url, AsyncCommands};
+use redis::{aio::MultiplexedConnection, parse_redis_url, AsyncCommands};
 use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Error, Store, StoreManager};
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use url::Url;
 
 pub struct KeyValueRedis {
     database_url: Url,
-    connection: OnceCell<Arc<Mutex<Connection>>>,
+    connection: OnceCell<Arc<Mutex<MultiplexedConnection>>>,
 }
 
 impl KeyValueRedis {
@@ -29,7 +29,7 @@ impl StoreManager for KeyValueRedis {
             .connection
             .get_or_try_init(|| async {
                 redis::Client::open(self.database_url.clone())?
-                    .get_async_connection()
+                    .get_multiplexed_async_connection()
                     .await
                     .map(Mutex::new)
                     .map(Arc::new)
@@ -53,7 +53,7 @@ impl StoreManager for KeyValueRedis {
 }
 
 struct RedisStore {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<Mutex<MultiplexedConnection>>,
 }
 
 #[async_trait]

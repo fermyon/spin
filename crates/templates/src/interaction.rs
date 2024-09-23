@@ -48,7 +48,7 @@ impl InteractionStrategy for Interactive {
             match crate::interaction::confirm(&prompt) {
                 Ok(true) => Cancellable::Ok(()),
                 Ok(false) => Cancellable::Cancelled,
-                Err(e) => Cancellable::Err(anyhow::Error::from(e)),
+                Err(e) => Cancellable::Err(e.into()),
             }
         } else {
             Cancellable::Ok(())
@@ -101,7 +101,7 @@ impl InteractionStrategy for Silent {
     }
 }
 
-pub(crate) fn confirm(text: &str) -> std::io::Result<bool> {
+pub(crate) fn confirm(text: &str) -> dialoguer::Result<bool> {
     Confirm::new().with_prompt(text).interact()
 }
 
@@ -130,9 +130,9 @@ pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> 
 
 fn ask_free_text(prompt: &str, default_value: &Option<String>) -> anyhow::Result<String> {
     let mut input = Input::<String>::new();
-    input.with_prompt(prompt);
+    input = input.with_prompt(prompt);
     if let Some(s) = default_value {
-        input.default(s.to_owned());
+        input = input.default(s.to_owned());
     }
     let result = input.interact_text()?;
     Ok(result)

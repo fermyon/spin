@@ -34,10 +34,7 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         ],
     );
 
-    // This will configure the exporter based on the OTEL_EXPORTER_* environment variables. We
-    // currently default to using the HTTP exporter but in the future we could select off of the
-    // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
-    // determine whether we should use http/protobuf or grpc.
+    // This will configure the exporter based on the OTEL_EXPORTER_* environment variables.
     let exporter: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
         OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
         OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),

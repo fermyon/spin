@@ -959,8 +959,8 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "769f8cd02eb04d57f14e2e371ebb533f96817f9b2525d73a5c72b61ca7973747"
 dependencies = [
- "cap-primitives 3.0.0",
- "cap-std 3.0.0",
+ "cap-primitives",
+ "cap-std",
  "io-lifetimes 2.0.3",
  "windows-sys 0.52.0",
 ]
@@ -971,27 +971,10 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ff6d3fb274292a9af283417e383afe6ded1fe66f6472d2c781216d3d80c218"
 dependencies = [
- "cap-primitives 3.0.0",
- "cap-std 3.0.0",
+ "cap-primitives",
+ "cap-std",
  "rustix 0.38.32",
  "smallvec",
-]
-
-[[package]]
-name = "cap-primitives"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe16767ed8eee6d3f1f00d6a7576b81c226ab917eb54b96e5f77a5216ef67abb"
-dependencies = [
- "ambient-authority",
- "fs-set-times",
- "io-extras",
- "io-lifetimes 2.0.3",
- "ipnet",
- "maybe-owned",
- "rustix 0.38.32",
- "windows-sys 0.52.0",
- "winx",
 ]
 
 [[package]]
@@ -1023,23 +1006,11 @@ dependencies = [
 
 [[package]]
 name = "cap-std"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "593db20e4c51f62d3284bae7ee718849c3214f93a3b94ea1899ad85ba119d330"
-dependencies = [
- "cap-primitives 2.0.1",
- "io-extras",
- "io-lifetimes 2.0.3",
- "rustix 0.38.32",
-]
-
-[[package]]
-name = "cap-std"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "266626ce180cf9709f317d0bf9754e3a5006359d87f4bf792f06c9c5f1b63c0f"
 dependencies = [
- "cap-primitives 3.0.0",
+ "cap-primitives",
  "io-extras",
  "io-lifetimes 2.0.3",
  "rustix 0.38.32",
@@ -1052,7 +1023,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1353421ba83c19da60726e35db0a89abef984b3be183ff6f58c5b8084fcd0c5"
 dependencies = [
  "ambient-authority",
- "cap-primitives 3.0.0",
+ "cap-primitives",
  "iana-time-zone",
  "once_cell",
  "rustix 0.38.32",
@@ -7112,7 +7083,7 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "cap-std 2.0.1",
+ "cap-std",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
@@ -7412,7 +7383,7 @@ version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
  "bytes",
- "cap-primitives 3.0.0",
+ "cap-primitives",
  "spin-common",
  "spin-factors",
  "spin-factors-test",
@@ -8205,7 +8176,7 @@ checksum = "b858526d22750088a9b3cf2e3c2aacebd5377f13adeec02860c30d09113010a6"
 dependencies = [
  "bitflags 2.6.0",
  "cap-fs-ext",
- "cap-std 3.0.0",
+ "cap-std",
  "fd-lock",
  "io-lifetimes 2.0.3",
  "rustix 0.38.32",
@@ -9829,7 +9800,7 @@ dependencies = [
  "cap-fs-ext",
  "cap-net-ext",
  "cap-rand",
- "cap-std 3.0.0",
+ "cap-std",
  "cap-time-ext",
  "fs-set-times",
  "futures",

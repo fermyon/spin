@@ -44,7 +44,6 @@ mod local {
 /// The default engine creator for the LLM factor when used in the Spin CLI.
 pub fn default_engine_creator(
     state_dir: Option<PathBuf>,
-    use_gpu: bool,
 ) -> anyhow::Result<impl LlmEngineCreator + 'static> {
     #[cfg(feature = "llm")]
     let engine = {
@@ -53,11 +52,11 @@ pub fn default_engine_creator(
             Some(ref dir) => dir.clone(),
             None => std::env::current_dir().context("failed to get current working directory")?,
         };
-        spin_llm_local::LocalLlmEngine::new(models_dir_parent.join("ai-models"), use_gpu)
+        spin_llm_local::LocalLlmEngine::new(models_dir_parent.join("ai-models"))
     };
     #[cfg(not(feature = "llm"))]
     let engine = {
-        let _ = (state_dir, use_gpu);
+        let _ = (state_dir);
         noop::NoopLlmEngine
     };
     let engine = Arc::new(Mutex::new(engine)) as Arc<Mutex<dyn LlmEngine>>;
@@ -91,7 +90,6 @@ impl LlmEngine for RemoteHttpLlmEngine {
 pub fn runtime_config_from_toml(
     table: &impl GetTomlValue,
     state_dir: Option<PathBuf>,
-    use_gpu: bool,
 ) -> anyhow::Result<Option<RuntimeConfig>> {
     let Some(value) = table.get("llm_compute") else {
         return Ok(None);
@@ -99,7 +97,7 @@ pub fn runtime_config_from_toml(
     let config: LlmCompute = value.clone().try_into()?;
 
     Ok(Some(RuntimeConfig {
-        engine: config.into_engine(state_dir, use_gpu)?,
+        engine: config.into_engine(state_dir)?,
     }))
 }
 
@@ -111,19 +109,15 @@ pub enum LlmCompute {
 }
 
 impl LlmCompute {
-    fn into_engine(
-        self,
-        state_dir: Option<PathBuf>,
-        use_gpu: bool,
-    ) -> anyhow::Result<Arc<Mutex<dyn LlmEngine>>> {
+    fn into_engine(self, state_dir: Option<PathBuf>) -> anyhow::Result<Arc<Mutex<dyn LlmEngine>>> {
         let engine: Arc<Mutex<dyn LlmEngine>> = match self {
             #[cfg(not(feature = "llm"))]
             LlmCompute::Spin => {
-                let _ = (state_dir, use_gpu);
+                let _ = (state_dir);
                 Arc::new(Mutex::new(noop::NoopLlmEngine))
             }
             #[cfg(feature = "llm")]
-            LlmCompute::Spin => default_engine_creator(state_dir, use_gpu)?.create(),
+            LlmCompute::Spin => default_engine_creator(state_dir)?.create(),
             LlmCompute::RemoteHttp(config) => Arc::new(Mutex::new(RemoteHttpLlmEngine::new(
                 config.url,
                 config.auth_token,

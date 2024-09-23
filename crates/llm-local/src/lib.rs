@@ -1,33 +1,57 @@
 mod bert;
+mod llama;
 
 use anyhow::Context;
 use bert::{BertModel, Config};
-use candle::DType;
+use candle::{safetensors::load_buffer, DType};
 use candle_nn::VarBuilder;
-use llm::{
-    InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
-    ModelArchitecture, ModelKVMemoryType, ModelParameters,
-};
-use rand::SeedableRng;
 use spin_common::ui::quoted_path;
+use spin_core::async_trait;
 use spin_world::v2::llm::{self as wasi_llm};
 use std::{
-    collections::hash_map::Entry,
-    collections::HashMap,
-    convert::Infallible,
+    collections::{hash_map::Entry, HashMap},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    str::FromStr,
+    sync::Arc,
 };
 use tokenizers::PaddingParams;
 
 const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
+type ModelName = String;
 
 #[derive(Clone)]
 pub struct LocalLlmEngine {
     registry: PathBuf,
-    use_gpu: bool,
-    inferencing_models: HashMap<(String, bool), Arc<dyn llm::Model>>,
+    inferencing_models: HashMap<ModelName, Arc<dyn InferencingModel>>,
     embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
+}
+
+#[derive(Debug)]
+enum InferencingModelArch {
+    Llama,
+}
+
+impl FromStr for InferencingModelArch {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "llama" => Ok(InferencingModelArch::Llama),
+            _ => Err(()),
+        }
+    }
+}
+
+/// A model that is prepared and cached after loading.
+///
+/// This trait does not specify anything about if the results are cached.
+#[async_trait]
+trait InferencingModel: Send + Sync {
+    async fn infer(
+        &self,
+        prompt: String,
+        params: wasi_llm::InferencingParams,
+    ) -> anyhow::Result<wasi_llm::InferencingResult>;
 }
 
 impl LocalLlmEngine {
@@ -38,56 +62,11 @@ impl LocalLlmEngine {
         params: wasi_llm::InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
         let model = self.inferencing_model(model).await?;
-        let cfg = InferenceSessionConfig {
-            memory_k_type: ModelKVMemoryType::Float16,
-            memory_v_type: ModelKVMemoryType::Float16,
-            n_batch: 8,
-            n_threads: num_cpus::get(),
-        };
 
-        let mut session = Model::start_session(model.as_ref(), cfg);
-        let inference_params = InferenceParameters {
-            sampler: generate_sampler(params),
-        };
-        let mut rng = rand::rngs::StdRng::from_entropy();
-        let mut text = String::new();
-
-        #[cfg(debug_assertions)]
-        {
-            terminal::warn!(
-                "\
-                This is a debug build - running inference might be prohibitively slow\n\
-                You may want to consider switching to the release build"
-            )
-        }
-        let res = session.infer::<Infallible>(
-            model.as_ref(),
-            &mut rng,
-            &llm::InferenceRequest {
-                prompt: prompt.as_str().into(),
-                parameters: &inference_params,
-                play_back_previous_tokens: false,
-                maximum_token_count: Some(params.max_tokens as usize),
-            },
-            &mut Default::default(),
-            |r| {
-                match r {
-                    InferenceResponse::InferredToken(t) => text.push_str(&t),
-                    InferenceResponse::EotToken => return Ok(InferenceFeedback::Halt),
-                    _ => {}
-                };
-                Ok(InferenceFeedback::Continue)
-            },
-        );
-        let stats = res.map_err(|e| {
-            wasi_llm::Error::RuntimeError(format!("Error occurred during inferencing: {e}"))
-        })?;
-        let usage = wasi_llm::InferencingUsage {
-            prompt_token_count: stats.prompt_tokens as u32,
-            generated_token_count: (stats.predict_tokens - stats.prompt_tokens) as u32,
-        };
-        let response = wasi_llm::InferencingResult { text, usage };
-        Ok(response)
+        model
+            .infer(prompt, params)
+            .await
+            .map_err(|e| wasi_llm::Error::RuntimeError(e.to_string()))
     }
 
     pub async fn generate_embeddings(
@@ -103,10 +82,9 @@ impl LocalLlmEngine {
 }
 
 impl LocalLlmEngine {
-    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
+    pub fn new(registry: PathBuf) -> Self {
         Self {
             registry,
-            use_gpu,
             inferencing_models: Default::default(),
             embeddings_models: Default::default(),
         }
@@ -164,73 +142,35 @@ impl LocalLlmEngine {
     async fn inferencing_model(
         &mut self,
         model: wasi_llm::InferencingModel,
-    ) -> Result<Arc<dyn Model>, wasi_llm::Error> {
-        let use_gpu = self.use_gpu;
-        let progress_fn = |_| {};
-        let model = match self.inferencing_models.entry((model.clone(), use_gpu)) {
+    ) -> Result<Arc<dyn InferencingModel>, wasi_llm::Error> {
+        let model = match self.inferencing_models.entry(model.clone()) {
             Entry::Occupied(o) => o.get().clone(),
-            Entry::Vacant(v) => v
-                .insert({
-                    let (path, arch) = if let Some(arch) = well_known_inferencing_model_arch(&model) {
-                        let model_binary = self.registry.join(&model);
-                        if model_binary.exists() {
-                            (model_binary, arch.to_owned())
-                        } else {
-                            walk_registry_for_model(&self.registry, model).await?
-                        }
-                    } else {
-                        walk_registry_for_model(&self.registry, model).await?
-                    };
-                    if !self.registry.exists() {
-                        return Err(wasi_llm::Error::RuntimeError(
-                            format!("The directory expected to house the inferencing model '{}' does not exist.", self.registry.display())
-                        ));
-                    }
-                    if !path.exists() {
-                        return Err(wasi_llm::Error::RuntimeError(
-                            format!("The inferencing model file '{}' does not exist.", path.display())
-                        ));
-                    }
-                    tokio::task::spawn_blocking(move || {
-                        let params = ModelParameters {
-                            prefer_mmap: true,
-                            context_size: 2048,
-                            lora_adapters: None,
-                            use_gpu,
-                            gpu_layers: None,
-                            rope_overrides: None,
-                            n_gqa: None,
-                        };
-                        let model = llm::load_dynamic(
-                            Some(arch),
-                            &path,
-                            llm::TokenizerSource::Embedded,
-                            params,
-                            progress_fn,
-                        )
-                        .map_err(|e| {
-                            wasi_llm::Error::RuntimeError(format!(
-                                "Failed to load model from model registry: {e}"
-                            ))
-                        })?;
-                        Ok(Arc::from(model))
-                    })
-                    .await
-                    .map_err(|_| {
-                        wasi_llm::Error::RuntimeError("Error loading inferencing model".into())
-                    })??
-                })
-                .clone(),
+            Entry::Vacant(v) => {
+                let (model_dir, arch) =
+                    walk_registry_for_model(&self.registry, model.clone()).await?;
+                let model = match arch {
+                    InferencingModelArch::Llama => Arc::new(
+                        llama::LlamaModels::new(&model_dir)
+                            .await
+                            .map_err(|e| wasi_llm::Error::RuntimeError(e.to_string()))?,
+                    ),
+                };
+
+                v.insert(model.clone());
+
+                model
+            }
         };
         Ok(model)
     }
 }
 
-/// Get the model binary and arch from walking the registry file structure
+/// Walks the registry file structure and returns the directory the model is
+/// present along with its architecture
 async fn walk_registry_for_model(
     registry_path: &Path,
     model: String,
-) -> Result<(PathBuf, ModelArchitecture), wasi_llm::Error> {
+) -> Result<(PathBuf, InferencingModelArch), wasi_llm::Error> {
     let mut arch_dirs = tokio::fs::read_dir(registry_path).await.map_err(|e| {
         wasi_llm::Error::RuntimeError(format!(
             "Could not read model registry directory '{}': {e}",
@@ -256,17 +196,31 @@ async fn walk_registry_for_model(
         {
             continue;
         }
-        let mut model_files = tokio::fs::read_dir(arch_dir.path()).await.map_err(|e| {
+        let mut model_dirs = tokio::fs::read_dir(arch_dir.path()).await.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!(
                 "Error reading architecture directory in model registry: {e}"
             ))
         })?;
-        while let Some(model_file) = model_files.next_entry().await.map_err(|e| {
+        while let Some(model_dir) = model_dirs.next_entry().await.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!(
-                "Error reading model file in model registry: {e}"
+                "Error reading model folder in model registry: {e}"
             ))
         })? {
-            if model_file
+            // Models need to be a directory. So ignore any files.
+            if model_dir
+                .file_type()
+                .await
+                .map_err(|e| {
+                    wasi_llm::Error::RuntimeError(format!(
+                        "Could not read file type of '{}' dir: {e}",
+                        model_dir.path().display()
+                    ))
+                })?
+                .is_file()
+            {
+                continue;
+            }
+            if model_dir
                 .file_name()
                 .to_str()
                 .map(|m| m == model)
@@ -278,7 +232,7 @@ async fn walk_registry_for_model(
                     .ok_or(wasi_llm::Error::ModelNotSupported)?
                     .parse()
                     .map_err(|_| wasi_llm::Error::ModelNotSupported)?;
-                result = Some((model_file.path(), arch));
+                result = Some((model_dir.path(), arch));
                 break 'outer;
             }
         }
@@ -289,15 +243,6 @@ async fn walk_registry_for_model(
             "no model directory found in registry for model '{model}'"
         ))
     })
-}
-
-fn well_known_inferencing_model_arch(
-    model: &wasi_llm::InferencingModel,
-) -> Option<ModelArchitecture> {
-    match model.as_str() {
-        "llama2-chat" | "code_llama" => Some(ModelArchitecture::Llama),
-        _ => None,
-    }
 }
 
 async fn generate_embeddings(
@@ -381,75 +326,10 @@ fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer
 }
 
 fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
-    let buffer = std::fs::read(model_file)
-        .with_context(|| format!("Failed to read model file {}", quoted_path(model_file)))?;
-    let weights = safetensors::SafeTensors::deserialize(&buffer)?;
-    let vb = VarBuilder::from_safetensors(vec![weights], DType::F32, &candle::Device::Cpu);
+    let device = &candle::Device::Cpu;
+    let data = std::fs::read(model_file)?;
+    let tensors = load_buffer(&data, device)?;
+    let vb = VarBuilder::from_tensors(tensors, DType::F32, device);
     let model = BertModel::load(vb, &Config::default()).context("error loading bert model")?;
     Ok(model)
-}
-
-// Sampling options for picking the next token in the sequence.
-// We start with a default sampler, then add the inference parameters supplied by the request.
-fn generate_sampler(
-    params: wasi_llm::InferencingParams,
-) -> Arc<Mutex<dyn llm::samplers::llm_samplers::types::Sampler<llm::TokenId, f32>>> {
-    let mut result = llm::samplers::ConfiguredSamplers {
-        // We are *not* using the default implementation for ConfiguredSamplers here
-        // because the builder already sets values for parameters, which we cannot replace.
-        builder: llm::samplers::llm_samplers::configure::SamplerChainBuilder::default(),
-        ..Default::default()
-    };
-
-    result.builder += (
-        "temperature".into(),
-        llm::samplers::llm_samplers::configure::SamplerSlot::new_single(
-            move || {
-                Box::new(
-                    llm::samplers::llm_samplers::samplers::SampleTemperature::default()
-                        .temperature(params.temperature),
-                )
-            },
-            Option::<llm::samplers::llm_samplers::samplers::SampleTemperature>::None,
-        ),
-    );
-    result.builder += (
-        "topp".into(),
-        llm::samplers::llm_samplers::configure::SamplerSlot::new_single(
-            move || {
-                Box::new(
-                    llm::samplers::llm_samplers::samplers::SampleTopP::default().p(params.top_p),
-                )
-            },
-            Option::<llm::samplers::llm_samplers::samplers::SampleTopP>::None,
-        ),
-    );
-    result.builder += (
-        "topk".into(),
-        llm::samplers::llm_samplers::configure::SamplerSlot::new_single(
-            move || {
-                Box::new(
-                    llm::samplers::llm_samplers::samplers::SampleTopK::default()
-                        .k(params.top_k as usize),
-                )
-            },
-            Option::<llm::samplers::llm_samplers::samplers::SampleTopK>::None,
-        ),
-    );
-    result.builder += (
-        "repetition".into(),
-        llm::samplers::llm_samplers::configure::SamplerSlot::new_chain(
-            move || {
-                Box::new(
-                    llm::samplers::llm_samplers::samplers::SampleRepetition::default()
-                        .penalty(params.repeat_penalty)
-                        .last_n(params.repeat_penalty_last_n_token_count as usize),
-                )
-            },
-            [],
-        ),
-    );
-
-    result.ensure_default_slots();
-    Arc::new(Mutex::new(result.builder.into_chain()))
 }

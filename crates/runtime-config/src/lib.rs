@@ -97,7 +97,6 @@ where
         local_app_dir: Option<PathBuf>,
         provided_state_dir: UserProvidedPath,
         provided_log_dir: UserProvidedPath,
-        use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let toml = match runtime_config_path {
             Some(runtime_config_path) => {
@@ -119,14 +118,13 @@ where
         let toml_resolver =
             TomlResolver::new(&toml, local_app_dir, provided_state_dir, provided_log_dir);
 
-        Self::new(toml_resolver, runtime_config_path, use_gpu)
+        Self::new(toml_resolver, runtime_config_path)
     }
 
     /// Creates a new resolved runtime configuration from a TOML table.
     pub fn new(
         toml_resolver: TomlResolver<'_>,
         runtime_config_path: Option<&Path>,
-        use_gpu: bool,
     ) -> anyhow::Result<Self> {
         let runtime_config_dir = runtime_config_path
             .and_then(Path::parent)
@@ -142,7 +140,6 @@ where
             &key_value_config_resolver,
             tls_resolver.as_ref(),
             &sqlite_config_resolver,
-            use_gpu,
         );
         let runtime_config: T = source.try_into().map_err(Into::into)?;
 
@@ -275,7 +272,6 @@ pub struct TomlRuntimeConfigSource<'a, 'b> {
     key_value: &'a key_value::RuntimeConfigResolver,
     tls: Option<&'a SpinTlsRuntimeConfig>,
     sqlite: &'a sqlite::RuntimeConfigResolver,
-    use_gpu: bool,
 }
 
 impl<'a, 'b> TomlRuntimeConfigSource<'a, 'b> {
@@ -284,14 +280,12 @@ impl<'a, 'b> TomlRuntimeConfigSource<'a, 'b> {
         key_value: &'a key_value::RuntimeConfigResolver,
         tls: Option<&'a SpinTlsRuntimeConfig>,
         sqlite: &'a sqlite::RuntimeConfigResolver,
-        use_gpu: bool,
     ) -> Self {
         Self {
             toml: toml_resolver,
             key_value,
             tls,
             sqlite,
-            use_gpu,
         }
     }
 }
@@ -338,7 +332,7 @@ impl FactorRuntimeConfigSource<OutboundMysqlFactor> for TomlRuntimeConfigSource<
 
 impl FactorRuntimeConfigSource<LlmFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_llm::RuntimeConfig>> {
-        llm::runtime_config_from_toml(&self.toml.table, self.toml.state_dir()?, self.use_gpu)
+        llm::runtime_config_from_toml(&self.toml.table, self.toml.state_dir()?)
     }
 }
 
@@ -466,7 +460,6 @@ mod tests {
                 ResolvedRuntimeConfig::<TestFactorsRuntimeConfig>::new(
                     toml_resolver(&toml),
                     Some(path.as_ref()),
-                    false,
                 )
                 .unwrap()
             }

@@ -1,5 +1,6 @@
 use anyhow::Context;
 
+/// Loads the given `TargetEnvironment` from a registry.
 pub async fn load_environment(env_id: impl AsRef<str>) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
 
@@ -37,10 +38,20 @@ pub async fn load_environment(env_id: impl AsRef<str>) -> anyhow::Result<TargetE
     TargetEnvironment::new(env_id.to_owned(), bytes)
 }
 
+/// A parsed document representing a deployment environment, e.g. Spin 2.7,
+/// SpinKube 3.1, Fermyon Cloud. The `TargetEnvironment` provides a mapping
+/// from the Spin trigger types supported in the environment to the Component Model worlds
+/// supported by that trigger type. (A trigger type may support more than one world,
+/// for example when it supports multiple versions of the Spin or WASI interfaces.)
+///
+/// In terms of implementation, internally the environment is represented by a
+/// WIT package that adheres to a specific naming convention (that the worlds for
+/// a given trigger type are exactly whose names begin `trigger-xxx` where
+/// `xxx` is the Spin trigger type).
 pub struct TargetEnvironment {
     name: String,
     decoded: wit_parser::decoding::DecodedWasm,
-    package: wit_parser::Package, // saves unwrapping it every time
+    package: wit_parser::Package,
     package_id: id_arena::Id<wit_parser::Package>,
     package_bytes: Vec<u8>,
 }
@@ -68,11 +79,14 @@ impl TargetEnvironment {
         })
     }
 
+    /// Returns true if the given trigger type provides the world identified by
+    /// `world` in this environment.
     pub fn is_world_for(&self, trigger_type: &TriggerType, world: &wit_parser::World) -> bool {
         world.name.starts_with(&format!("trigger-{trigger_type}"))
             && world.package.is_some_and(|p| p == self.package_id)
     }
 
+    /// Returns true if the given trigger type can run in this environment.
     pub fn supports_trigger_type(&self, trigger_type: &TriggerType) -> bool {
         self.decoded
             .resolve()
@@ -81,6 +95,7 @@ impl TargetEnvironment {
             .any(|(_, world)| self.is_world_for(trigger_type, world))
     }
 
+    /// Lists all worlds supported for the given trigger type in this environment.
     pub fn worlds(&self, trigger_type: &TriggerType) -> Vec<String> {
         self.decoded
             .resolve()
@@ -93,10 +108,10 @@ impl TargetEnvironment {
 
     /// Fully qualified world name (e.g. fermyon:spin/http-trigger@2.0.0)
     fn world_qname(&self, world: &wit_parser::World) -> String {
-        let version_suffix = match self.package_version() {
-            Some(version) => format!("@{version}"),
-            None => "".to_owned(),
-        };
+        let version_suffix = self
+            .package_version()
+            .map(|version| format!("@{version}"))
+            .unwrap_or_default();
         format!(
             "{}/{}{version_suffix}",
             self.package_namespaced_name(),
@@ -114,10 +129,12 @@ impl TargetEnvironment {
         format!("{}:{}", self.package.name.namespace, self.package.name.name)
     }
 
+    /// The package version for the environment package.
     pub fn package_version(&self) -> Option<&semver::Version> {
         self.package.name.version.as_ref()
     }
 
+    /// The Wasm-encoded bytes of the environment package.
     pub fn package_bytes(&self) -> &[u8] {
         &self.package_bytes
     }

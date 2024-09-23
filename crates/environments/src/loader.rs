@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
+use futures::future::try_join_all;
 use spin_common::ui::quoted_path;
 
 pub(crate) struct ComponentToValidate<'a> {
@@ -37,7 +38,7 @@ pub async fn load_and_resolve_all<'a>(
     let component_futures = triggers
         .iter()
         .map(|t| load_and_resolve_one(app, t, resolution_context));
-    crate::join_all_result(component_futures).await
+    try_join_all(component_futures).await
 }
 
 async fn load_and_resolve_one<'a>(

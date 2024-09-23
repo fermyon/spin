@@ -4,6 +4,7 @@ mod environment_definition;
 mod loader;
 
 use environment_definition::{load_environment, TargetEnvironment, TriggerType};
+use futures::future::try_join_all;
 pub use loader::ResolutionContext;
 use loader::{load_and_resolve_all, ComponentToValidate};
 
@@ -16,7 +17,7 @@ pub async fn validate_application_against_environment_ids(
         return Ok(Default::default());
     }
 
-    let envs = join_all_result(env_ids.iter().map(load_environment)).await?;
+    let envs = try_join_all(env_ids.iter().map(load_environment)).await?;
     validate_application_against_environments(&envs, app, resolution_context).await
 }
 
@@ -40,7 +41,7 @@ async fn validate_application_against_environments(
         load_and_resolve_all(app, ts, resolution_context)
             .map(|css| css.map(|css| (ty.to_owned(), css)))
     });
-    let components_by_trigger_type = join_all_result(components_by_trigger_type_futs)
+    let components_by_trigger_type = try_join_all(components_by_trigger_type_futs)
         .await
         .context("Failed to prepare components for target environment checking")?;
 
@@ -189,16 +190,4 @@ async fn validate_wasm_against_world(
             Err(anyhow!(e))
         },
     }
-}
-
-/// Equivalent to futures::future::join_all, but specialised for iterators of
-/// fallible futures. It returns a Result<Vec<...>> instead of a Vec<Result<...>> -
-/// this just moves the transposition boilerplate out of the main flow.
-async fn join_all_result<T, I>(iter: I) -> anyhow::Result<Vec<T>>
-where
-    I: IntoIterator,
-    I::Item: std::future::Future<Output = anyhow::Result<T>>,
-{
-    let vec_result = futures::future::join_all(iter).await;
-    vec_result.into_iter().collect()
 }

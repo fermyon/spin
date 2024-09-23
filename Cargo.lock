@@ -7165,7 +7165,6 @@ dependencies = [
  "futures-util",
  "id-arena",
  "indexmap 2.5.0",
- "miette 7.2.0",
  "oci-distribution 0.11.0 (git+https://github.com/fermyon/oci-distribution?rev=7e4ce9be9bcd22e78a28f06204931f10c44402ba)",
  "semver",
  "serde 1.0.210",

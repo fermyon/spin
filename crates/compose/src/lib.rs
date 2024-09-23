@@ -33,6 +33,8 @@ pub async fn compose<'a, L: ComponentSourceLoader>(
     Composer::new(loader).compose(component).await
 }
 
+/// A Spin component dependency. This abstracts over the metadata associated with the
+/// dependency. The abstraction allows both manifest and lockfile types to participate in composition.
 #[async_trait::async_trait]
 pub trait DependencyLike {
     fn inherit(&self) -> InheritConfiguration;
@@ -44,6 +46,8 @@ pub enum InheritConfiguration {
     Some(Vec<String>),
 }
 
+/// A Spin component. This abstracts over the list of dependencies for the component.
+/// The abstraction allows both manifest and lockfile types to participate in composition.
 #[async_trait::async_trait]
 pub trait ComponentLike {
     type Dependency: DependencyLike;

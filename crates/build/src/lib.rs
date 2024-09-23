@@ -21,42 +21,59 @@ pub async fn build(
     component_ids: &[String],
     skip_target_checks: bool,
 ) -> Result<()> {
-    let (components, deployment_targets, manifest) = component_build_configs(manifest_file)
+    let build_info = component_build_configs(manifest_file)
         .await
         .with_context(|| {
-        format!(
-            "Cannot read manifest file from {}",
-            quoted_path(manifest_file)
-        )
-    })?;
+            format!(
+                "Cannot read manifest file from {}",
+                quoted_path(manifest_file)
+            )
+        })?;
     let app_dir = parent_dir(manifest_file)?;
 
-    let build_result = build_components(component_ids, components, app_dir);
+    let build_result = build_components(component_ids, build_info.components(), app_dir);
 
-    if let Err(e) = &manifest {
+    // Emit any required warnings now, so that they don't bury any errors.
+    if let Some(e) = build_info.load_error() {
+        // The manifest had errors. We managed to attempt a build anyway, but we want to
+        // let the user know about them.
         terminal::warn!("The manifest has errors not related to the Wasm component build. Error details:\n{e:#}");
+        // Checking deployment targets requires a healthy manifest (because trigger types etc.),
+        // if any of these were specified, warn they are being skipped.
+        let should_have_checked_targets =
+            !skip_target_checks && build_info.has_deployment_targets();
+        if should_have_checked_targets {
+            terminal::warn!(
+                "The manifest error(s) prevented Spin from checking the deployment targets."
+            );
+        }
     }
 
+    // If the build failed, exit with an error at this point.
     build_result?;
 
-    if let Ok(manifest) = &manifest {
-        if !skip_target_checks {
-            let resolution_context =
-                spin_environments::ResolutionContext::new(manifest_file.parent().unwrap()).await?;
-            let errors = spin_environments::validate_application_against_environment_ids(
-                &deployment_targets,
-                manifest,
-                &resolution_context,
-            )
-            .await?;
+    let Some(manifest) = build_info.manifest() else {
+        // We can't proceed to checking (because that needs a full healthy manifest), and we've
+        // already emitted any necessary warning, so quit.
+        return Ok(());
+    };
 
-            for error in &errors {
-                terminal::error!("{error}");
-            }
+    if !skip_target_checks {
+        let resolution_context =
+            spin_environments::ResolutionContext::new(manifest_file.parent().unwrap()).await?;
+        let errors = spin_environments::validate_application_against_environment_ids(
+            build_info.deployment_targets(),
+            manifest,
+            &resolution_context,
+        )
+        .await?;
 
-            if !errors.is_empty() {
-                anyhow::bail!("All components built successfully, but one or more was incompatible with one or more of the deployment targets.");
-            }
+        for error in &errors {
+            terminal::error!("{error}");
+        }
+
+        if !errors.is_empty() {
+            anyhow::bail!("All components built successfully, but one or more was incompatible with one or more of the deployment targets.");
         }
     }
 

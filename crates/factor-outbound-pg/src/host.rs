@@ -77,7 +77,7 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
         self.open_connection(&address).await
     }
 
-    #[instrument(name = "spin_outbound_pg.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
+    #[instrument(name = "spin_outbound_pg.execute", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn execute(
         &mut self,
         connection: Resource<Connection>,
@@ -91,7 +91,7 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
             .await?)
     }
 
-    #[instrument(name = "spin_outbound_pg.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
+    #[instrument(name = "spin_outbound_pg.query", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn query(
         &mut self,
         connection: Resource<Connection>,

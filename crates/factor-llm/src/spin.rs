@@ -56,7 +56,7 @@ pub fn default_engine_creator(
     };
     #[cfg(not(feature = "llm"))]
     let engine = {
-        let _ = (state_dir);
+        let _ = state_dir;
         noop::NoopLlmEngine
     };
     let engine = Arc::new(Mutex::new(engine)) as Arc<Mutex<dyn LlmEngine>>;
@@ -113,7 +113,7 @@ impl LlmCompute {
         let engine: Arc<Mutex<dyn LlmEngine>> = match self {
             #[cfg(not(feature = "llm"))]
             LlmCompute::Spin => {
-                let _ = (state_dir);
+                let _ = state_dir;
                 Arc::new(Mutex::new(noop::NoopLlmEngine))
             }
             #[cfg(feature = "llm")]

@@ -3329,7 +3329,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -4493,7 +4493,7 @@ dependencies = [
  "saturating",
  "serde 1.0.210",
  "serde_json",
- "sha1 0.10.6",
+ "sha1",
  "sha2",
  "smallvec",
  "subprocess",
@@ -5859,9 +5859,9 @@ checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
 
 [[package]]
 name = "redis"
-version = "0.21.7"
+version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152f3863635cbb76b73bc247845781098302c6c9ad2060e1a9a7de56840346b6"
+checksum = "e0d7a6955c7511f60f3ba9e86c6d02b3c3f144f8c24b288d1f4e18074ab8bbec"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5872,7 +5872,8 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "ryu",
- "sha1 0.6.1",
+ "sha1_smol",
+ "socket2 0.5.6",
  "tokio",
  "tokio-native-tls",
  "tokio-util",
@@ -5891,6 +5892,7 @@ dependencies = [
  "combine",
  "futures-util",
  "itoa",
+ "native-tls",
  "num-bigint",
  "percent-encoding",
  "pin-project-lite",
@@ -5898,6 +5900,7 @@ dependencies = [
  "sha1_smol",
  "socket2 0.5.6",
  "tokio",
+ "tokio-native-tls",
  "tokio-util",
  "url",
 ]
@@ -6708,15 +6711,6 @@ dependencies = [
 
 [[package]]
 name = "sha1"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1da05c97445caa12d05e848c4a4fcbbea29e748ac28f7e80e9b010392063770"
-dependencies = [
- "sha1_smol",
-]
-
-[[package]]
-name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
@@ -7310,7 +7304,7 @@ name = "spin-factor-outbound-redis"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "redis 0.21.7",
+ "redis 0.25.4",
  "spin-core",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
@@ -7461,7 +7455,7 @@ name = "spin-key-value-redis"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
- "redis 0.21.7",
+ "redis 0.27.2",
  "serde 1.0.210",
  "spin-core",
  "spin-factor-key-value",
@@ -8796,7 +8790,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -10601,7 +10595,7 @@ dependencies = [
  "rand 0.8.5",
  "serde 1.0.210",
  "serde_repr",
- "sha1 0.10.6",
+ "sha1",
  "static_assertions",
  "tracing",
  "uds_windows",

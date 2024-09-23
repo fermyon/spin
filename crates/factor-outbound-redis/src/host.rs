@@ -1,5 +1,5 @@
 use anyhow::Result;
-use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
+use redis::{aio::MultiplexedConnection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_world::v1::{redis as v1, redis_types};
@@ -10,7 +10,7 @@ use tracing::{instrument, Level};
 
 pub struct InstanceState {
     pub allowed_hosts: OutboundAllowedHosts,
-    pub connections: table::Table<Connection>,
+    pub connections: table::Table<MultiplexedConnection>,
 }
 
 impl InstanceState {
@@ -24,7 +24,7 @@ impl InstanceState {
     ) -> Result<Resource<RedisConnection>, Error> {
         let conn = redis::Client::open(address.as_str())
             .map_err(|_| Error::InvalidAddress)?
-            .get_async_connection()
+            .get_multiplexed_async_connection()
             .await
             .map_err(other_error)?;
         self.connections
@@ -36,7 +36,7 @@ impl InstanceState {
     async fn get_conn(
         &mut self,
         connection: Resource<RedisConnection>,
-    ) -> Result<&mut Connection, Error> {
+    ) -> Result<&mut MultiplexedConnection, Error> {
         self.connections
             .get_mut(connection.rep())
             .ok_or(Error::Other(

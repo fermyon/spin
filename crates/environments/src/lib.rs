@@ -5,30 +5,26 @@ mod loader;
 
 use environment_definition::{load_environment, TargetEnvironment, TriggerType};
 use futures::future::try_join_all;
-pub use loader::ResolutionContext;
-use loader::{load_and_resolve_all, ComponentToValidate};
+pub use loader::ApplicationToValidate;
+use loader::ComponentToValidate;
 
 pub async fn validate_application_against_environment_ids(
+    application: &ApplicationToValidate,
     env_ids: &[impl AsRef<str>],
-    app: &spin_manifest::schema::v2::AppManifest,
-    resolution_context: &ResolutionContext,
 ) -> anyhow::Result<Vec<anyhow::Error>> {
     if env_ids.is_empty() {
         return Ok(Default::default());
     }
 
     let envs = try_join_all(env_ids.iter().map(load_environment)).await?;
-    validate_application_against_environments(&envs, app, resolution_context).await
+    validate_application_against_environments(application, &envs).await
 }
 
 async fn validate_application_against_environments(
+    application: &ApplicationToValidate,
     envs: &[TargetEnvironment],
-    app: &spin_manifest::schema::v2::AppManifest,
-    resolution_context: &ResolutionContext,
 ) -> anyhow::Result<Vec<anyhow::Error>> {
-    use futures::FutureExt;
-
-    for trigger_type in app.triggers.keys() {
+    for trigger_type in application.trigger_types() {
         if let Some(env) = envs.iter().find(|e| !e.supports_trigger_type(trigger_type)) {
             anyhow::bail!(
                 "Environment {} does not support trigger type {trigger_type}",
@@ -37,13 +33,7 @@ async fn validate_application_against_environments(
         }
     }
 
-    let components_by_trigger_type_futs = app.triggers.iter().map(|(ty, ts)| {
-        load_and_resolve_all(app, ts, resolution_context)
-            .map(|css| css.map(|css| (ty.to_owned(), css)))
-    });
-    let components_by_trigger_type = try_join_all(components_by_trigger_type_futs)
-        .await
-        .context("Failed to prepare components for target environment checking")?;
+    let components_by_trigger_type = application.components_by_trigger_type().await?;
 
     let mut errs = vec![];
 

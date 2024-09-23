@@ -10,12 +10,6 @@ pub(crate) struct ComponentToValidate<'a> {
     wasm: Vec<u8>,
 }
 
-struct ComponentSource<'a> {
-    id: &'a str,
-    source: &'a spin_manifest::schema::v2::ComponentSource,
-    dependencies: WrappedComponentDependencies,
-}
-
 impl<'a> ComponentToValidate<'a> {
     pub fn id(&self) -> &str {
         self.id
@@ -30,73 +24,110 @@ impl<'a> ComponentToValidate<'a> {
     }
 }
 
-pub async fn load_and_resolve_all<'a>(
-    app: &'a spin_manifest::schema::v2::AppManifest,
-    triggers: &'a [spin_manifest::schema::v2::Trigger],
-    resolution_context: &'a ResolutionContext,
-) -> anyhow::Result<Vec<ComponentToValidate<'a>>> {
-    let component_futures = triggers
-        .iter()
-        .map(|t| load_and_resolve_one(app, t, resolution_context));
-    try_join_all(component_futures).await
-}
-
-async fn load_and_resolve_one<'a>(
-    app: &'a spin_manifest::schema::v2::AppManifest,
-    trigger: &'a spin_manifest::schema::v2::Trigger,
-    resolution_context: &'a ResolutionContext,
-) -> anyhow::Result<ComponentToValidate<'a>> {
-    let component_spec = trigger
-        .component
-        .as_ref()
-        .ok_or_else(|| anyhow!("No component specified for trigger {}", trigger.id))?;
-    let (id, source, dependencies) = match component_spec {
-        spin_manifest::schema::v2::ComponentSpec::Inline(c) => {
-            (trigger.id.as_str(), &c.source, &c.dependencies)
-        }
-        spin_manifest::schema::v2::ComponentSpec::Reference(r) => {
-            let id = r.as_ref();
-            let Some(component) = app.components.get(r) else {
-                anyhow::bail!(
-                    "Component {id} specified for trigger {} does not exist",
-                    trigger.id
-                );
-            };
-            (id, &component.source, &component.dependencies)
-        }
-    };
-
-    let component = ComponentSource {
-        id,
-        source,
-        dependencies: WrappedComponentDependencies::new(dependencies),
-    };
-
-    let loader = ComponentSourceLoader::new(resolution_context.wasm_loader());
-
-    let wasm = spin_compose::compose(&loader, &component).await.with_context(|| format!("Spin needed to compose dependencies for {id} as part of target checking, but composition failed"))?;
-
-    Ok(ComponentToValidate {
-        id,
-        source_description: source_description(component.source),
-        wasm,
-    })
-}
-
-pub struct ResolutionContext {
+pub struct ApplicationToValidate {
+    manifest: spin_manifest::schema::v2::AppManifest,
     wasm_loader: spin_loader::WasmLoader,
 }
 
-impl ResolutionContext {
-    pub async fn new(base_dir: impl AsRef<Path>) -> anyhow::Result<Self> {
+impl ApplicationToValidate {
+    pub async fn new(
+        manifest: spin_manifest::schema::v2::AppManifest,
+        base_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
         let wasm_loader =
             spin_loader::WasmLoader::new(base_dir.as_ref().to_owned(), None, None).await?;
-        Ok(Self { wasm_loader })
+        Ok(Self {
+            manifest,
+            wasm_loader,
+        })
     }
 
-    fn wasm_loader(&self) -> &spin_loader::WasmLoader {
-        &self.wasm_loader
+    fn component_source<'a>(
+        &'a self,
+        trigger: &'a spin_manifest::schema::v2::Trigger,
+    ) -> anyhow::Result<ComponentSource<'a>> {
+        let component_spec = trigger
+            .component
+            .as_ref()
+            .ok_or_else(|| anyhow!("No component specified for trigger {}", trigger.id))?;
+        let (id, source, dependencies) = match component_spec {
+            spin_manifest::schema::v2::ComponentSpec::Inline(c) => {
+                (trigger.id.as_str(), &c.source, &c.dependencies)
+            }
+            spin_manifest::schema::v2::ComponentSpec::Reference(r) => {
+                let id = r.as_ref();
+                let Some(component) = self.manifest.components.get(r) else {
+                    anyhow::bail!(
+                        "Component {id} specified for trigger {} does not exist",
+                        trigger.id
+                    );
+                };
+                (id, &component.source, &component.dependencies)
+            }
+        };
+
+        Ok(ComponentSource {
+            id,
+            source,
+            dependencies: WrappedComponentDependencies::new(dependencies),
+        })
     }
+
+    pub fn trigger_types(&self) -> impl Iterator<Item = &String> {
+        self.manifest.triggers.keys()
+    }
+
+    pub fn triggers(
+        &self,
+    ) -> impl Iterator<Item = (&String, &Vec<spin_manifest::schema::v2::Trigger>)> {
+        self.manifest.triggers.iter()
+    }
+
+    pub(crate) async fn components_by_trigger_type(
+        &self,
+    ) -> anyhow::Result<Vec<(String, Vec<ComponentToValidate<'_>>)>> {
+        use futures::FutureExt;
+
+        let components_by_trigger_type_futs = self.triggers().map(|(ty, ts)| {
+            self.components_for_trigger(ts)
+                .map(|css| css.map(|css| (ty.to_owned(), css)))
+        });
+        let components_by_trigger_type = try_join_all(components_by_trigger_type_futs)
+            .await
+            .context("Failed to prepare components for target environment checking")?;
+        Ok(components_by_trigger_type)
+    }
+
+    async fn components_for_trigger<'a>(
+        &'a self,
+        triggers: &'a [spin_manifest::schema::v2::Trigger],
+    ) -> anyhow::Result<Vec<ComponentToValidate<'a>>> {
+        let component_futures = triggers.iter().map(|t| self.load_and_resolve_trigger(t));
+        try_join_all(component_futures).await
+    }
+
+    async fn load_and_resolve_trigger<'a>(
+        &'a self,
+        trigger: &'a spin_manifest::schema::v2::Trigger,
+    ) -> anyhow::Result<ComponentToValidate<'a>> {
+        let component = self.component_source(trigger)?;
+
+        let loader = ComponentSourceLoader::new(&self.wasm_loader);
+
+        let wasm = spin_compose::compose(&loader, &component).await.with_context(|| format!("Spin needed to compose dependencies for {} as part of target checking, but composition failed", component.id))?;
+
+        Ok(ComponentToValidate {
+            id: component.id,
+            source_description: source_description(component.source),
+            wasm,
+        })
+    }
+}
+
+struct ComponentSource<'a> {
+    id: &'a str,
+    source: &'a spin_manifest::schema::v2::ComponentSource,
+    dependencies: WrappedComponentDependencies,
 }
 
 struct ComponentSourceLoader<'a> {
@@ -135,7 +166,7 @@ impl<'a> spin_compose::ComponentSourceLoader for ComponentSourceLoader<'a> {
 }
 
 // This exists only to thwart the orphan rule
-pub(crate) struct WrappedComponentDependency {
+struct WrappedComponentDependency {
     name: spin_serde::DependencyName,
     dependency: spin_manifest::schema::v2::ComponentDependency,
 }

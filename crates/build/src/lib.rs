@@ -59,12 +59,14 @@ pub async fn build(
     };
 
     if !skip_target_checks {
-        let resolution_context =
-            spin_environments::ResolutionContext::new(manifest_file.parent().unwrap()).await?;
+        let application = spin_environments::ApplicationToValidate::new(
+            manifest.clone(),
+            manifest_file.parent().unwrap(),
+        )
+        .await?;
         let errors = spin_environments::validate_application_against_environment_ids(
+            &application,
             build_info.deployment_targets(),
-            manifest,
-            &resolution_context,
         )
         .await?;
 

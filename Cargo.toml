@@ -152,7 +152,6 @@ toml = "0.8"
 tracing = { version = "0.1", features = ["log"] }
 tracing-opentelemetry = { version = "0.26", default-features = false, features = ["metrics"] }
 url = "2"
-
 wasi-common-preview1 = { version = "25.0.0", package = "wasi-common", features = [
   "tokio",
 ] }

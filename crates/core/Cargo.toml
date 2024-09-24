@@ -19,3 +19,9 @@ spin-factors-test = { path = "../factors-test" }
 spin-locked-app = { path = "../locked-app" }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 wasmtime-wasi = { workspace = true }
+
+[features]
+# Enables support for the `wasmtime::Store::call_hook` API which enables injecting custom
+# logic around all entries/exits from WebAssembly. This has a slight performance
+# cost for all host functions.
+call-hook = ["wasmtime/call-hook"]

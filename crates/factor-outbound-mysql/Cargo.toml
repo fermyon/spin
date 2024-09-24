@@ -23,7 +23,7 @@ spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 url = { workspace = true }
 

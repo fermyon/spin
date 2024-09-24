@@ -22,6 +22,6 @@ tar = "0.4"
 tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 thiserror = { workspace = true }
-tokio = { version = "1", features = ["fs", "process", "rt", "macros"] }
+tokio = { workspace = true, features = ["fs", "process", "rt", "macros"] }
 tracing = { workspace = true }
 url = { version = "2", features = ["serde"] }

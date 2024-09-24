@@ -14,5 +14,5 @@ spin-sqlite-inproc = { path = "../sqlite-inproc" }
 spin-sqlite-libsql = { path = "../sqlite-libsql" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
-tokio = "1"
+tokio = { workspace = true }
 toml = { workspace = true }

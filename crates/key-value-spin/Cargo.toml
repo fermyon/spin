@@ -11,7 +11,7 @@ serde = { workspace = true }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-world = { path = "../world" }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]
 workspace = true

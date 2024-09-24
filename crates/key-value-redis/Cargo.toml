@@ -11,7 +11,7 @@ serde = { workspace = true }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
 spin-world = { path = "../world" }
-tokio = "1"
+tokio = { workspace = true }
 url = { workspace = true }
 
 [lints]

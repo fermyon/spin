@@ -13,14 +13,14 @@ serde = { workspace = true }
 spin-expressions = { path = "../expressions" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 toml = { workspace = true }
 tracing = { workspace = true }
 vaultrs = "0.7"
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

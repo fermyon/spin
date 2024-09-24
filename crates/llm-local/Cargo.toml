@@ -15,13 +15,13 @@ num_cpus = "1"
 rand = { workspace = true }
 safetensors = "0.4"
 serde = { workspace = true }
-serde_json = "1"
+serde_json = { workspace = true }
 spin-common = { path = "../common" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tokenizers = "0.20"
-tokio = { version = "1", features = ["macros", "sync", "fs"] }
+tokio = { workspace = true, features = ["macros", "sync", "fs"] }
 tracing = { workspace = true }
 
 [features]

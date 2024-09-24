@@ -22,14 +22,14 @@ spin-llm-local = { path = "../llm-local", optional = true }
 spin-llm-remote-http = { path = "../llm-remote-http" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
-tokio = { version = "1", features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 toml = { workspace = true }
 tracing = { workspace = true }
 url = { version = "2", features = ["serde"] }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

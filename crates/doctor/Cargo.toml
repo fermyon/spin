@@ -14,7 +14,7 @@ spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
 tempfile = { workspace = true }
 terminal = { path = "../terminal" }
-tokio = { version = "1", features = ["process"] }
+tokio = { workspace = true, features = ["process"] }
 toml = { workspace = true }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { workspace = true }
@@ -22,7 +22,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 glob = { workspace = true }
 tempfile = { workspace = true }
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 ui-testing = { path = "../ui-testing" }
 
 [[test]]

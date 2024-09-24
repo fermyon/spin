@@ -31,7 +31,7 @@ spin-serde = { path = "../serde" }
 tempfile = { workspace = true }
 terminal = { path = "../terminal" }
 thiserror = { workspace = true }
-tokio = "1"
+tokio = { workspace = true }
 tokio-util = "0.7"
 toml = { workspace = true }
 tracing = { workspace = true }
@@ -39,7 +39,7 @@ walkdir = "2"
 wasm-pkg-loader = "0.4"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros"] }
 ui-testing = { path = "../ui-testing" }
 
 [features]

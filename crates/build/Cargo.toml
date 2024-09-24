@@ -12,6 +12,6 @@ spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
 subprocess = "0.2"
 terminal = { path = "../terminal" }
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 tracing = { workspace = true }

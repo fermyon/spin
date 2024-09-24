@@ -12,5 +12,5 @@ spin-locked-app = { path = "../locked-app" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 toml = { workspace = true }

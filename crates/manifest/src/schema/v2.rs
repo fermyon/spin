@@ -58,7 +58,7 @@ pub struct AppDetails {
     pub authors: Vec<String>,
     /// `targets = ["spin-2.5", "fermyon-cloud", "spinkube-0.4"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub targets: Vec<String>,
+    pub targets: Vec<TargetEnvironmentRef>,
     /// `[application.triggers.<type>]`
     #[serde(rename = "trigger", default, skip_serializing_if = "Map::is_empty")]
     pub trigger_global_configs: Map<String, toml::Table>,
@@ -338,6 +338,27 @@ impl ComponentDependencies {
     fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+}
+
+/// Identifies a deployment target.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum TargetEnvironmentRef {
+    /// Environment package reference e.g. `spin:cli@3.0`. This is looked up
+    /// in the default environment registry.
+    DefaultRegistry(String),
+    /// A target package in a registry other than the default
+    Registry {
+        /// Registry hosting the environment package e.g. `fermyon.com``.
+        registry: String,
+        /// Environment package reference e.g. `my:spin-env@1.2`.
+        package: String,
+    },
+    /// A filesystem directory. This is expected to contain a WIT package.
+    WitDirectory {
+        /// The directory containing the environment WIT.
+        path: PathBuf,
+    },
 }
 
 mod kebab_or_snake_case {

@@ -1,17 +1,46 @@
+use std::path::Path;
+
 use anyhow::Context;
+use spin_common::ui::quoted_path;
+use spin_manifest::schema::v2::TargetEnvironmentRef;
+
+const DEFAULT_REGISTRY: &str = "fermyon.com";
 
 /// Loads the given `TargetEnvironment` from a registry.
-pub async fn load_environment(env_id: impl AsRef<str>) -> anyhow::Result<TargetEnvironment> {
+pub async fn load_environment(env_id: &TargetEnvironmentRef) -> anyhow::Result<TargetEnvironment> {
+    match env_id {
+        TargetEnvironmentRef::DefaultRegistry(package) => {
+            load_environment_from_registry(DEFAULT_REGISTRY, package).await
+        }
+        TargetEnvironmentRef::Registry { registry, package } => {
+            load_environment_from_registry(registry, package).await
+        }
+        TargetEnvironmentRef::WitDirectory { path } => load_environment_from_dir(path),
+    }
+}
+
+async fn load_environment_from_registry(
+    registry: &str,
+    env_id: &str,
+) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
 
-    let env_id = env_id.as_ref();
-
     let (pkg_name, pkg_ver) = env_id.split_once('@').with_context(|| format!("Failed to parse target environment {env_id} as package reference - is the target correct?"))?;
+    let env_pkg_ref: wasm_pkg_loader::PackageRef = pkg_name
+        .parse()
+        .with_context(|| format!("Environment {pkg_name} is not a valid package name"))?;
+
+    let registry: wasm_pkg_loader::Registry = registry
+        .parse()
+        .with_context(|| format!("Registry {registry} is not a valid registry name"))?;
 
     // TODO: this requires wkg configuration which shouldn't be on users:
     // is there a better way to handle it?
-    let mut client = wasm_pkg_loader::Client::with_global_defaults()
-        .context("Failed to create a package loader from your global settings")?;
+    let mut wkg_config = wasm_pkg_loader::Config::global_defaults()
+        .unwrap_or_else(|_| wasm_pkg_loader::Config::empty());
+    wkg_config.set_package_registry_override(env_pkg_ref, registry);
+
+    let mut client = wasm_pkg_loader::Client::new(wkg_config);
 
     let package = pkg_name
         .to_owned()
@@ -35,7 +64,14 @@ pub async fn load_environment(env_id: impl AsRef<str>) -> anyhow::Result<TargetE
         .with_context(|| format!("Failed to get {env_id} package data from registry"))?
         .to_vec();
 
-    TargetEnvironment::new(env_id.to_owned(), bytes)
+    TargetEnvironment::from_package_bytes(env_id.to_owned(), bytes)
+}
+
+fn load_environment_from_dir(path: &Path) -> anyhow::Result<TargetEnvironment> {
+    let mut resolve = wit_parser::Resolve::default();
+    let (pkg_id, _) = resolve.push_dir(path)?;
+    let decoded = wit_parser::decoding::DecodedWasm::WitPackage(resolve, pkg_id);
+    TargetEnvironment::from_decoded_wasm(path, decoded)
 }
 
 /// A parsed document representing a deployment environment, e.g. Spin 2.7,
@@ -57,7 +93,7 @@ pub struct TargetEnvironment {
 }
 
 impl TargetEnvironment {
-    fn new(name: String, bytes: Vec<u8>) -> anyhow::Result<Self> {
+    fn from_package_bytes(name: String, bytes: Vec<u8>) -> anyhow::Result<Self> {
         let decoded = wit_component::decode(&bytes)
             .with_context(|| format!("Failed to decode package for environment {name}"))?;
         let package_id = decoded.package();
@@ -69,6 +105,38 @@ impl TargetEnvironment {
                 format!("The {name} environment is invalid (no package for decoded package ID)")
             })?
             .clone();
+
+        Ok(Self {
+            name,
+            decoded,
+            package,
+            package_id,
+            package_bytes: bytes,
+        })
+    }
+
+    fn from_decoded_wasm(
+        source: &Path,
+        decoded: wit_parser::decoding::DecodedWasm,
+    ) -> anyhow::Result<Self> {
+        let package_id = decoded.package();
+        let package = decoded
+            .resolve()
+            .packages
+            .get(package_id)
+            .with_context(|| {
+                format!(
+                    "The {} environment is invalid (no package for decoded package ID)",
+                    quoted_path(source)
+                )
+            })?
+            .clone();
+        let name = package.name.to_string();
+
+        // This versionm of wit_component requires a flag for v2 encoding.
+        // v1 encoding is retired in wit_component main. You can remove the
+        // flag when this breaks next time we upgrade the crate!
+        let bytes = wit_component::encode(Some(true), decoded.resolve(), package_id)?;
 
         Ok(Self {
             name,

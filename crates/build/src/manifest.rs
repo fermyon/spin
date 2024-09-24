@@ -7,7 +7,7 @@ use spin_manifest::{schema::v2, ManifestVersion};
 pub enum ManifestBuildInfo {
     Loadable {
         components: Vec<ComponentBuildInfo>,
-        deployment_targets: Vec<String>,
+        deployment_targets: Vec<spin_manifest::schema::v2::TargetEnvironmentRef>,
         manifest: spin_manifest::schema::v2::AppManifest,
     },
     Unloadable {
@@ -32,7 +32,7 @@ impl ManifestBuildInfo {
         }
     }
 
-    pub fn deployment_targets(&self) -> &[String] {
+    pub fn deployment_targets(&self) -> &[spin_manifest::schema::v2::TargetEnvironmentRef] {
         match self {
             Self::Loadable {
                 deployment_targets, ..
@@ -113,7 +113,7 @@ fn build_configs_from_manifest(
 
 fn deployment_targets_from_manifest(
     manifest: &spin_manifest::schema::v2::AppManifest,
-) -> Vec<String> {
+) -> Vec<spin_manifest::schema::v2::TargetEnvironmentRef> {
     manifest.application.targets.clone()
 }
 

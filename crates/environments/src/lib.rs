@@ -7,10 +7,11 @@ use environment_definition::{load_environment, TargetEnvironment, TriggerType};
 use futures::future::try_join_all;
 pub use loader::ApplicationToValidate;
 use loader::ComponentToValidate;
+use spin_manifest::schema::v2::TargetEnvironmentRef;
 
 pub async fn validate_application_against_environment_ids(
     application: &ApplicationToValidate,
-    env_ids: &[impl AsRef<str>],
+    env_ids: &[TargetEnvironmentRef],
 ) -> anyhow::Result<Vec<anyhow::Error>> {
     if env_ids.is_empty() {
         return Ok(Default::default());

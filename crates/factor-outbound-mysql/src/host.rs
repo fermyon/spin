@@ -80,7 +80,7 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
             .await?)
     }
 
-    fn drop(&mut self, connection: Resource<Connection>) -> Result<()> {
+    async fn drop(&mut self, connection: Resource<Connection>) -> Result<()> {
         self.connections.remove(connection.rep());
         Ok(())
     }

@@ -135,7 +135,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.get_keys().await)
     }
 
-    fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
+    async fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
         self.stores.remove(store.rep());
         Ok(())
     }
@@ -203,6 +203,6 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
 
     async fn close(&mut self, store: u32) -> Result<()> {
         let this = Resource::new_borrow(store);
-        <Self as key_value::HostStore>::drop(self, this)
+        <Self as key_value::HostStore>::drop(self, this).await
     }
 }

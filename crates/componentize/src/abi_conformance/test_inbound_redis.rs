@@ -15,10 +15,13 @@ pub(crate) async fn test(
         let instance = pre.instantiate_async(&mut store).await?;
 
         let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-redis")
-            .ok_or_else(|| anyhow!("no inbound-redis instance found"))?
-            .typed_func::<(Payload,), (Result<(), Error>,)>("handle-message")?;
+            .get_export(&mut store, None, "fermyon:spin/inbound-redis")
+            .and_then(|i| instance.get_export(&mut store, Some(&i), "handle-message"))
+            .ok_or_else(|| {
+                anyhow!("no fermyon:spin/inbound-redis/handle-message function was found")
+            })?;
+        let func =
+            instance.get_typed_func::<(Payload,), (Result<(), Error>,)>(&mut store, &func)?;
 
         match func
             .call_async(store, (b"Hello, SpinRedis!".to_vec(),))

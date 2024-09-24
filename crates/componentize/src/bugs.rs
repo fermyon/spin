@@ -3,7 +3,7 @@ use crate::module_info::ModuleInfo;
 pub const EARLIEST_PROBABLY_SAFE_CLANG_VERSION: &str = "15.0.7";
 
 /// This error represents the likely presence of the allocation bug fixed in
-/// https://github.com/WebAssembly/wasi-libc/pull/377 in a Wasm module.
+/// <https://github.com/WebAssembly/wasi-libc/pull/377> in a Wasm module.
 #[derive(Debug, PartialEq)]
 pub struct WasiLibc377Bug {
     clang_version: Option<String>,

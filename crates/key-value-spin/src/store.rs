@@ -248,7 +248,7 @@ mod test {
             Ok(None)
         ));
 
-        kv.drop(Resource::new_own(rep))?;
+        kv.drop(Resource::new_own(rep)).await?;
 
         Ok(())
     }

@@ -210,13 +210,8 @@ impl<F: RuntimeFactors> Subscriber<F> {
             .instantiate(())
             .await?;
 
-        let guest = {
-            let exports = &mut instance.exports(&mut store);
-            let mut inbound_redis_export = exports
-                .instance("fermyon:spin/inbound-redis")
-                .context("no fermyon:spin/inbound-redis instance found")?;
-            inbound_redis::Guest::new(&mut inbound_redis_export)?
-        };
+        let guest_indices = inbound_redis::GuestIndices::new_instance(&mut store, &instance)?;
+        let guest = guest_indices.load(&mut store, &instance)?;
 
         let payload = msg.get_payload_bytes().to_vec();
 

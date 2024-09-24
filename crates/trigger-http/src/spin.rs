@@ -35,12 +35,18 @@ impl HttpExecutor for SpinHttpExecutor {
         let (instance, mut store) = instance_builder.instantiate(()).await?;
 
         let headers = prepare_request_headers(&req, route_match, client_addr)?;
-        let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-http")
-            // Safe since we have already checked that this instance exists
-            .expect("no fermyon:spin/inbound-http found")
-            .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
+        // Expects here are safe since we have already checked that this
+        // instance exists
+        let inbound_http = instance
+            .get_export(&mut store, None, "fermyon:spin/inbound-http")
+            .expect("no fermyon:spin/inbound-http found");
+        let handle_request = instance
+            .get_export(&mut store, Some(&inbound_http), "handle-request")
+            .expect("no handle-request found");
+        let func = instance.get_typed_func::<(http_types::Request,), (http_types::Response,)>(
+            &mut store,
+            &handle_request,
+        )?;
 
         let (parts, body) = req.into_parts();
         let bytes = body.collect().await?.to_bytes().to_vec();

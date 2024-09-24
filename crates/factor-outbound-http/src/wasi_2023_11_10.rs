@@ -3,14 +3,8 @@
 use super::wasi_2023_10_18::convert;
 use anyhow::Result;
 use wasmtime::component::{Linker, Resource};
+use wasmtime_wasi_http::bindings as latest;
 use wasmtime_wasi_http::{WasiHttpImpl, WasiHttpView};
-
-mod latest {
-    pub use wasmtime_wasi_http::bindings::wasi::*;
-    pub mod http {
-        pub use wasmtime_wasi_http::bindings::http::*;
-    }
-}
 
 mod bindings {
     use super::latest;

@@ -27,7 +27,7 @@ spin-loader = { path = "../loader" }
 spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
 tempfile = { workspace = true }
-tokio = { version = "1", features = ["fs"] }
+tokio = { workspace = true, features = ["fs"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tracing = { workspace = true }
 walkdir = "2"

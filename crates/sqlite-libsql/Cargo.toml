@@ -14,7 +14,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-world = { path = "../world" }
 sqlparser = "0.51"
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 
 [lints]
 workspace = true

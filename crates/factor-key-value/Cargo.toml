@@ -13,7 +13,7 @@ spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
-tokio = { version = "1", features = ["macros", "sync", "rt"] }
+tokio = { workspace = true, features = ["macros", "sync", "rt"] }
 toml = { workspace = true }
 tracing = { workspace = true }
 
@@ -22,7 +22,7 @@ spin-factors-test = { path = "../factors-test" }
 spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-spin = { path = "../key-value-spin" }
 tempfile = { workspace = true }
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 
 [lints]

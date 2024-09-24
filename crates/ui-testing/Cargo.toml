@@ -9,4 +9,4 @@ anyhow = { workspace = true }
 dirs = { workspace = true }
 libtest-mimic = "0.7"
 snapbox = "0.4"
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -21,7 +21,7 @@ ctrlc = { version = "3.2", features = ["termination"] }
 futures = { workspace = true }
 sanitize-filename = "0.5"
 serde = { workspace = true }
-serde_json = "1"
+serde_json = { workspace = true }
 spin-app = { path = "../app" }
 spin-common = { path = "../common" }
 spin-componentize = { path = "../componentize" }
@@ -33,7 +33,7 @@ spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-factors-executor = { path = "../factors-executor" }
 spin-telemetry = { path = "../telemetry" }
-tokio = { version = "1", features = ["fs", "rt"] }
+tokio = { workspace = true, features = ["fs", "rt"] }
 toml = { workspace = true }
 tracing = { workspace = true }
 

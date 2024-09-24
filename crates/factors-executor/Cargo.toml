@@ -17,7 +17,7 @@ spin-factors = { path = "../factors" }
 [dev-dependencies]
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors-test = { path = "../factors-test" }
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

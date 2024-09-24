@@ -9,5 +9,5 @@ anyhow = { workspace = true }
 dirs = { workspace = true }
 sha2 = { workspace = true }
 tempfile = { workspace = true }
-tokio = { version = "1", features = ["rt", "time"] }
+tokio = { workspace = true, features = ["rt", "time"] }
 url = { workspace = true }

@@ -22,5 +22,5 @@ spin-runtime-factors = { path = "../../crates/runtime-factors" }
 spin-trigger = { path = "../../crates/trigger" }
 spin-trigger-http = { path = "../../crates/trigger-http" }
 toml = { workspace = true }
-tokio = "1"
+tokio = { workspace = true }
 wasmtime-wasi-http = { workspace = true }

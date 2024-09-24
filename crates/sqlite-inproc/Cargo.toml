@@ -11,7 +11,7 @@ rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["bundled"] }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-world = { path = "../world" }
-tokio = "1"
+tokio = { workspace = true }
 
 [lints]
 workspace = true

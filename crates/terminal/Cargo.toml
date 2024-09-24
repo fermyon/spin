@@ -5,5 +5,4 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-atty = "0.2"
 termcolor = "1"

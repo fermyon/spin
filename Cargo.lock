@@ -455,8 +455,9 @@ dependencies = [
 
 [[package]]
 name = "async-tar"
-version = "0.4.2"
-source = "git+https://github.com/vdice/async-tar?rev=71e037f9652971e7a55b412a8e47a37b06f9c29d#71e037f9652971e7a55b412a8e47a37b06f9c29d"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a42f905d4f623faf634bbd1e001e84e0efc24694afa64be9ad239bf6ca49e1f8"
 dependencies = [
  "async-std",
  "filetime",

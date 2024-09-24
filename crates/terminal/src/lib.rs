@@ -3,7 +3,7 @@
 //! This library is used by Spin to print out messages in an appropriate format
 //! that is easy for users to read. This is not meant as a general purpose library.
 
-use std::sync::OnceLock;
+use std::{io::IsTerminal, sync::OnceLock};
 use termcolor::{ColorSpec, StandardStream, StandardStreamLock, WriteColor};
 
 static COLOR_OUT: OnceLock<StandardStream> = OnceLock::new();
@@ -16,14 +16,14 @@ impl ColorText {
     /// Create a `ColorText` tied to stdout
     pub fn stdout(spec: ColorSpec) -> ColorText {
         let stream =
-            COLOR_OUT.get_or_init(|| StandardStream::stdout(color_choice(atty::Stream::Stdout)));
+            COLOR_OUT.get_or_init(|| StandardStream::stdout(color_choice(std::io::stdout())));
         set_color(stream, spec)
     }
 
     /// Create a `ColorText` tied to stderr
     pub fn stderr(spec: ColorSpec) -> ColorText {
         let stream =
-            COLOR_ERR.get_or_init(|| StandardStream::stderr(color_choice(atty::Stream::Stderr)));
+            COLOR_ERR.get_or_init(|| StandardStream::stderr(color_choice(std::io::stderr())));
         set_color(stream, spec)
     }
 }
@@ -64,8 +64,8 @@ fn set_color(stream: &'static StandardStream, spec: ColorSpec) -> ColorText {
     ColorText(lock)
 }
 
-fn color_choice(stream: atty::Stream) -> termcolor::ColorChoice {
-    if atty::is(stream) {
+fn color_choice(stream: impl IsTerminal) -> termcolor::ColorChoice {
+    if stream.is_terminal() {
         termcolor::ColorChoice::Auto
     } else {
         termcolor::ColorChoice::Never

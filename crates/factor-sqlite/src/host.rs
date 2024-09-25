@@ -15,7 +15,7 @@ use crate::{Connection, ConnectionCreator};
 pub struct InstanceState {
     allowed_databases: Arc<HashSet<String>>,
     /// A resource table of connections.
-    connections: table::Table<Box<dyn Connection>>,
+    connections: spin_resource_table::Table<Box<dyn Connection>>,
     /// A map from database label to connection creators.
     connection_creators: HashMap<String, Arc<dyn ConnectionCreator>>,
 }
@@ -30,7 +30,7 @@ impl InstanceState {
     ) -> Self {
         Self {
             allowed_databases,
-            connections: table::Table::new(256),
+            connections: spin_resource_table::Table::new(256),
             connection_creators,
         }
     }

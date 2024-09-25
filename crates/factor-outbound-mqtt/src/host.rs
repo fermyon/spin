@@ -10,7 +10,7 @@ use crate::ClientCreator;
 
 pub struct InstanceState {
     allowed_hosts: OutboundAllowedHosts,
-    connections: table::Table<Arc<dyn MqttClient>>,
+    connections: spin_resource_table::Table<Arc<dyn MqttClient>>,
     create_client: Arc<dyn ClientCreator>,
 }
 
@@ -19,7 +19,7 @@ impl InstanceState {
         Self {
             allowed_hosts,
             create_client,
-            connections: table::Table::new(1024),
+            connections: spin_resource_table::Table::new(1024),
         }
     }
 }

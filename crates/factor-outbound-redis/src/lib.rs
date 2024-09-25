@@ -48,7 +48,7 @@ impl Factor for OutboundRedisFactor {
             .allowed_hosts();
         Ok(InstanceState {
             allowed_hosts,
-            connections: table::Table::new(1024),
+            connections: spin_resource_table::Table::new(1024),
         })
     }
 }

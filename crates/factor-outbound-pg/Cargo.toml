@@ -11,8 +11,8 @@ postgres-native-tls = "0.5"
 spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
+spin-resource-table = { path = "../table" }
 spin-world = { path = "../world" }
-table = { path = "../table" }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-postgres = "0.7"
 tracing = { workspace = true }

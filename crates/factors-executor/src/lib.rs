@@ -211,6 +211,16 @@ impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
     pub fn factor_builder<F: Factor>(&mut self) -> Option<&mut F::InstanceBuilder> {
         self.factor_builders().for_factor::<F>()
     }
+
+    /// Returns the underlying wasmtime engine for the instance.
+    pub fn wasmtime_engine(&self) -> &spin_core::WasmtimeEngine {
+        self.instance_pre.engine()
+    }
+
+    /// Returns the compiled component for the instance.
+    pub fn component(&self) -> &Component {
+        self.instance_pre.component()
+    }
 }
 
 impl<'a, T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'a, T, U> {

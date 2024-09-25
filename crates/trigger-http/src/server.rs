@@ -20,6 +20,7 @@ use spin_http::{
     body,
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RouteMatch, Router},
+    trigger::HandlerType,
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -27,7 +28,6 @@ use tokio::{
     task,
 };
 use tracing::Instrument;
-use wasmtime::component::Component;
 use wasmtime_wasi_http::body::HyperOutgoingBody;
 
 use crate::{
@@ -104,7 +104,7 @@ impl<F: RuntimeFactors> HttpServer<F> {
                 let handler_type = match &trigger_config.executor {
                     None | Some(HttpExecutorType::Http) => {
                         let component = trigger_app.get_component(component_id)?;
-                        HandlerType::from_component(trigger_app.engine(), component)?
+                        HandlerType::from_component(trigger_app.engine().as_ref(), component)?
                     }
                     Some(HttpExecutorType::Wagi(wagi_config)) => {
                         anyhow::ensure!(
@@ -463,62 +463,4 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> impl Future<Output = anyhow::Result<Response<Body>>>;
-}
-
-/// Whether this handler uses the custom Spin http handler interface for wasi-http
-#[derive(Clone, Copy)]
-pub enum HandlerType {
-    Spin,
-    Wagi,
-    Wasi0_2,
-    Wasi2023_11_10,
-    Wasi2023_10_18,
-}
-
-pub const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
-pub const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-11-10";
-pub const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
-pub const WASI_HTTP_EXPORT_0_2_1: &str = "wasi:http/incoming-handler@0.2.1";
-
-impl HandlerType {
-    /// Determine the handler type from the exports of a component
-    pub fn from_component(
-        engine: impl AsRef<wasmtime::Engine>,
-        component: &Component,
-    ) -> anyhow::Result<HandlerType> {
-        let mut handler_ty = None;
-
-        let mut set = |ty: HandlerType| {
-            if handler_ty.is_none() {
-                handler_ty = Some(ty);
-                Ok(())
-            } else {
-                Err(anyhow::anyhow!(
-                    "component exports multiple different handlers but \
-                     it's expected to export only one"
-                ))
-            }
-        };
-        let ty = component.component_type();
-        for (name, _) in ty.exports(engine.as_ref()) {
-            match name {
-                WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
-                WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
-                WASI_HTTP_EXPORT_0_2_0 | WASI_HTTP_EXPORT_0_2_1 => set(HandlerType::Wasi0_2)?,
-                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
-                _ => {}
-            }
-        }
-
-        handler_ty.ok_or_else(|| {
-            anyhow::anyhow!(
-                "Expected component to export one of \
-                `{WASI_HTTP_EXPORT_2023_10_18}`, \
-                `{WASI_HTTP_EXPORT_2023_11_10}`, \
-                `{WASI_HTTP_EXPORT_0_2_0}`, \
-                `{WASI_HTTP_EXPORT_0_2_1}`, \
-                 or `fermyon:spin/inbound-http` but it exported none of those"
-            )
-        })
-    }
 }

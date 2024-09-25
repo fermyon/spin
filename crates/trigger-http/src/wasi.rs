@@ -8,16 +8,13 @@ use spin_factor_outbound_http::wasi_2023_10_18::exports::wasi::http::incoming_ha
 use spin_factor_outbound_http::wasi_2023_11_10::exports::wasi::http::incoming_handler as incoming_handler2023_11_10;
 use spin_factors::RuntimeFactors;
 use spin_http::routes::RouteMatch;
+use spin_http::trigger::HandlerType;
 use tokio::{sync::oneshot, task};
 use tracing::{instrument, Instrument, Level};
 use wasmtime_wasi_http::bindings::http::types::Scheme;
 use wasmtime_wasi_http::{bindings::Proxy, body::HyperIncomingBody as Body, WasiHttpView};
 
-use crate::{
-    headers::prepare_request_headers,
-    server::{HandlerType, HttpExecutor},
-    TriggerInstanceBuilder,
-};
+use crate::{headers::prepare_request_headers, server::HttpExecutor, TriggerInstanceBuilder};
 
 /// An [`HttpExecutor`] that uses the `wasi:http/incoming-handler` interface.
 #[derive(Clone)]

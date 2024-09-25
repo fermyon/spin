@@ -13,7 +13,7 @@ use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_outbound_pg::OutboundPgFactor;
 use spin_factor_outbound_redis::OutboundRedisFactor;
 use spin_factor_sqlite::SqliteFactor;
-use spin_factor_variables::{spin_cli as variables, VariablesFactor};
+use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::runtime_config::toml::GetTomlValue as _;
 use spin_factors::{
@@ -314,7 +314,9 @@ impl FactorRuntimeConfigSource<VariablesFactor> for TomlRuntimeConfigSource<'_, 
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<<VariablesFactor as spin_factors::Factor>::RuntimeConfig>> {
-        Ok(Some(variables::runtime_config_from_toml(&self.toml.table)?))
+        Ok(Some(spin_variables::runtime_config_from_toml(
+            &self.toml.table,
+        )?))
     }
 }
 

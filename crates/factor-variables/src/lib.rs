@@ -1,6 +1,5 @@
 mod host;
 pub mod runtime_config;
-pub mod spin_cli;
 
 use std::sync::Arc;
 

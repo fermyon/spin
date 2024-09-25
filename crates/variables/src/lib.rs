@@ -14,7 +14,7 @@ use serde::Deserialize;
 use spin_expressions::Provider;
 use spin_factors::{anyhow, runtime_config::toml::GetTomlValue};
 
-use crate::runtime_config::RuntimeConfig;
+use spin_factor_variables::runtime_config::RuntimeConfig;
 
 /// Resolves a runtime configuration for the variables factor from a TOML table.
 pub fn runtime_config_from_toml(table: &impl GetTomlValue) -> anyhow::Result<RuntimeConfig> {

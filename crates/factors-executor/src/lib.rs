@@ -213,7 +213,7 @@ impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
     }
 
     /// Returns the underlying wasmtime engine for the instance.
-    pub fn engine(&self) -> &spin_core::wasmtime::Engine {
+    pub fn wasmtime_engine(&self) -> &spin_core::WasmtimeEngine {
         self.instance_pre.engine()
     }
 

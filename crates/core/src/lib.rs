@@ -18,6 +18,7 @@ use tracing::instrument;
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 
 pub use async_trait::async_trait;
+pub use wasmtime::Engine as WasmtimeEngine;
 pub use wasmtime::{
     self,
     component::{Component, Instance, InstancePre, Linker},

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::time::{Duration, Instant};
 
-use crate::{limits::StoreLimitsAsync, State};
+use crate::{limits::StoreLimitsAsync, State, WasmtimeEngine};
 
 #[cfg(doc)]
 use crate::EngineBuilder;
@@ -80,14 +80,14 @@ impl<T> wasmtime::AsContextMut for Store<T> {
 ///
 /// A new [`StoreBuilder`] can be obtained with [`crate::Engine::store_builder`].
 pub struct StoreBuilder {
-    engine: wasmtime::Engine,
+    engine: WasmtimeEngine,
     epoch_tick_interval: Duration,
     store_limits: StoreLimitsAsync,
 }
 
 impl StoreBuilder {
     // Called by Engine::store_builder.
-    pub(crate) fn new(engine: wasmtime::Engine, epoch_tick_interval: Duration) -> Self {
+    pub(crate) fn new(engine: WasmtimeEngine, epoch_tick_interval: Duration) -> Self {
         Self {
             engine,
             epoch_tick_interval,

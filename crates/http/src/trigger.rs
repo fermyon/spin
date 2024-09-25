@@ -31,11 +31,13 @@ pub const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-
 pub const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
 /// The `incoming-handler` export for `wasi:http` version 0.2.1
 pub const WASI_HTTP_EXPORT_0_2_1: &str = "wasi:http/incoming-handler@0.2.1";
+/// The `inbound-http` export for `fermyon:spin`
+pub const SPIN_HTTP_EXPORT: &str = "fermyon:spin/inbound-http";
 
 impl HandlerType {
-    /// Determine the handler type from the exports of a component
+    /// Determine the handler type from the exports of a component.
     pub fn from_component(
-        engine: impl AsRef<wasmtime::Engine>,
+        engine: &wasmtime::Engine,
         component: &Component,
     ) -> anyhow::Result<HandlerType> {
         let mut handler_ty = None;
@@ -52,12 +54,12 @@ impl HandlerType {
             }
         };
         let ty = component.component_type();
-        for (name, _) in ty.exports(engine.as_ref()) {
+        for (name, _) in ty.exports(engine) {
             match name {
                 WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
                 WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
                 WASI_HTTP_EXPORT_0_2_0 | WASI_HTTP_EXPORT_0_2_1 => set(HandlerType::Wasi0_2)?,
-                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
+                SPIN_HTTP_EXPORT => set(HandlerType::Spin)?,
                 _ => {}
             }
         }
@@ -69,7 +71,7 @@ impl HandlerType {
                 `{WASI_HTTP_EXPORT_2023_11_10}`, \
                 `{WASI_HTTP_EXPORT_0_2_0}`, \
                 `{WASI_HTTP_EXPORT_0_2_1}`, \
-                 or `fermyon:spin/inbound-http` but it exported none of those"
+                 or `{SPIN_HTTP_EXPORT}` but it exported none of those"
             )
         })
     }

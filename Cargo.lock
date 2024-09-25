@@ -7389,7 +7389,7 @@ dependencies = [
  "http 1.1.0",
  "http-body-util",
  "hyper 1.4.1",
- "indexmap 1.9.3",
+ "indexmap 2.5.0",
  "percent-encoding",
  "routefinder",
  "serde 1.0.210",

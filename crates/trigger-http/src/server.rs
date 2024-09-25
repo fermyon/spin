@@ -104,7 +104,7 @@ impl<F: RuntimeFactors> HttpServer<F> {
                 let handler_type = match &trigger_config.executor {
                     None | Some(HttpExecutorType::Http) => {
                         let component = trigger_app.get_component(component_id)?;
-                        HandlerType::from_component(trigger_app.engine(), component)?
+                        HandlerType::from_component(trigger_app.engine().as_ref(), component)?
                     }
                     Some(HttpExecutorType::Wagi(wagi_config)) => {
                         anyhow::ensure!(

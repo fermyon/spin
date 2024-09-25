@@ -85,7 +85,7 @@ impl key_value::HostStore for KeyValueDispatch {
         .await)
     }
 
-    #[instrument(name = "spin_key_value.get", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value.get", skip(self, store, key), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(
         &mut self,
         store: Resource<key_value::Store>,
@@ -95,7 +95,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.get(&key).await)
     }
 
-    #[instrument(name = "spin_key_value.set", skip(self, store, value), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value.set", skip(self, store, key, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(
         &mut self,
         store: Resource<key_value::Store>,
@@ -106,7 +106,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.set(&key, &value).await)
     }
 
-    #[instrument(name = "spin_key_value.delete", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value.delete", skip(self, store, key), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(
         &mut self,
         store: Resource<key_value::Store>,
@@ -116,7 +116,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.delete(&key).await)
     }
 
-    #[instrument(name = "spin_key_value.exists", skip(self, store), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value.exists", skip(self, store, key), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(
         &mut self,
         store: Resource<key_value::Store>,

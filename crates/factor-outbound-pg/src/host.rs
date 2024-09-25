@@ -5,6 +5,7 @@ use spin_world::v1::rdbms_types as v1_types;
 use spin_world::v2::postgres::{self as v2, Connection};
 use spin_world::v2::rdbms_types;
 use spin_world::v2::rdbms_types::{ParameterValue, RowSet};
+use tracing::field::Empty;
 use tracing::instrument;
 use tracing::Level;
 
@@ -63,8 +64,10 @@ impl<C: Send + Sync + Client> v2::Host for InstanceState<C> {}
 
 #[async_trait]
 impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
-    #[instrument(name = "spin_outbound_pg.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql"))]
+    #[instrument(name = "spin_outbound_pg.open", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", db.address = Empty, server.port = Empty, db.namespace = Empty))]
     async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
+        spin_factor_outbound_networking::record_address_fields(&address);
+
         if !self
             .is_address_allowed(&address)
             .await

@@ -6,6 +6,7 @@ use spin_world::v1::{redis as v1, redis_types};
 use spin_world::v2::redis::{
     self as v2, Connection as RedisConnection, Error, RedisParameter, RedisResult,
 };
+use tracing::field::Empty;
 use tracing::{instrument, Level};
 
 pub struct InstanceState {
@@ -53,8 +54,10 @@ impl v2::Host for crate::InstanceState {
 
 #[async_trait]
 impl v2::HostConnection for crate::InstanceState {
-    #[instrument(name = "spin_outbound_redis.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis"))]
+    #[instrument(name = "spin_outbound_redis.open_connection", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", db.address = Empty, server.port = Empty, db.namespace = Empty))]
     async fn open(&mut self, address: String) -> Result<Resource<RedisConnection>, Error> {
+        spin_factor_outbound_networking::record_address_fields(&address);
+
         if !self
             .is_address_allowed(&address)
             .await

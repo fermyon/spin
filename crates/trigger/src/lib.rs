@@ -4,10 +4,12 @@ pub mod loader;
 use std::future::Future;
 
 use clap::Args;
-use spin_core::Linker;
-use spin_factors::RuntimeFactors;
+pub use spin_core::Linker;
+pub use spin_factors::RuntimeFactors;
 use spin_factors_executor::{FactorsExecutorApp, FactorsInstanceBuilder};
 
+pub use anyhow;
+pub use clap::Parser;
 pub use spin_app::App;
 
 /// Type alias for a [`spin_factors_executor::FactorsExecutorApp`] specialized to a [`Trigger`].
@@ -21,7 +23,7 @@ pub type TriggerInstanceBuilder<'a, T, F> =
 pub type Store<T, F> = spin_core::Store<TriggerInstanceState<T, F>>;
 
 /// Type alias for [`spin_factors_executor::InstanceState`] specialized to a [`Trigger`].
-type TriggerInstanceState<T, F> = spin_factors_executor::InstanceState<
+pub type TriggerInstanceState<T, F> = spin_factors_executor::InstanceState<
     <F as RuntimeFactors>::InstanceState,
     <T as Trigger<F>>::InstanceState,
 >;

@@ -60,7 +60,7 @@ impl<C> OutboundMysqlFactor<C> {
 
 pub struct InstanceState<C> {
     allowed_hosts: OutboundAllowedHosts,
-    connections: table::Table<C>,
+    connections: spin_resource_table::Table<C>,
 }
 
 impl<C: Send + 'static> SelfInstanceBuilder for InstanceState<C> {}

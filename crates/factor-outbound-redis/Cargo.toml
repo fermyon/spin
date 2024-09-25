@@ -10,8 +10,8 @@ redis = { version = "0.25", features = ["tokio-comp", "tokio-native-tls-comp", "
 spin-core = { path = "../core" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
+spin-resource-table = { path = "../table" }
 spin-world = { path = "../world" }
-table = { path = "../table" }
 tracing = { workspace = true }
 
 [dev-dependencies]

@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_resource_table::Table;
 use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
-use table::Table;
 use tracing::{instrument, Level};
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;

@@ -1,5 +1,5 @@
 [package]
-name = "table"
+name = "spin-resource-table"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

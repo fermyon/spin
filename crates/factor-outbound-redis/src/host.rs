@@ -10,7 +10,7 @@ use tracing::{instrument, Level};
 
 pub struct InstanceState {
     pub allowed_hosts: OutboundAllowedHosts,
-    pub connections: table::Table<MultiplexedConnection>,
+    pub connections: spin_resource_table::Table<MultiplexedConnection>,
 }
 
 impl InstanceState {

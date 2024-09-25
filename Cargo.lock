@@ -7122,8 +7122,8 @@ dependencies = [
  "spin-key-value-redis",
  "spin-key-value-spin",
  "spin-locked-app",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tempfile",
  "tokio",
  "toml 0.8.19",
@@ -7186,8 +7186,8 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tokio",
  "tracing",
 ]
@@ -7207,8 +7207,8 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tokio",
  "tracing",
  "url",
@@ -7257,8 +7257,8 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -7275,8 +7275,8 @@ dependencies = [
  "spin-factor-variables",
  "spin-factors",
  "spin-factors-test",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tokio",
  "tracing",
 ]
@@ -7290,8 +7290,8 @@ dependencies = [
  "spin-factors",
  "spin-factors-test",
  "spin-locked-app",
+ "spin-resource-table",
  "spin-world",
- "table",
  "tokio",
  "toml 0.8.19",
  "tracing",
@@ -7606,6 +7606,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-resource-table"
+version = "2.8.0-pre0"
+
+[[package]]
 name = "spin-runtime-config"
 version = "2.8.0-pre0"
 dependencies = [
@@ -7682,10 +7686,10 @@ dependencies = [
  "spin-factor-sqlite",
  "spin-factors",
  "spin-locked-app",
+ "spin-resource-table",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",
  "spin-world",
- "table",
  "tokio",
  "toml 0.8.19",
 ]
@@ -8123,10 +8127,6 @@ dependencies = [
  "windows-sys 0.52.0",
  "winx",
 ]
-
-[[package]]
-name = "table"
-version = "2.8.0-pre0"
 
 [[package]]
 name = "tar"

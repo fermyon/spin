@@ -7397,6 +7397,7 @@ dependencies = [
  "spin-locked-app",
  "toml 0.8.19",
  "tracing",
+ "wasmtime",
  "wasmtime-wasi-http",
 ]
 

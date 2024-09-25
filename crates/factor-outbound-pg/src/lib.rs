@@ -2,6 +2,7 @@ pub mod client;
 mod host;
 
 use client::Client;
+use spin_factor_observe::ObserveContext;
 use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, PrepareContext, RuntimeFactors, SelfInstanceBuilder,
@@ -40,9 +41,12 @@ impl<C: Send + Sync + Client + 'static> Factor for OutboundPgFactor<C> {
         let allowed_hosts = ctx
             .instance_builder::<OutboundNetworkingFactor>()?
             .allowed_hosts();
+        let observe_context = ObserveContext::from_prepare_context(&mut ctx)?;
+
         Ok(InstanceState {
             allowed_hosts,
             connections: Default::default(),
+            observe_context,
         })
     }
 }
@@ -64,6 +68,7 @@ impl<C> OutboundPgFactor<C> {
 pub struct InstanceState<C> {
     allowed_hosts: OutboundAllowedHosts,
     connections: table::Table<C>,
+    observe_context: ObserveContext,
 }
 
 impl<C: Send + 'static> SelfInstanceBuilder for InstanceState<C> {}

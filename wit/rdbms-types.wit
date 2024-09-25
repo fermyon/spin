@@ -23,6 +23,10 @@ interface rdbms-types {
       floating64,
       str,
       binary,
+      date,
+      time,
+      datetime,
+      timestamp,
       other,
   }
 
@@ -41,6 +45,10 @@ interface rdbms-types {
       floating64(float64),
       str(string),
       binary(list<u8>),
+      date(tuple<s32, u8, u8>), // (year, month, day)
+      time(tuple<u8, u8, u8, u32>), // (hour, minute, second, nanosecond)
+      datetime(tuple<s32, u8, u8, u8, u8, u8, u32>), // (year, month, day, hour, minute, second, nanosecond)
+      timestamp(s64), // Unix timestamp (seconds since epoch)
       db-null,
       unsupported,
   }
@@ -60,6 +68,10 @@ interface rdbms-types {
       floating64(float64),
       str(string),
       binary(list<u8>),
+      date(tuple<s32, u8, u8>), // (year, month, day)
+      time(tuple<u8, u8, u8, u32>), // (hour, minute, second, nanosecond)
+      datetime(tuple<s32, u8, u8, u8, u8, u8, u32>), // (year, month, day, hour, minute, second, nanosecond)
+      timestamp(s64), // Unix timestamp (seconds since epoch)
       db-null,
   }
 

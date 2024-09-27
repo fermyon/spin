@@ -7065,6 +7065,7 @@ version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "futures",
  "spin-locked-app",
  "thiserror",
  "tokio",

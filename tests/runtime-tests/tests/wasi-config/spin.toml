@@ -1,0 +1,17 @@
+spin_manifest_version = "1"
+authors = [""]
+description = ""
+name = "wasi-config"
+trigger = { type = "http" }
+version = "0.1.0"
+
+[variables]
+variable = { default = "value" }
+
+[[component]]
+id = "wasi-config"
+source = "%{source=wasi-config}"
+[component.trigger]
+route = "/..."
+[component.config]
+variable = "{{ variable }}"

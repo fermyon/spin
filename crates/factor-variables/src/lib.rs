@@ -31,6 +31,7 @@ impl Factor for VariablesFactor {
     fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         ctx.link_bindings(spin_world::v1::config::add_to_linker)?;
         ctx.link_bindings(spin_world::v2::variables::add_to_linker)?;
+        ctx.link_bindings(spin_world::wasi::config::store::add_to_linker)?;
         Ok(())
     }
 

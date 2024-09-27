@@ -37,6 +37,61 @@ impl v1::config::Host for InstanceState {
     }
 }
 
+#[async_trait]
+impl spin_world::wasi::config::store::Host for InstanceState {
+    async fn get(
+        &mut self,
+        key: String,
+    ) -> Result<Option<String>, spin_world::wasi::config::store::Error> {
+        match <Self as variables::Host>::get(self, key).await {
+            Ok(value) => Ok(Some(value)),
+            // Err(e) if matches!(e, variables::Error::Undefined(_)) => Ok(Ok(None)),
+            Err(e) => {
+                match e {
+                    variables::Error::Undefined(_) => Ok(None),
+                    variables::Error::InvalidName(msg) => {
+                        Err(spin_world::wasi::config::store::Error::Io(msg))
+                    } // TODO: this doesn't feel ideal, but wasi-config only allows two error cases
+                    variables::Error::Provider(msg) => {
+                        Err(spin_world::wasi::config::store::Error::Upstream(msg))
+                    }
+                    variables::Error::Other(msg) => {
+                        Err(spin_world::wasi::config::store::Error::Io(msg))
+                    } // TODO: again, hard to know how to map this (and the original expressions::Error is not more helpful)
+                }
+            }
+        }
+    }
+
+    async fn get_all(
+        &mut self,
+    ) -> Result<Vec<(String, String)>, spin_world::wasi::config::store::Error> {
+        let all = self
+            .expression_resolver
+            .resolve_all(&self.component_id)
+            .await;
+        all.map_err(|e| {
+            match expressions_to_variables_err(e) {
+                variables::Error::Undefined(msg) => spin_world::wasi::config::store::Error::Io(msg), // TODO: this should presumably not occur here
+                variables::Error::InvalidName(msg) => {
+                    spin_world::wasi::config::store::Error::Io(msg)
+                } // TODO: this doesn't feel ideal, but wasi-config only allows two error cases
+                variables::Error::Provider(msg) => {
+                    spin_world::wasi::config::store::Error::Upstream(msg)
+                }
+                variables::Error::Other(msg) => spin_world::wasi::config::store::Error::Io(msg), // TODO: again, hard to know how to map this (and the original expressions::Error is not more helpful)
+            }
+        })
+    }
+
+    fn convert_error(
+        &mut self,
+        err: spin_world::wasi::config::store::Error,
+    ) -> anyhow::Result<spin_world::wasi::config::store::Error> {
+        Ok(err)
+    }
+}
+
 fn expressions_to_variables_err(err: spin_expressions::Error) -> variables::Error {
     use spin_expressions::Error;
     match err {

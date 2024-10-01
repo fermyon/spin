@@ -3,8 +3,10 @@ fn main() {
         .nth(1)
         .expect("expected first argument to be path to spin binary")
         .into();
-    conformance_tests::run_tests("canary", move |test| {
+    let config = conformance_tests::Config::new("canary");
+    conformance_tests::run_tests(config, move |test| {
         conformance::run_test(test, &spin_binary)
     })
-    .unwrap();
+    .unwrap()
+    .exit();
 }

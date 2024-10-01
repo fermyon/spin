@@ -126,7 +126,7 @@ members = [
 anyhow = "1"
 async-trait = "0.1"
 bytes = "1"
-conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "ecd22a45bcc5c775a56c67689a89aa4005866ac0" }
 dirs = "5.0"
 futures = "0.3"
 glob = "0.3"
@@ -146,7 +146,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1.0"
 sha2 = "0.10"
 tempfile = "3"
-test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "387b7f375df59e6254a7c29cf4a53507a9f46d32" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "ecd22a45bcc5c775a56c67689a89aa4005866ac0" }
 thiserror = "1"
 tokio = "1"
 toml = "0.8"

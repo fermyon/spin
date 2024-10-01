@@ -5,11 +5,9 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-serde = { workspace = true }
 spin-expressions = { path = "../expressions" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
-toml = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

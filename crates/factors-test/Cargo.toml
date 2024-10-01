@@ -5,10 +5,8 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-serde = { workspace = true }
 spin-app = { path = "../app" }
 spin-factors = { path = "../factors" }
-spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-loader = { path = "../loader" }
 tempfile = { workspace = true }
 toml = { workspace = true }

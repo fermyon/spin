@@ -10,7 +10,6 @@ redis = { version = "0.27", features = ["tokio-comp", "tokio-native-tls-comp"] }
 serde = { workspace = true }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
-spin-world = { path = "../world" }
 tokio = { workspace = true }
 url = { workspace = true }
 

@@ -7,7 +7,6 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-serde = { workspace = true }
 spin-locked-app = { path = "../locked-app" }
 thiserror = { workspace = true }
 

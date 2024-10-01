@@ -12,7 +12,6 @@ spin-factors-derive = { path = "../factors-derive" }
 thiserror = { workspace = true }
 # TODO: make this optional and behind a feature flag
 toml = { workspace = true }
-tracing = { workspace = true }
 wasmtime = { workspace = true }
 
 [lints]

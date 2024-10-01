@@ -14,7 +14,6 @@ async-trait = { workspace = true }
 indexmap = "2"
 semver = "1"
 spin-app = { path = "../app" }
-spin-componentize = { workspace = true }
 spin-serde = { path = "../serde" }
 thiserror = { workspace = true }
 wac-graph = "0.6"

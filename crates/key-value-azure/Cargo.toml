@@ -16,8 +16,6 @@ futures = { workspace = true }
 serde = { workspace = true }
 spin-core = { path = "../core" }
 spin-factor-key-value = { path = "../factor-key-value" }
-tokio = { workspace = true }
-url = { workspace = true }
 
 [lints]
 workspace = true

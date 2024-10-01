@@ -9,16 +9,11 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
-flate2 = "1"
 # Removing default features for mysql_async to remove flate2/zlib feature
 mysql_async = { version = "0.34", default-features = false, features = [
   "native-tls-tls",
 ] }
-# Removing default features for mysql_common to remove flate2/zlib feature
-mysql_common = { version = "0.32", default-features = false }
-spin-app = { path = "../app" }
 spin-core = { path = "../core" }
-spin-expressions = { path = "../expressions" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factors = { path = "../factors" }
 spin-resource-table = { path = "../table" }

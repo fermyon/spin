@@ -14,7 +14,6 @@ percent-encoding = "2"
 routefinder = "0.5.4"
 serde = { workspace = true }
 spin-app = { path = "../app", optional = true }
-spin-locked-app = { path = "../locked-app" }
 tracing = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi-http = { workspace = true, optional = true }

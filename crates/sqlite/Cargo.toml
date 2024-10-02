@@ -8,9 +8,6 @@ edition = { workspace = true }
 serde = { workspace = true }
 spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-factors = { path = "../factors" }
-# spin-locked-app = { path = "../locked-app" }
-# spin-resource-table = { path = "../table" }
 spin-sqlite-inproc = { path = "../sqlite-inproc" }
 spin-sqlite-libsql = { path = "../sqlite-libsql" }
-# spin-world = { path = "../world" }
 toml = { workspace = true }

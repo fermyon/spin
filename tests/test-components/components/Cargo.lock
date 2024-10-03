@@ -255,7 +255,6 @@ dependencies = [
 name = "helper"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "wit-bindgen 0.16.0",
 ]
 
@@ -393,9 +392,7 @@ dependencies = [
 name = "internal-http-streaming-back-component"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "futures",
- "helper",
  "spin-sdk 2.2.0",
 ]
 
@@ -712,11 +709,7 @@ name = "spin-outbound-post"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "futures",
- "hex",
- "sha2",
  "spin-sdk 2.2.0",
- "url",
 ]
 
 [[package]]

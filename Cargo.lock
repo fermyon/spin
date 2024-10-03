@@ -8133,25 +8133,19 @@ name = "testing-framework"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "fslock",
  "http 1.1.0",
  "http-body-util",
  "log",
  "nix 0.29.0",
- "regex",
  "reqwest 0.12.7",
  "spin-app",
- "spin-factors-executor",
  "spin-http",
  "spin-loader",
  "spin-runtime-factors",
  "spin-trigger",
  "spin-trigger-http",
- "temp-dir",
  "test-environment",
  "tokio",
- "toml 0.8.19",
- "wasmtime-wasi-http",
 ]
 
 [[package]]

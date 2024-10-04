@@ -20,6 +20,7 @@ pub async fn build(
     manifest_file: &Path,
     component_ids: &[String],
     skip_target_checks: bool,
+    cache_root: Option<PathBuf>,
 ) -> Result<()> {
     let build_info = component_build_configs(manifest_file)
         .await
@@ -67,6 +68,7 @@ pub async fn build(
         let errors = spin_environments::validate_application_against_environment_ids(
             &application,
             build_info.deployment_targets(),
+            cache_root.clone(),
         )
         .await?;
 
@@ -193,6 +195,6 @@ mod tests {
     #[tokio::test]
     async fn can_load_even_if_trigger_invalid() {
         let bad_trigger_file = test_data_root().join("bad_trigger.toml");
-        build(&bad_trigger_file, &[], true).await.unwrap();
+        build(&bad_trigger_file, &[], true, None).await.unwrap();
     }
 }

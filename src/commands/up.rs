@@ -191,7 +191,7 @@ impl UpCommand {
         }
 
         if self.build {
-            app_source.build().await?;
+            app_source.build(&self.cache_dir).await?;
         }
         let mut locked_app = self
             .load_resolved_app_source(resolved_app_source, &working_dir)

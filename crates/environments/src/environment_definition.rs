@@ -7,13 +7,16 @@ use spin_manifest::schema::v2::TargetEnvironmentRef;
 const DEFAULT_REGISTRY: &str = "fermyon.com";
 
 /// Loads the given `TargetEnvironment` from a registry.
-pub async fn load_environment(env_id: &TargetEnvironmentRef) -> anyhow::Result<TargetEnvironment> {
+pub async fn load_environment(
+    env_id: &TargetEnvironmentRef,
+    cache: &spin_loader::cache::Cache,
+) -> anyhow::Result<TargetEnvironment> {
     match env_id {
         TargetEnvironmentRef::DefaultRegistry(package) => {
-            load_environment_from_registry(DEFAULT_REGISTRY, package).await
+            load_environment_from_registry(DEFAULT_REGISTRY, package, cache).await
         }
         TargetEnvironmentRef::Registry { registry, package } => {
-            load_environment_from_registry(registry, package).await
+            load_environment_from_registry(registry, package, cache).await
         }
         TargetEnvironmentRef::WitDirectory { path } => load_environment_from_dir(path),
     }
@@ -22,15 +25,24 @@ pub async fn load_environment(env_id: &TargetEnvironmentRef) -> anyhow::Result<T
 async fn load_environment_from_registry(
     registry: &str,
     env_id: &str,
+    cache: &spin_loader::cache::Cache,
 ) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
+
+    let cache_file = cache.wit_path(registry, env_id);
+    if cache.wit_path(registry, env_id).exists() {
+        // Failure to read from cache is not fatal - fall through to origin.
+        if let Ok(bytes) = tokio::fs::read(cache_file).await {
+            return TargetEnvironment::from_package_bytes(env_id, bytes);
+        }
+    }
 
     let (pkg_name, pkg_ver) = env_id.split_once('@').with_context(|| format!("Failed to parse target environment {env_id} as package reference - is the target correct?"))?;
     let env_pkg_ref: wasm_pkg_loader::PackageRef = pkg_name
         .parse()
         .with_context(|| format!("Environment {pkg_name} is not a valid package name"))?;
 
-    let registry: wasm_pkg_loader::Registry = registry
+    let wkg_registry: wasm_pkg_loader::Registry = registry
         .parse()
         .with_context(|| format!("Registry {registry} is not a valid registry name"))?;
 
@@ -38,7 +50,7 @@ async fn load_environment_from_registry(
     // is there a better way to handle it?
     let mut wkg_config = wasm_pkg_loader::Config::global_defaults()
         .unwrap_or_else(|_| wasm_pkg_loader::Config::empty());
-    wkg_config.set_package_registry_override(env_pkg_ref, registry);
+    wkg_config.set_package_registry_override(env_pkg_ref, wkg_registry);
 
     let mut client = wasm_pkg_loader::Client::new(wkg_config);
 
@@ -64,7 +76,9 @@ async fn load_environment_from_registry(
         .with_context(|| format!("Failed to get {env_id} package data from registry"))?
         .to_vec();
 
-    TargetEnvironment::from_package_bytes(env_id.to_owned(), bytes)
+    _ = cache.write_wit(&bytes, registry, env_id).await; // Failure to cache is not fatal
+
+    TargetEnvironment::from_package_bytes(env_id, bytes)
 }
 
 fn load_environment_from_dir(path: &Path) -> anyhow::Result<TargetEnvironment> {
@@ -93,7 +107,7 @@ pub struct TargetEnvironment {
 }
 
 impl TargetEnvironment {
-    fn from_package_bytes(name: String, bytes: Vec<u8>) -> anyhow::Result<Self> {
+    fn from_package_bytes(name: &str, bytes: Vec<u8>) -> anyhow::Result<Self> {
         let decoded = wit_component::decode(&bytes)
             .with_context(|| format!("Failed to decode package for environment {name}"))?;
         let package_id = decoded.package();
@@ -107,7 +121,7 @@ impl TargetEnvironment {
             .clone();
 
         Ok(Self {
-            name,
+            name: name.to_owned(),
             decoded,
             package,
             package_id,

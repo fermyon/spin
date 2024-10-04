@@ -53,7 +53,13 @@ impl BuildCommand {
             spin_common::paths::find_manifest_file_path(self.app_source.as_ref())?;
         notify_if_nondefault_rel(&manifest_file, distance);
 
-        spin_build::build(&manifest_file, &self.component_id, self.skip_target_checks).await?;
+        spin_build::build(
+            &manifest_file,
+            &self.component_id,
+            self.skip_target_checks,
+            None,
+        )
+        .await?;
 
         if self.up {
             let mut cmd = UpCommand::parse_from(

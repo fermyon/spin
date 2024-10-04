@@ -14,6 +14,7 @@ const REGISTRY_CACHE_DIR: &str = "registry";
 const MANIFESTS_DIR: &str = "manifests";
 const WASM_DIR: &str = "wasm";
 const DATA_DIR: &str = "data";
+const WIT_DIR: &str = "wit";
 
 /// Cache for registry entities.
 #[derive(Debug)]
@@ -55,6 +56,13 @@ impl Cache {
     /// The data directory for the current cache.
     fn data_dir(&self) -> PathBuf {
         self.root.join(DATA_DIR)
+    }
+
+    /// The (Wasm-encoded) WIT directory for the current cache.
+    /// This does not reuse `wasm_dir` because it cannot be addressed
+    /// by digest.
+    fn wit_dir(&self) -> PathBuf {
+        self.root.join(WIT_DIR)
     }
 
     /// Return the path to a wasm file given its digest.
@@ -100,6 +108,18 @@ impl Cache {
         Ok(())
     }
 
+    /// Write the contents in the cache's wit directory.
+    pub async fn write_wit(
+        &self,
+        bytes: impl AsRef<[u8]>,
+        registry: impl AsRef<str>,
+        name: impl AsRef<str>,
+    ) -> Result<()> {
+        self.ensure_wit_dir(registry.as_ref()).await?;
+        write_file(&self.wit_path(registry, name), bytes.as_ref()).await?;
+        Ok(())
+    }
+
     /// The path of contents in the cache's wasm directory, which may or may not exist.
     pub fn wasm_path(&self, digest: impl AsRef<str>) -> PathBuf {
         self.wasm_dir().join(safe_name(digest).as_ref())
@@ -110,12 +130,24 @@ impl Cache {
         self.data_dir().join(safe_name(digest).as_ref())
     }
 
+    /// The path of contents in the cache's wit directory, which may or may not exist.
+    /// This is keyed by registry and package name, not by digest, because digest
+    /// lookups slow down the `build` command and obviate the value of the cache:
+    /// therefore, it assumes that WITs are immutable once published, and that users
+    /// will manage the situation when this assumption is invalid.
+    pub fn wit_path(&self, registry: impl AsRef<str>, name: impl AsRef<str>) -> PathBuf {
+        self.wit_dir()
+            .join(safe_name(registry).as_ref())
+            .join(safe_name(name).as_ref())
+    }
+
     /// Ensure the expected configuration directories are found in the root.
     /// └── <configuration-root>
     ///     └── registry
     ///             └──manifests
     ///             └──wasm
     ///             └─-data
+    ///             └─-wit
     pub async fn ensure_dirs(&self) -> Result<()> {
         tracing::debug!("using cache root directory {}", self.root.display());
 
@@ -148,7 +180,27 @@ impl Cache {
                 .with_context(|| format!("failed to create assets directory `{}`", p.display()))?;
         }
 
+        let p = root.join(WIT_DIR);
+        if !p.is_dir() {
+            create_dir_all(&p)
+                .await
+                .with_context(|| format!("failed to create wit directory `{}`", p.display()))?;
+        }
+
         self.dirs_ensured_once.store(true, Ordering::Relaxed);
+
+        Ok(())
+    }
+
+    async fn ensure_wit_dir(&self, registry: impl AsRef<str>) -> Result<()> {
+        self.ensure_dirs().await?;
+
+        let p = self.wit_dir().join(safe_name(registry).as_ref());
+        if !p.is_dir() {
+            create_dir_all(&p)
+                .await
+                .with_context(|| format!("failed to create wit directory `{}`", p.display()))?;
+        }
 
         Ok(())
     }

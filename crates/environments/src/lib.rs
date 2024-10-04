@@ -12,12 +12,17 @@ use spin_manifest::schema::v2::TargetEnvironmentRef;
 pub async fn validate_application_against_environment_ids(
     application: &ApplicationToValidate,
     env_ids: &[TargetEnvironmentRef],
+    cache_root: Option<std::path::PathBuf>,
 ) -> anyhow::Result<Vec<anyhow::Error>> {
     if env_ids.is_empty() {
         return Ok(Default::default());
     }
 
-    let envs = try_join_all(env_ids.iter().map(load_environment)).await?;
+    let cache = spin_loader::cache::Cache::new(cache_root)
+        .await
+        .context("Unable to create cache")?;
+
+    let envs = try_join_all(env_ids.iter().map(|e| load_environment(e, &cache))).await?;
     validate_application_against_environments(application, &envs).await
 }
 

@@ -283,10 +283,7 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<Vec<(String, Option<Vec<u8>>)>, wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
-        store
-            .get_many(keys.iter().map(|k| k.to_string()).collect())
-            .await
-            .map_err(to_wasi_err)
+        store.get_many(keys).await.map_err(to_wasi_err)
     }
 
     #[instrument(name = "spin_key_value.set_many", skip(self, bucket, key_values), err(level = Level::INFO), fields(otel.kind = "client"))]
@@ -306,10 +303,7 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
-        store
-            .delete_many(keys.iter().map(|k| k.to_string()).collect())
-            .await
-            .map_err(to_wasi_err)
+        store.delete_many(keys).await.map_err(to_wasi_err)
     }
 }
 

@@ -475,9 +475,9 @@ checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 name = "async-trait"
-version = "0.1.82"
+version = "0.1.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a27b8a3a6e1a44fa4c8baf1f653e4172e81486d4941f2237e20dc2d0cf4ddff1"
+checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3385,6 +3385,7 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.26.0",
  "tower-service",
+ "webpki-roots 0.26.6",
 ]
 
 [[package]]
@@ -3431,9 +3432,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da62f120a8a37763efb0cf8fdf264b884c7b8b9ac8660b900c8661030c00e6ba"
+checksum = "41296eb09f183ac68eec06e03cdbea2e759633d4067b2f6552fc2e009bcad08b"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3444,7 +3445,6 @@ dependencies = [
  "pin-project-lite",
  "socket2 0.5.7",
  "tokio",
- "tower 0.4.13",
  "tower-service",
  "tracing",
 ]
@@ -3873,9 +3873,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.158"
+version = "0.2.159"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
+checksum = "561d97a539a36e26a9a5fad1ea11a3039a67714694aaa379433e580854bc3dc5"
 
 [[package]]
 name = "libflate"
@@ -3921,7 +3921,7 @@ checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
  "bitflags 2.6.0",
  "libc",
- "redox_syscall 0.5.4",
+ "redox_syscall 0.5.5",
 ]
 
 [[package]]
@@ -4302,6 +4302,7 @@ checksum = "4edc8853320c2a0dab800fbda86253c8938f6ea88510dc92c5f1ed20e794afc1"
 dependencies = [
  "cfg-if",
  "miette-derive 7.2.0",
+ "serde 1.0.210",
  "thiserror",
  "unicode-width",
 ]
@@ -5080,7 +5081,7 @@ checksum = "1e401f977ab385c9e4e3ab30627d6f26d00e2c73eef317493c4ec6d468726cf8"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.5.4",
+ "redox_syscall 0.5.5",
  "smallvec",
  "windows-targets 0.52.6",
 ]
@@ -5471,7 +5472,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecf48c7ca261d60b74ab1a7b20da18bede46776b2e55535cb958eb595c5fa7b"
 dependencies = [
- "toml_edit 0.22.21",
+ "toml_edit 0.22.22",
 ]
 
 [[package]]
@@ -5668,6 +5669,54 @@ dependencies = [
  "libm",
  "num-complex",
  "reborrow",
+]
+
+[[package]]
+name = "quinn"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c7c5fdde3cdae7203427dc4f0a68fe0ed09833edc525a03456b153b79828684"
+dependencies = [
+ "bytes",
+ "pin-project-lite",
+ "quinn-proto",
+ "quinn-udp",
+ "rustc-hash 2.0.0",
+ "rustls 0.23.13",
+ "socket2 0.5.7",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "quinn-proto"
+version = "0.11.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fadfaed2cd7f389d0161bb73eeb07b7b78f8691047a6f3e73caaeae55310a4a6"
+dependencies = [
+ "bytes",
+ "rand 0.8.5",
+ "ring",
+ "rustc-hash 2.0.0",
+ "rustls 0.23.13",
+ "slab",
+ "thiserror",
+ "tinyvec",
+ "tracing",
+]
+
+[[package]]
+name = "quinn-udp"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fe68c2e9e1a1234e218683dbdf9f9dfcb094113c5ac2b938dfcb9bab4c4140b"
+dependencies = [
+ "libc",
+ "once_cell",
+ "socket2 0.5.7",
+ "tracing",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5874,9 +5923,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0884ad60e090bf1345b93da0a5de8923c93884cd03f40dfcfddd3b4bee661853"
+checksum = "62871f2d65009c0256aed1b9cfeeb8ac272833c404e13d53d400cd0dad7a2ac0"
 dependencies = [
  "bitflags 2.6.0",
 ]
@@ -6024,7 +6073,10 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
+ "quinn",
+ "rustls 0.23.13",
  "rustls-pemfile 2.1.3",
+ "rustls-pki-types",
  "serde 1.0.210",
  "serde_json",
  "serde_urlencoded",
@@ -6032,6 +6084,7 @@ dependencies = [
  "system-configuration 0.6.1",
  "tokio",
  "tokio-native-tls",
+ "tokio-rustls 0.26.0",
  "tokio-socks",
  "tokio-util",
  "tower-service",
@@ -6040,6 +6093,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+ "webpki-roots 0.26.6",
  "windows-registry",
 ]
 
@@ -6918,6 +6972,7 @@ dependencies = [
  "futures",
  "serde 1.0.210",
  "spin-common",
+ "spin-environments",
  "spin-manifest",
  "subprocess",
  "terminal",
@@ -6973,6 +7028,7 @@ dependencies = [
  "spin-build",
  "spin-common",
  "spin-doctor",
+ "spin-environments",
  "spin-expressions",
  "spin-factor-outbound-networking",
  "spin-http",
@@ -7052,9 +7108,11 @@ dependencies = [
  "indexmap 2.5.0",
  "semver",
  "spin-app",
+ "spin-common",
  "spin-componentize",
  "spin-serde",
  "thiserror",
+ "tokio",
  "wac-graph",
 ]
 
@@ -7092,9 +7150,40 @@ dependencies = [
  "terminal",
  "tokio",
  "toml 0.8.19",
- "toml_edit 0.22.21",
+ "toml_edit 0.22.22",
  "tracing",
  "ui-testing",
+]
+
+[[package]]
+name = "spin-environments"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "futures",
+ "futures-util",
+ "id-arena",
+ "indexmap 2.5.0",
+ "oci-distribution 0.11.0 (git+https://github.com/fermyon/oci-distribution?rev=7e4ce9be9bcd22e78a28f06204931f10c44402ba)",
+ "semver",
+ "serde 1.0.210",
+ "serde_json",
+ "spin-common",
+ "spin-componentize",
+ "spin-compose",
+ "spin-loader",
+ "spin-manifest",
+ "spin-serde",
+ "tokio",
+ "tracing",
+ "wac-parser",
+ "wac-resolver",
+ "wac-types",
+ "wasm-pkg-loader",
+ "wit-component 0.217.0",
+ "wit-parser 0.217.0",
 ]
 
 [[package]]
@@ -7766,7 +7855,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml 0.8.19",
- "toml_edit 0.22.21",
+ "toml_edit 0.22.22",
  "url",
  "walkdir",
 ]
@@ -8553,7 +8642,7 @@ dependencies = [
  "serde 1.0.210",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.21",
+ "toml_edit 0.22.22",
 ]
 
 [[package]]
@@ -8578,15 +8667,15 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.21"
+version = "0.22.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b072cee73c449a636ffd6f32bd8de3a9f7119139aff882f44943ce2986dc5cf"
+checksum = "4ae48d6208a266e853d946088ed816055e556cc6028c5e8e2b84d9fa5dd7c7f5"
 dependencies = [
  "indexmap 2.5.0",
  "serde 1.0.210",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.18",
+ "winnow 0.6.19",
 ]
 
 [[package]]
@@ -9037,6 +9126,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "wac-parser"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83eb40c28590dd36f789f49ac8c1118f00a975d54672c1abce6dc5f0f8783a03"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "indexmap 2.5.0",
+ "log",
+ "logos",
+ "miette 7.2.0",
+ "semver",
+ "serde 1.0.210",
+ "thiserror",
+ "wac-graph",
+ "wasm-encoder 0.202.0",
+ "wasm-metadata 0.202.0",
+ "wasmparser 0.202.0",
+]
+
+[[package]]
+name = "wac-resolver"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acdb3a216294d59cd676f5928187f10aec5d7ff9a9e1e1a9a0ad0ac4835151b7"
+dependencies = [
+ "anyhow",
+ "futures",
+ "indexmap 2.5.0",
+ "log",
+ "miette 7.2.0",
+ "semver",
+ "thiserror",
+ "tokio",
+ "wac-parser",
+ "wac-types",
+ "warg-client 0.9.0",
+ "warg-crypto 0.9.0",
+ "warg-protocol 0.9.0",
+ "wit-component 0.202.0",
+]
+
+[[package]]
 name = "wac-types"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9086,8 +9218,23 @@ dependencies = [
  "serde 1.0.210",
  "serde_with",
  "thiserror",
- "warg-crypto",
- "warg-protocol",
+ "warg-crypto 0.7.0",
+ "warg-protocol 0.7.0",
+]
+
+[[package]]
+name = "warg-api"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a44b422328c3a86be288f569694aa97df958ade0cd9514ed00bc562952c6778e"
+dependencies = [
+ "indexmap 2.5.0",
+ "itertools 0.12.1",
+ "serde 1.0.210",
+ "serde_with",
+ "thiserror",
+ "warg-crypto 0.9.0",
+ "warg-protocol 0.9.0",
 ]
 
 [[package]]
@@ -9125,10 +9272,56 @@ dependencies = [
  "tracing",
  "url",
  "walkdir",
- "warg-api",
- "warg-crypto",
- "warg-protocol",
- "warg-transparency",
+ "warg-api 0.7.0",
+ "warg-crypto 0.7.0",
+ "warg-protocol 0.7.0",
+ "warg-transparency 0.7.0",
+ "wasm-compose",
+ "wasm-encoder 0.41.2",
+ "wasmparser 0.121.2",
+ "wasmprinter 0.2.80",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "warg-client"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd1af3c0a73c56613c152fb99048af889a57063756299460c8fc26fea52ddccc"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "async-trait",
+ "bytes",
+ "clap 4.5.18",
+ "dialoguer",
+ "dirs 5.0.1",
+ "futures-util",
+ "indexmap 2.5.0",
+ "itertools 0.12.1",
+ "keyring",
+ "libc",
+ "normpath",
+ "once_cell",
+ "pathdiff",
+ "ptree",
+ "reqwest 0.12.7",
+ "secrecy",
+ "semver",
+ "serde 1.0.210",
+ "serde_json",
+ "sha256",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+ "walkdir",
+ "warg-api 0.9.0",
+ "warg-crypto 0.9.0",
+ "warg-protocol 0.9.0",
+ "warg-transparency 0.9.0",
  "wasm-compose",
  "wasm-encoder 0.41.2",
  "wasmparser 0.121.2",
@@ -9141,6 +9334,27 @@ name = "warg-crypto"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "834bf58863aa4bc3821732afb0c77e08a5cbf05f63ee93116acae694eab04460"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "digest",
+ "hex",
+ "leb128",
+ "once_cell",
+ "p256",
+ "rand_core 0.6.4",
+ "secrecy",
+ "serde 1.0.210",
+ "sha2",
+ "signature",
+ "thiserror",
+]
+
+[[package]]
+name = "warg-crypto"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52fb6f3a64e3fef5425a0ab2b4354f1e49a699b76d58dd91d632483634f10474"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -9173,7 +9387,26 @@ dependencies = [
  "protox",
  "regex",
  "serde 1.0.210",
- "warg-crypto",
+ "warg-crypto 0.7.0",
+]
+
+[[package]]
+name = "warg-protobuf"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bbb2d353497af3f6334bce11bfe69d638eedbb6d5059992acb2a05dd0beef5b"
+dependencies = [
+ "anyhow",
+ "pbjson",
+ "pbjson-build",
+ "pbjson-types",
+ "prost 0.12.6",
+ "prost-build",
+ "prost-types",
+ "protox",
+ "regex",
+ "serde 1.0.210",
+ "warg-crypto 0.9.0",
 ]
 
 [[package]]
@@ -9193,9 +9426,32 @@ dependencies = [
  "serde 1.0.210",
  "serde_with",
  "thiserror",
- "warg-crypto",
- "warg-protobuf",
- "warg-transparency",
+ "warg-crypto 0.7.0",
+ "warg-protobuf 0.7.0",
+ "warg-transparency 0.7.0",
+ "wasmparser 0.121.2",
+]
+
+[[package]]
+name = "warg-protocol"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a710c66d8b5f2a7b046ecd2d45121530f561fd5c699b9c85ee49d332cfe773"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "hex",
+ "indexmap 2.5.0",
+ "pbjson-types",
+ "prost 0.12.6",
+ "prost-types",
+ "semver",
+ "serde 1.0.210",
+ "serde_with",
+ "thiserror",
+ "warg-crypto 0.9.0",
+ "warg-protobuf 0.9.0",
+ "warg-transparency 0.9.0",
  "wasmparser 0.121.2",
 ]
 
@@ -9209,8 +9465,22 @@ dependencies = [
  "indexmap 2.5.0",
  "prost 0.12.6",
  "thiserror",
- "warg-crypto",
- "warg-protobuf",
+ "warg-crypto 0.7.0",
+ "warg-protobuf 0.7.0",
+]
+
+[[package]]
+name = "warg-transparency"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b950a71a544b7ac8f5a5e95f43886ac97c3fe5c7080b955b1b534037596d7be"
+dependencies = [
+ "anyhow",
+ "indexmap 2.5.0",
+ "prost 0.12.6",
+ "thiserror",
+ "warg-crypto 0.9.0",
+ "warg-protobuf 0.9.0",
 ]
 
 [[package]]
@@ -9449,8 +9719,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "warg-client",
- "warg-protocol",
+ "warg-client 0.7.0",
+ "warg-protocol 0.7.0",
  "wasm-pkg-common",
 ]
 
@@ -10013,7 +10283,7 @@ version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "372d5b87f58ec45c384ba03563b03544dc5fadc3983e434b286913f5b4a9bb6d"
 dependencies = [
- "redox_syscall 0.5.4",
+ "redox_syscall 0.5.5",
  "wasite",
  "web-sys",
 ]
@@ -10387,9 +10657,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.18"
+version = "0.6.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68a9bda4691f099d435ad181000724da8e5899daa10713c2d432552b9ccd3a6f"
+checksum = "c52ac009d615e79296318c1bcce2d422aaca15ad08515e344feeda07df67a587"
 dependencies = [
  "memchr",
 ]
@@ -10418,6 +10688,25 @@ checksum = "f9643b83820c0cd246ecabe5fa454dd04ba4fa67996369466d0747472d337346"
 dependencies = [
  "bitflags 2.6.0",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "wit-component"
+version = "0.202.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c836b1fd9932de0431c1758d8be08212071b6bba0151f7bac826dbc4312a2a9"
+dependencies = [
+ "anyhow",
+ "bitflags 2.6.0",
+ "indexmap 2.5.0",
+ "log",
+ "serde 1.0.210",
+ "serde_derive",
+ "serde_json",
+ "wasm-encoder 0.202.0",
+ "wasm-metadata 0.202.0",
+ "wasmparser 0.202.0",
+ "wit-parser 0.202.0",
 ]
 
 [[package]]
@@ -10456,6 +10745,24 @@ dependencies = [
  "wasm-metadata 0.217.0",
  "wasmparser 0.217.0",
  "wit-parser 0.217.0",
+]
+
+[[package]]
+name = "wit-parser"
+version = "0.202.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "744237b488352f4f27bca05a10acb79474415951c450e52ebd0da784c1df2bcc"
+dependencies = [
+ "anyhow",
+ "id-arena",
+ "indexmap 2.5.0",
+ "log",
+ "semver",
+ "serde 1.0.210",
+ "serde_derive",
+ "serde_json",
+ "unicode-xid",
+ "wasmparser 0.202.0",
 ]
 
 [[package]]

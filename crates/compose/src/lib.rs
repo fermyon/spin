@@ -1,7 +1,7 @@
 use anyhow::Context;
 use indexmap::IndexMap;
 use semver::Version;
-use spin_app::locked::{self, InheritConfiguration, LockedComponent, LockedComponentDependency};
+use spin_app::locked::InheritConfiguration as LockedInheritConfiguration;
 use spin_serde::{DependencyName, KebabId};
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -28,18 +28,72 @@ use wac_graph::{CompositionGraph, NodeId};
 /// composition graph into a byte array and return it.
 pub async fn compose<'a, L: ComponentSourceLoader>(
     loader: &'a L,
-    component: &LockedComponent,
+    component: &L::Component,
 ) -> Result<Vec<u8>, ComposeError> {
     Composer::new(loader).compose(component).await
+}
+
+/// A Spin component dependency. This abstracts over the metadata associated with the
+/// dependency. The abstraction allows both manifest and lockfile types to participate in composition.
+#[async_trait::async_trait]
+pub trait DependencyLike {
+    fn inherit(&self) -> InheritConfiguration;
+    fn export(&self) -> &Option<String>;
+}
+
+pub enum InheritConfiguration {
+    All,
+    Some(Vec<String>),
+}
+
+/// A Spin component. This abstracts over the list of dependencies for the component.
+/// The abstraction allows both manifest and lockfile types to participate in composition.
+#[async_trait::async_trait]
+pub trait ComponentLike {
+    type Dependency: DependencyLike;
+
+    fn dependencies(
+        &self,
+    ) -> impl std::iter::ExactSizeIterator<Item = (&DependencyName, &Self::Dependency)>;
+    fn id(&self) -> &str;
+}
+
+#[async_trait::async_trait]
+impl ComponentLike for spin_app::locked::LockedComponent {
+    type Dependency = spin_app::locked::LockedComponentDependency;
+
+    fn dependencies(
+        &self,
+    ) -> impl std::iter::ExactSizeIterator<Item = (&DependencyName, &Self::Dependency)> {
+        self.dependencies.iter()
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+#[async_trait::async_trait]
+impl DependencyLike for spin_app::locked::LockedComponentDependency {
+    fn inherit(&self) -> InheritConfiguration {
+        match &self.inherit {
+            LockedInheritConfiguration::All => InheritConfiguration::All,
+            LockedInheritConfiguration::Some(cfgs) => InheritConfiguration::Some(cfgs.clone()),
+        }
+    }
+
+    fn export(&self) -> &Option<String> {
+        &self.export
+    }
 }
 
 /// This trait is used to load component source code from a locked component source across various embdeddings.
 #[async_trait::async_trait]
 pub trait ComponentSourceLoader {
-    async fn load_component_source(
-        &self,
-        source: &locked::LockedComponentSource,
-    ) -> anyhow::Result<Vec<u8>>;
+    type Component: ComponentLike<Dependency = Self::Dependency>;
+    type Dependency: DependencyLike;
+    async fn load_component_source(&self, source: &Self::Component) -> anyhow::Result<Vec<u8>>;
+    async fn load_dependency_source(&self, source: &Self::Dependency) -> anyhow::Result<Vec<u8>>;
 }
 
 /// Represents an error that can occur when composing dependencies.
@@ -98,19 +152,19 @@ struct Composer<'a, L> {
 }
 
 impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
-    async fn compose(mut self, component: &LockedComponent) -> Result<Vec<u8>, ComposeError> {
+    async fn compose(mut self, component: &L::Component) -> Result<Vec<u8>, ComposeError> {
         let source = self
             .loader
-            .load_component_source(&component.source)
+            .load_component_source(component)
             .await
             .map_err(ComposeError::PrepareError)?;
 
-        if component.dependencies.is_empty() {
+        if component.dependencies().len() == 0 {
             return Ok(source);
         }
 
         let (world_id, instantiation_id) = self
-            .register_package(&component.id, None, source)
+            .register_package(component.id(), None, source)
             .map_err(ComposeError::PrepareError)?;
 
         let prepared = self.prepare_dependencies(world_id, component).await?;
@@ -150,7 +204,7 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
     async fn prepare_dependencies(
         &mut self,
         world_id: WorldId,
-        component: &LockedComponent,
+        component: &L::Component,
     ) -> Result<IndexMap<String, DependencyInfo>, ComposeError> {
         let imports = self.graph.types()[world_id].imports.clone();
 
@@ -158,7 +212,7 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
 
         let mut mappings: BTreeMap<String, Vec<DependencyInfo>> = BTreeMap::new();
 
-        for (dependency_name, dependency) in &component.dependencies {
+        for (dependency_name, dependency) in component.dependencies() {
             let mut matched = Vec::new();
 
             for import_name in &import_keys {
@@ -171,7 +225,7 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
 
             if matched.is_empty() {
                 return Err(ComposeError::UnmatchedDependencyName {
-                    component_id: component.id.clone(),
+                    component_id: component.id().to_owned(),
                     dependency_name: dependency_name.clone(),
                 });
             }
@@ -195,7 +249,7 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
 
         if !conflicts.is_empty() {
             return Err(ComposeError::DependencyConflicts {
-                component_id: component.id.clone(),
+                component_id: component.id().to_owned(),
                 conflicts: conflicts
                     .into_iter()
                     .map(|(import_name, infos)| {
@@ -300,19 +354,16 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
     async fn register_dependency(
         &mut self,
         dependency_name: DependencyName,
-        dependency: &LockedComponentDependency,
+        dependency: &L::Dependency,
     ) -> anyhow::Result<DependencyInfo> {
-        let mut dependency_source = self
-            .loader
-            .load_component_source(&dependency.source)
-            .await?;
+        let mut dependency_source = self.loader.load_dependency_source(dependency).await?;
 
         let package_name = match &dependency_name {
             DependencyName::Package(name) => name.package.to_string(),
             DependencyName::Plain(name) => name.to_string(),
         };
 
-        match &dependency.inherit {
+        match dependency.inherit() {
             InheritConfiguration::Some(configurations) => {
                 if configurations.is_empty() {
                     // Configuration inheritance is disabled, apply deny_all adapter
@@ -333,7 +384,7 @@ impl<'a, L: ComponentSourceLoader> Composer<'a, L> {
             manifest_name: dependency_name,
             instantiation_id,
             world_id,
-            export_name: dependency.export.clone(),
+            export_name: dependency.export().clone(),
         })
     }
 

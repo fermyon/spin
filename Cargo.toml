@@ -59,6 +59,7 @@ spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
 spin-doctor = { path = "crates/doctor" }
+spin-environments = { path = "crates/environments" }
 spin-expressions = { path = "crates/expressions" }
 spin-factor-outbound-networking = { path = "crates/factor-outbound-networking" }
 spin-http = { path = "crates/http" }

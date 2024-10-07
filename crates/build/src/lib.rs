@@ -32,7 +32,7 @@ pub async fn build(
         })?;
     let app_dir = parent_dir(manifest_file)?;
 
-    let build_result = build_components(component_ids, build_info.components(), app_dir);
+    let build_result = build_components(component_ids, build_info.components(), &app_dir);
 
     // Emit any required warnings now, so that they don't bury any errors.
     if let Some(e) = build_info.load_error() {
@@ -69,6 +69,7 @@ pub async fn build(
             &application,
             build_info.deployment_targets(),
             cache_root.clone(),
+            &app_dir,
         )
         .await?;
 
@@ -87,7 +88,7 @@ pub async fn build(
 fn build_components(
     component_ids: &[String],
     components: Vec<ComponentBuildInfo>,
-    app_dir: PathBuf,
+    app_dir: &Path,
 ) -> Result<(), anyhow::Error> {
     let components_to_build = if component_ids.is_empty() {
         components
@@ -117,7 +118,7 @@ fn build_components(
 
     components_to_build
         .into_iter()
-        .map(|c| build_component(c, &app_dir))
+        .map(|c| build_component(c, app_dir))
         .collect::<Result<Vec<_>, _>>()?;
 
     terminal::step!("Finished", "building all Spin components");

@@ -3,8 +3,7 @@ use anyhow::{anyhow, Context};
 mod environment_definition;
 mod loader;
 
-use environment_definition::{load_environment, TargetEnvironment, TriggerType};
-use futures::future::try_join_all;
+use environment_definition::{load_environments, TargetEnvironment, TriggerType};
 pub use loader::ApplicationToValidate;
 use loader::ComponentToValidate;
 use spin_manifest::schema::v2::TargetEnvironmentRef;
@@ -13,16 +12,13 @@ pub async fn validate_application_against_environment_ids(
     application: &ApplicationToValidate,
     env_ids: &[TargetEnvironmentRef],
     cache_root: Option<std::path::PathBuf>,
+    app_dir: &std::path::Path,
 ) -> anyhow::Result<Vec<anyhow::Error>> {
     if env_ids.is_empty() {
         return Ok(Default::default());
     }
 
-    let cache = spin_loader::cache::Cache::new(cache_root)
-        .await
-        .context("Unable to create cache")?;
-
-    let envs = try_join_all(env_ids.iter().map(|e| load_environment(e, &cache))).await?;
+    let envs = load_environments(env_ids, cache_root, app_dir).await?;
     validate_application_against_environments(application, &envs).await
 }
 

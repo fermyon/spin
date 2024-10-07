@@ -1,39 +1,117 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use anyhow::Context;
+use futures::future::try_join_all;
 use spin_common::ui::quoted_path;
 use spin_manifest::schema::v2::TargetEnvironmentRef;
 
 const DEFAULT_REGISTRY: &str = "fermyon.com";
 
-/// Loads the given `TargetEnvironment` from a registry.
-pub async fn load_environment(
+/// Serialisation format for the lockfile: registry -> { name -> digest }
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+struct TargetEnvironmentLockfile(HashMap<String, HashMap<String, String>>);
+
+impl TargetEnvironmentLockfile {
+    fn digest(&self, registry: &str, env_id: &str) -> Option<&str> {
+        self.0
+            .get(registry)
+            .and_then(|m| m.get(env_id))
+            .map(|s| s.as_str())
+    }
+
+    fn set_digest(&mut self, registry: &str, env_id: &str, digest: &str) {
+        match self.0.get_mut(registry) {
+            Some(map) => {
+                map.insert(env_id.to_string(), digest.to_string());
+            }
+            None => {
+                let map = vec![(env_id.to_string(), digest.to_string())]
+                    .into_iter()
+                    .collect();
+                self.0.insert(registry.to_string(), map);
+            }
+        }
+    }
+}
+
+/// Load all the listed environments from their registries or paths.
+/// Registry data will be cached, with a lockfile under `.spin` mapping
+/// environment IDs to digests (to allow cache lookup without needing
+/// to fetch the digest from the registry).
+pub async fn load_environments(
+    env_ids: &[TargetEnvironmentRef],
+    cache_root: Option<std::path::PathBuf>,
+    app_dir: &std::path::Path,
+) -> anyhow::Result<Vec<TargetEnvironment>> {
+    if env_ids.is_empty() {
+        return Ok(Default::default());
+    }
+
+    let cache = spin_loader::cache::Cache::new(cache_root)
+        .await
+        .context("Unable to create cache")?;
+    let lockfile_dir = app_dir.join(".spin");
+    let lockfile_path = lockfile_dir.join("target-environments.lock");
+
+    let orig_lockfile: TargetEnvironmentLockfile = tokio::fs::read_to_string(&lockfile_path)
+        .await
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    let lockfile = std::sync::Arc::new(tokio::sync::RwLock::new(orig_lockfile.clone()));
+
+    let envs = try_join_all(
+        env_ids
+            .iter()
+            .map(|e| load_environment(e, &cache, &lockfile)),
+    )
+    .await?;
+
+    let final_lockfile = &*lockfile.read().await;
+    if *final_lockfile != orig_lockfile {
+        if let Ok(lockfile_json) = serde_json::to_string_pretty(&final_lockfile) {
+            _ = tokio::fs::create_dir_all(lockfile_dir).await;
+            _ = tokio::fs::write(&lockfile_path, lockfile_json).await; // failure to update lockfile is not an error
+        }
+    }
+
+    Ok(envs)
+}
+
+/// Loads the given `TargetEnvironment` from a registry or directory.
+async fn load_environment(
     env_id: &TargetEnvironmentRef,
     cache: &spin_loader::cache::Cache,
+    lockfile: &std::sync::Arc<tokio::sync::RwLock<TargetEnvironmentLockfile>>,
 ) -> anyhow::Result<TargetEnvironment> {
     match env_id {
         TargetEnvironmentRef::DefaultRegistry(package) => {
-            load_environment_from_registry(DEFAULT_REGISTRY, package, cache).await
+            load_environment_from_registry(DEFAULT_REGISTRY, package, cache, lockfile).await
         }
         TargetEnvironmentRef::Registry { registry, package } => {
-            load_environment_from_registry(registry, package, cache).await
+            load_environment_from_registry(registry, package, cache, lockfile).await
         }
         TargetEnvironmentRef::WitDirectory { path } => load_environment_from_dir(path),
     }
 }
 
+/// Loads the given `TargetEnvironment` from the given registry, or
+/// from cache if available. If the environment is not in cache, the
+/// encoded WIT will be cached, and the in-memory lockfile object
+/// updated.
 async fn load_environment_from_registry(
     registry: &str,
     env_id: &str,
     cache: &spin_loader::cache::Cache,
+    lockfile: &std::sync::Arc<tokio::sync::RwLock<TargetEnvironmentLockfile>>,
 ) -> anyhow::Result<TargetEnvironment> {
     use futures_util::TryStreamExt;
 
-    let cache_file = cache.wit_path(registry, env_id);
-    if cache.wit_path(registry, env_id).exists() {
-        // Failure to read from cache is not fatal - fall through to origin.
-        if let Ok(bytes) = tokio::fs::read(cache_file).await {
-            return TargetEnvironment::from_package_bytes(env_id, bytes);
+    if let Some(digest) = lockfile.read().await.digest(registry, env_id) {
+        if let Ok(cache_file) = cache.wasm_file(digest) {
+            if let Ok(bytes) = tokio::fs::read(&cache_file).await {
+                return TargetEnvironment::from_package_bytes(env_id, bytes);
+            }
         }
     }
 
@@ -76,7 +154,9 @@ async fn load_environment_from_registry(
         .with_context(|| format!("Failed to get {env_id} package data from registry"))?
         .to_vec();
 
-    _ = cache.write_wit(&bytes, registry, env_id).await; // Failure to cache is not fatal
+    let digest = release.content_digest.to_string();
+    _ = cache.write_wasm(&bytes, &digest).await; // Failure to cache is not fatal
+    lockfile.write().await.set_digest(registry, env_id, &digest);
 
     TargetEnvironment::from_package_bytes(env_id, bytes)
 }

@@ -5,6 +5,7 @@ use spin_world::v1::mysql as v1;
 use spin_world::v2::mysql::{self as v2, Connection};
 use spin_world::v2::rdbms_types as v2_types;
 use spin_world::v2::rdbms_types::ParameterValue;
+use tracing::field::Empty;
 use tracing::{instrument, Level};
 
 use crate::client::Client;
@@ -38,8 +39,10 @@ impl<C: Client> v2::Host for InstanceState<C> {}
 
 #[async_trait]
 impl<C: Client> v2::HostConnection for InstanceState<C> {
-    #[instrument(name = "spin_outbound_mysql.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql"))]
+    #[instrument(name = "spin_outbound_mysql.open", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", db.address = Empty, server.port = Empty, db.namespace = Empty))]
     async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
+        spin_factor_outbound_networking::record_address_fields(&address);
+
         if !self
             .is_address_allowed(&address)
             .await
@@ -52,7 +55,7 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
         self.open_connection(&address).await
     }
 
-    #[instrument(name = "spin_outbound_mysql.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
+    #[instrument(name = "spin_outbound_mysql.execute", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
     async fn execute(
         &mut self,
         connection: Resource<Connection>,
@@ -66,7 +69,7 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
             .await?)
     }
 
-    #[instrument(name = "spin_outbound_mysql.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
+    #[instrument(name = "spin_outbound_mysql.query", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
     async fn query(
         &mut self,
         connection: Resource<Connection>,

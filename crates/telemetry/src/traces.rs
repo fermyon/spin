@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::bail;
-use opentelemetry::trace::TracerProvider;
+use opentelemetry::{global, trace::TracerProvider};
 use opentelemetry_otlp::SpanExporterBuilder;
 use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
@@ -34,11 +34,8 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         ],
     );
 
-    // This will configure the exporter based on the OTEL_EXPORTER_* environment variables. We
-    // currently default to using the HTTP exporter but in the future we could select off of the
-    // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
-    // determine whether we should use http/protobuf or grpc.
-    let exporter: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
+    // This will configure the exporter based on the OTEL_EXPORTER_* environment variables.
+    let exporter_builder: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
         OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
         OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
@@ -46,9 +43,11 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
 
     let tracer_provider = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(exporter)
+        .with_exporter(exporter_builder)
         .with_trace_config(opentelemetry_sdk::trace::Config::default().with_resource(resource))
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+
+    global::set_tracer_provider(tracer_provider.clone());
 
     let env_filter = match EnvFilter::try_from_env("SPIN_OTEL_TRACING_LEVEL") {
         Ok(filter) => filter,

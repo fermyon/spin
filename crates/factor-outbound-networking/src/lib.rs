@@ -20,6 +20,7 @@ pub use config::{
 };
 
 pub use runtime_config::ComponentTlsConfigs;
+use url::Url;
 
 pub type SharedFutureResult<T> = Shared<BoxFuture<'static, Result<Arc<T>, Arc<anyhow::Error>>>>;
 
@@ -245,5 +246,24 @@ pub trait DisallowedHostHandler: Send + Sync {
 impl<F: Fn(&str, &str) + Send + Sync> DisallowedHostHandler for F {
     fn handle_disallowed_host(&self, scheme: &str, authority: &str) {
         self(scheme, authority);
+    }
+}
+
+/// Records the address host, port, and database as fields on the current tracing span.
+///
+/// This should only be called from within a function that has been instrumented with a span.
+///
+/// The following fields must be pre-declared as empty on the span or they will not show up.
+/// ```
+/// use tracing::field::Empty;
+/// #[tracing::instrument(fields(db.address = Empty, server.port = Empty, db.namespace = Empty))]
+/// fn open() {}
+/// ```
+pub fn record_address_fields(address: &str) {
+    if let Ok(url) = Url::parse(address) {
+        let span = tracing::Span::current();
+        span.record("db.address", url.host_str().unwrap_or_default());
+        span.record("server.port", url.port().unwrap_or_default());
+        span.record("db.namespace", url.path().trim_start_matches('/'));
     }
 }

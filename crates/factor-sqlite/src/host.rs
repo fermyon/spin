@@ -83,7 +83,7 @@ impl v2::HostConnection for InstanceState {
             .map(Resource::new_own)
     }
 
-    #[instrument(name = "spin_sqlite.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query, sqlite.backend = Empty))]
+    #[instrument(name = "spin_sqlite.execute", skip(self, connection, parameters), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", otel.name = query, sqlite.backend = Empty))]
     async fn execute(
         &mut self,
         connection: Resource<v2::Connection>,

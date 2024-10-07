@@ -6,11 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
-bytes = { workspace = true }
-console = "0.15"
 dialoguer = "0.11"
-dirs = { workspace = true }
 fs_extra = "1"
 heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
@@ -19,7 +15,6 @@ lazy_static = "1"
 liquid = "0.26"
 liquid-core = "0.26"
 liquid-derive = "0.26"
-liquid-lib = "0.26"
 path-absolutize = "3"
 pathdiff = "0.2"
 regex = { workspace = true }

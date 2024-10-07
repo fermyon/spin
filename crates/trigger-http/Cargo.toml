@@ -9,16 +9,12 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 clap = "3"
 futures = { workspace = true }
-futures-util = "0.3"
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { version = "0.1", features = ["tokio"] }
-indexmap = "2"
-percent-encoding = "2"
 rustls = { workspace = true }
 rustls-pemfile = "2.1.2"
 rustls-pki-types = "1.7"
@@ -38,11 +34,8 @@ terminal = { path = "../terminal" }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12"] }
 tracing = { workspace = true }
-url = { workspace = true }
-wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
-webpki-roots = { version = "0.26" }
 
 [lints]
 workspace = true

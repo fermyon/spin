@@ -6,7 +6,6 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-futures = { workspace = true }
 serde = { workspace = true }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
@@ -14,4 +13,3 @@ subprocess = "0.2"
 terminal = { path = "../terminal" }
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
-tracing = { workspace = true }

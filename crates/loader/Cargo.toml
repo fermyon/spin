@@ -6,36 +6,24 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
-bytes = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
 glob = { workspace = true }
-indexmap = "2"
-itertools = { workspace = true }
-lazy_static = "1"
-mime_guess = "2"
 path-absolutize = { version = "3", features = ["use_unix_paths_on_wasm"] }
-regex = { workspace = true }
 reqwest = "0.12"
 semver = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-shellexpand = "3"
 spin-common = { path = "../common" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
 spin-serde = { path = "../serde" }
 tempfile = { workspace = true }
-terminal = { path = "../terminal" }
-thiserror = { workspace = true }
 tokio = { workspace = true }
-tokio-util = "0.7"
 toml = { workspace = true }
 tracing = { workspace = true }
-walkdir = "2"
 wasm-pkg-loader = "0.4"
 
 [dev-dependencies]

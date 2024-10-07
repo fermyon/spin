@@ -10,14 +10,11 @@ http0 = { version = "0.2.9", package = "http" }
 http1 = { version = "1.0.0", package = "http" }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { version = "0.25", features = ["http-proto", "http", "reqwest-client"] }
-opentelemetry-semantic-conventions = "0.25"
 opentelemetry_sdk = { workspace = true }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
-tracing-appender = "0.2"
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["smallvec", "fmt", "ansi", "std", "env-filter", "json", "registry"] }
-url = { workspace = true }
 
 [features]
 tracing-log-compat = ["tracing-subscriber/tracing-log", "tracing-opentelemetry/tracing-log"]

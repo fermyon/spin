@@ -7,7 +7,5 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1"
 futures = "0.3.30"
-helper = { path = "../../helper", default-features = false }
 spin-sdk = "2.2"

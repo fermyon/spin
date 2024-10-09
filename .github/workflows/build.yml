@@ -8,10 +8,6 @@ on:
     tags: ["v*"]
   pull_request:
     branches: ["main", "v*"]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "tests/README.md"
 
 # Serialize workflow runs per ref
 # Cancel any outdated, in-flight runs for refs other than 'main'

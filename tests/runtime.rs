@@ -27,11 +27,15 @@ mod runtime_tests {
     }
 
     #[test]
-    fn conformance_tests() {
-        conformance_tests::run_tests("canary", move |test| {
+    fn conformance_tests() -> anyhow::Result<()> {
+        let config = conformance_tests::Config::new("canary");
+        let conclusion = conformance_tests::run_tests(config, move |test| {
             conformance::run_test(test, &spin_binary())
-        })
-        .unwrap();
+        })?;
+        if conclusion.has_failed() {
+            anyhow::bail!("One or more errors occurred in the conformance tests");
+        }
+        Ok(())
     }
 
     fn spin_binary() -> PathBuf {

@@ -27,6 +27,7 @@ wasmtime::component::bindgen!({
         "fermyon:spin/sqlite@2.0.0/error" => v2::sqlite::Error,
         "fermyon:spin/sqlite/error" => v1::sqlite::Error,
         "fermyon:spin/variables@2.0.0/error" => v2::variables::Error,
+        "wasi:keyvalue/store/error" => wasi::keyvalue::store::Error,
     },
     trappable_imports: true,
 });

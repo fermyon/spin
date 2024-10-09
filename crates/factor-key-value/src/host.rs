@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_resource_table::Table;
 use spin_world::v2::key_value;
+use spin_world::wasi::keyvalue as wasi_keyvalue;
 use std::{collections::HashSet, sync::Arc};
 use tracing::{instrument, Level};
 
@@ -55,12 +56,21 @@ impl KeyValueDispatch {
         }
     }
 
-    pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
+    pub fn get_store<T: 'static>(&self, store: Resource<T>) -> anyhow::Result<&Arc<dyn Store>> {
         self.stores.get(store.rep()).context("invalid store")
     }
 
     pub fn allowed_stores(&self) -> &HashSet<String> {
         &self.allowed_stores
+    }
+
+    pub fn get_store_wasi<T: 'static>(
+        &self,
+        store: Resource<T>,
+    ) -> Result<&Arc<dyn Store>, wasi_keyvalue::store::Error> {
+        self.stores
+            .get(store.rep())
+            .ok_or(wasi_keyvalue::store::Error::NoSuchStore)
     }
 }
 
@@ -137,6 +147,102 @@ impl key_value::HostStore for KeyValueDispatch {
 
     async fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
         self.stores.remove(store.rep());
+        Ok(())
+    }
+}
+
+fn to_wasi_err(e: Error) -> wasi_keyvalue::store::Error {
+    match e {
+        Error::AccessDenied => wasi_keyvalue::store::Error::AccessDenied,
+        Error::NoSuchStore => wasi_keyvalue::store::Error::NoSuchStore,
+        Error::StoreTableFull => wasi_keyvalue::store::Error::Other("store table full".to_string()),
+        Error::Other(msg) => wasi_keyvalue::store::Error::Other(msg),
+    }
+}
+
+#[async_trait]
+impl wasi_keyvalue::store::Host for KeyValueDispatch {
+    async fn open(
+        &mut self,
+        identifier: String,
+    ) -> Result<Resource<wasi_keyvalue::store::Bucket>, wasi_keyvalue::store::Error> {
+        if self.allowed_stores.contains(&identifier) {
+            let store = self
+                .stores
+                .push(self.manager.get(&identifier).await.map_err(to_wasi_err)?)
+                .map_err(|()| wasi_keyvalue::store::Error::Other("store table full".to_string()))?;
+            Ok(Resource::new_own(store))
+        } else {
+            Err(wasi_keyvalue::store::Error::AccessDenied)
+        }
+    }
+
+    fn convert_error(
+        &mut self,
+        error: spin_world::wasi::keyvalue::store::Error,
+    ) -> std::result::Result<spin_world::wasi::keyvalue::store::Error, anyhow::Error> {
+        Ok(error)
+    }
+}
+
+use wasi_keyvalue::store::Bucket;
+#[async_trait]
+impl wasi_keyvalue::store::HostBucket for KeyValueDispatch {
+    async fn get(
+        &mut self,
+        self_: Resource<Bucket>,
+        key: String,
+    ) -> Result<Option<Vec<u8>>, wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(self_)?;
+        store.get(&key).await.map_err(to_wasi_err)
+    }
+
+    async fn set(
+        &mut self,
+        self_: Resource<Bucket>,
+        key: String,
+        value: Vec<u8>,
+    ) -> Result<(), wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(self_)?;
+        store.set(&key, &value).await.map_err(to_wasi_err)
+    }
+
+    async fn delete(
+        &mut self,
+        self_: Resource<Bucket>,
+        key: String,
+    ) -> Result<(), wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(self_)?;
+        store.delete(&key).await.map_err(to_wasi_err)
+    }
+
+    async fn exists(
+        &mut self,
+        self_: Resource<Bucket>,
+        key: String,
+    ) -> Result<bool, wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(self_)?;
+        store.exists(&key).await.map_err(to_wasi_err)
+    }
+
+    async fn list_keys(
+        &mut self,
+        self_: Resource<Bucket>,
+        cursor: Option<u64>,
+    ) -> Result<wasi_keyvalue::store::KeyResponse, wasi_keyvalue::store::Error> {
+        if cursor.unwrap_or_default() != 0 {
+            return Err(wasi_keyvalue::store::Error::Other(
+                "list_keys: cursor not supported".to_owned(),
+            ));
+        }
+
+        let store = self.get_store_wasi(self_)?;
+        let keys = store.get_keys().await.map_err(to_wasi_err)?;
+        Ok(wasi_keyvalue::store::KeyResponse { keys, cursor: None })
+    }
+
+    async fn drop(&mut self, rep: Resource<Bucket>) -> anyhow::Result<()> {
+        self.stores.remove(rep.rep());
         Ok(())
     }
 }

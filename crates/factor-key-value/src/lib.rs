@@ -40,6 +40,7 @@ impl Factor for KeyValueFactor {
     fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         ctx.link_bindings(spin_world::v1::key_value::add_to_linker)?;
         ctx.link_bindings(spin_world::v2::key_value::add_to_linker)?;
+        ctx.link_bindings(spin_world::wasi::keyvalue::store::add_to_linker)?;
         Ok(())
     }
 

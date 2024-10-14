@@ -1,0 +1,21 @@
+package fermyon:spin@3.0.0;
+
+/// The full world of a guest targeting an http-trigger
+world http-trigger {
+  include platform;
+  export wasi:http/incoming-handler@0.2.0;
+}
+
+/// The imports needed for a guest to run on a Spin host
+world platform {
+  include wasi:cli/imports@0.2.0;
+  import wasi:http/outgoing-handler@0.2.0;
+  import fermyon:spin/llm@2.0.0;
+  import fermyon:spin/redis@2.0.0;
+  import fermyon:spin/mqtt@2.0.0;
+  import fermyon:spin/postgres@2.0.0;
+  import fermyon:spin/mysql@2.0.0;
+  import fermyon:spin/sqlite@2.0.0;
+  import fermyon:spin/key-value@2.0.0;
+  import fermyon:spin/variables@2.0.0;
+}

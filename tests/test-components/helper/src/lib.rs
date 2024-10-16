@@ -1,18 +1,18 @@
 #[cfg(feature = "define-component")]
 pub mod bindings {
     wit_bindgen::generate!({
-        world: "platform-rc20231018",
+        world: "fermyon:spin/platform@3.0.0",
         path: "../../../wit",
         runtime_path: "::wit_bindgen::rt"
     });
 }
 
 #[cfg(feature = "define-component")]
-use bindings::wasi::http0_2_0_rc_2023_10_18::types::{
-    Error, Headers, OutgoingBody, OutgoingResponse, ResponseOutparam,
+use bindings::wasi::http0_2_0::types::{
+    ErrorCode, Fields, OutgoingBody, OutgoingResponse, ResponseOutparam,
 };
 #[cfg(feature = "define-component")]
-use bindings::wasi::io0_2_0_rc_2023_10_18::streams::OutputStream;
+use bindings::wasi::io0_2_0::streams::OutputStream;
 
 #[cfg(feature = "define-component")]
 #[macro_export]
@@ -23,15 +23,15 @@ macro_rules! define_component {
         // For now, this assumes the crate using this macro has `wit-bindgen` as a dependency
         mod bindings {
             $crate::wit_bindgen::generate!({
-                world: "http-trigger-rc20231018",
+                world: "fermyon:spin/http-trigger@3.0.0",
                 path: "../../../../wit",
                 exports: {
-                    "wasi:http/incoming-handler@0.2.0-rc-2023-10-18": super::Component
+                    "wasi:http/incoming-handler@0.2.0": super::Component
                 },
             });
         }
 
-        use bindings::exports::wasi::http0_2_0_rc_2023_10_18::incoming_handler::{Guest, IncomingRequest, ResponseOutparam};
+        use bindings::exports::wasi::http0_2_0::incoming_handler::{Guest, IncomingRequest, ResponseOutparam};
         struct $name;
 
         impl Guest for $name {
@@ -40,7 +40,7 @@ macro_rules! define_component {
             }
         }
 
-        impl From<ResponseOutparam> for $crate::bindings::wasi::http0_2_0_rc_2023_10_18::types::ResponseOutparam {
+        impl From<ResponseOutparam> for $crate::bindings::wasi::http0_2_0::types::ResponseOutparam {
             fn from(value: ResponseOutparam) -> Self {
                 unsafe { Self::from_handle(value.into_handle()) }
             }
@@ -50,12 +50,16 @@ macro_rules! define_component {
 
 #[cfg(feature = "define-component")]
 pub fn handle(response_out: ResponseOutparam, result: Result<(), String>) {
-    let response = |status| OutgoingResponse::new(status, &Headers::new(&[]));
+    let response = |status| {
+        let resp = OutgoingResponse::new(Fields::new());
+        resp.set_status_code(status).expect("should have set status code");
+        resp
+    };
     match result {
         Ok(()) => ResponseOutparam::set(response_out, Ok(response(200))),
         Err(err) => {
             let resp = response(500);
-            let body = resp.write().expect("response body was already taken");
+            let body = resp.body().unwrap();
             ResponseOutparam::set(response_out, Ok(resp));
             outgoing_body(body, err.into_bytes()).unwrap();
         }
@@ -63,14 +67,14 @@ pub fn handle(response_out: ResponseOutparam, result: Result<(), String>) {
 }
 
 #[cfg(feature = "define-component")]
-pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), Error> {
+pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), ErrorCode> {
     struct Outgoing(Option<(OutputStream, OutgoingBody)>);
 
     impl Drop for Outgoing {
         fn drop(&mut self) {
             if let Some((stream, body)) = self.0.take() {
                 drop(stream);
-                OutgoingBody::finish(body, None);
+                OutgoingBody::finish(body, None).expect("should have finished OutgoingBody");
             }
         }
     }
@@ -101,11 +105,11 @@ pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), Error> {
                         Ok(()) => {
                             offset += count;
                         }
-                        Err(e) => return Err(Error::ProtocolError(format!("I/O error: {e}"))),
+                        Err(e) => return Err(ErrorCode::InternalError(Some(format!("I/O error: {e}")))),
                     }
                 }
             }
-            Err(e) => return Err(Error::ProtocolError(format!("I/O error: {e}"))),
+            Err(e) => return Err(ErrorCode::InternalError(Some(format!("I/O error: {e}")))),
         }
     }
 }

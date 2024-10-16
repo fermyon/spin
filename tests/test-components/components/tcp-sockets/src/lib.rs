@@ -1,6 +1,6 @@
 use bindings::wasi::{
-    io0_2_0_rc_2023_10_18::poll,
-    sockets0_2_0_rc_2023_10_18::{
+    io0_2_0::poll,
+    sockets0_2_0::{
         instance_network,
         network::{
             ErrorCode, IpAddressFamily, IpSocketAddress, Ipv4SocketAddress, Ipv6SocketAddress,
@@ -43,7 +43,7 @@ impl Component {
 
         let (rx, tx) = loop {
             match client.finish_connect() {
-                Err(ErrorCode::WouldBlock) => poll::poll_one(&client.subscribe()),
+                Err(ErrorCode::WouldBlock) => { poll::poll(&[&client.subscribe()]); },
                 result => break ensure_ok!(result),
             }
         };

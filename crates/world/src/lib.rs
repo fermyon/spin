@@ -8,6 +8,7 @@ wasmtime::component::bindgen!({
     world host {
         include fermyon:spin/host;
         include fermyon:spin/platform@2.0.0;
+        include fermyon:spin/platform@3.0.0;
     }
     "#,
     path: "../../wit",

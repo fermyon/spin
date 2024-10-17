@@ -2,8 +2,9 @@ use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 use spin_world::async_trait;
-use spin_world::v2::postgres::{self as v2};
-use spin_world::v2::rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet};
+use spin_world::spin::postgres::rdbms_types::{
+    self as v2, Column, DbDataType, DbValue, ParameterValue, RowSet,
+};
 use tokio_postgres::types::Type;
 use tokio_postgres::{config::SslMode, types::ToSql, Row};
 use tokio_postgres::{Client as TokioClient, NoTls, Socket};
@@ -55,13 +56,18 @@ impl Client for TokioClient {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<u64, v2::Error> {
-        let params: Vec<&(dyn ToSql + Sync)> = params
+        let params = params
             .iter()
             .map(to_sql_parameter)
             .collect::<Result<Vec<_>>>()
             .map_err(|e| v2::Error::ValueConversionFailed(format!("{:?}", e)))?;
 
-        self.execute(&statement, params.as_slice())
+        let params_refs: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(|b| b.as_ref() as &(dyn ToSql + Sync))
+            .collect();
+
+        self.execute(&statement, params_refs.as_slice())
             .await
             .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))
     }
@@ -71,14 +77,19 @@ impl Client for TokioClient {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<RowSet, v2::Error> {
-        let params: Vec<&(dyn ToSql + Sync)> = params
+        let params = params
             .iter()
             .map(to_sql_parameter)
             .collect::<Result<Vec<_>>>()
             .map_err(|e| v2::Error::BadParameter(format!("{:?}", e)))?;
 
+        let params_refs: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(|b| b.as_ref() as &(dyn ToSql + Sync))
+            .collect();
+
         let results = self
-            .query(&statement, params.as_slice())
+            .query(&statement, params_refs.as_slice())
             .await
             .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
 
@@ -111,22 +122,47 @@ where
     });
 }
 
-fn to_sql_parameter(value: &ParameterValue) -> Result<&(dyn ToSql + Sync)> {
+fn to_sql_parameter(value: &ParameterValue) -> Result<Box<dyn ToSql + Send + Sync>> {
     match value {
-        ParameterValue::Boolean(v) => Ok(v),
-        ParameterValue::Int32(v) => Ok(v),
-        ParameterValue::Int64(v) => Ok(v),
-        ParameterValue::Int8(v) => Ok(v),
-        ParameterValue::Int16(v) => Ok(v),
-        ParameterValue::Floating32(v) => Ok(v),
-        ParameterValue::Floating64(v) => Ok(v),
+        ParameterValue::Boolean(v) => Ok(Box::new(*v)),
+        ParameterValue::Int32(v) => Ok(Box::new(*v)),
+        ParameterValue::Int64(v) => Ok(Box::new(*v)),
+        ParameterValue::Int8(v) => Ok(Box::new(*v)),
+        ParameterValue::Int16(v) => Ok(Box::new(*v)),
+        ParameterValue::Floating32(v) => Ok(Box::new(*v)),
+        ParameterValue::Floating64(v) => Ok(Box::new(*v)),
         ParameterValue::Uint8(_)
         | ParameterValue::Uint16(_)
         | ParameterValue::Uint32(_)
         | ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
-        ParameterValue::Str(v) => Ok(v),
-        ParameterValue::Binary(v) => Ok(v),
-        ParameterValue::DbNull => Ok(&PgNull),
+        ParameterValue::Str(v) => Ok(Box::new(v.clone())),
+        ParameterValue::Binary(v) => Ok(Box::new(v.clone())),
+        ParameterValue::Date((y, mon, d)) => {
+            let naive_date = chrono::NaiveDate::from_ymd_opt(*y, (*mon).into(), (*d).into())
+                .ok_or_else(|| anyhow!("invalid date y={y}, m={mon}, d={d}"))?;
+            Ok(Box::new(naive_date))
+        }
+        ParameterValue::Time((h, min, s, ns)) => {
+            let naive_time =
+                chrono::NaiveTime::from_hms_nano_opt((*h).into(), (*min).into(), (*s).into(), *ns)
+                    .ok_or_else(|| anyhow!("invalid time {h}:{min}:{s}:{ns}"))?;
+            Ok(Box::new(naive_time))
+        }
+        ParameterValue::Datetime((y, mon, d, h, min, s, ns)) => {
+            let naive_date = chrono::NaiveDate::from_ymd_opt(*y, (*mon).into(), (*d).into())
+                .ok_or_else(|| anyhow!("invalid date y={y}, m={mon}, d={d}"))?;
+            let naive_time =
+                chrono::NaiveTime::from_hms_nano_opt((*h).into(), (*min).into(), (*s).into(), *ns)
+                    .ok_or_else(|| anyhow!("invalid time {h}:{min}:{s}:{ns}"))?;
+            let dt = chrono::NaiveDateTime::new(naive_date, naive_time);
+            Ok(Box::new(dt))
+        }
+        ParameterValue::Timestamp(v) => {
+            let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(*v, 0)
+                .ok_or_else(|| anyhow!("invalid epoch timestamp {v}"))?;
+            Ok(Box::new(ts))
+        }
+        ParameterValue::DbNull => Ok(Box::new(PgNull)),
     }
 }
 

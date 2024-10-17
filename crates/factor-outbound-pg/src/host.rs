@@ -1,10 +1,10 @@
 use anyhow::Result;
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_world::spin::postgres::{self as v3};
 use spin_world::v1::postgres as v1;
 use spin_world::v1::rdbms_types as v1_types;
-use spin_world::v2::postgres::{self as v2, Connection};
-use spin_world::v2::rdbms_types;
-use spin_world::v2::rdbms_types::{ParameterValue, RowSet};
+use spin_world::v2::postgres::{self as v2};
+use spin_world::v2::rdbms_types as v2types;
 use tracing::field::Empty;
 use tracing::instrument;
 use tracing::Level;
@@ -13,21 +13,27 @@ use crate::client::Client;
 use crate::InstanceState;
 
 impl<C: Client> InstanceState<C> {
-    async fn open_connection(&mut self, address: &str) -> Result<Resource<Connection>, v2::Error> {
+    async fn open_connection<Conn: 'static>(
+        &mut self,
+        address: &str,
+    ) -> Result<Resource<Conn>, v3::rdbms_types::Error> {
         self.connections
             .push(
                 C::build_client(address)
                     .await
-                    .map_err(|e| v2::Error::ConnectionFailed(format!("{e:?}")))?,
+                    .map_err(|e| v3::rdbms_types::Error::ConnectionFailed(format!("{e:?}")))?,
             )
-            .map_err(|_| v2::Error::ConnectionFailed("too many connections".into()))
+            .map_err(|_| v3::rdbms_types::Error::ConnectionFailed("too many connections".into()))
             .map(Resource::new_own)
     }
 
-    async fn get_client(&mut self, connection: Resource<Connection>) -> Result<&C, v2::Error> {
+    async fn get_client<Conn: 'static>(
+        &mut self,
+        connection: Resource<Conn>,
+    ) -> Result<&C, v3::rdbms_types::Error> {
         self.connections
             .get(connection.rep())
-            .ok_or_else(|| v2::Error::ConnectionFailed("no connection found".into()))
+            .ok_or_else(|| v3::rdbms_types::Error::ConnectionFailed("no connection found".into()))
     }
 
     async fn is_address_allowed(&self, address: &str) -> Result<bool> {
@@ -60,12 +66,106 @@ impl<C: Client> InstanceState<C> {
 }
 
 #[async_trait]
+impl<C: Send + Sync + Client> v3::postgres::Host for InstanceState<C> {}
+
+fn v2_params_to_v3(params: Vec<v2types::ParameterValue>) -> Vec<v3::rdbms_types::ParameterValue> {
+    params.into_iter().map(|p| p.into()).collect()
+}
+
+#[async_trait]
+impl<C: Send + Sync + Client> spin_world::spin::postgres::postgres::HostConnection
+    for InstanceState<C>
+{
+    #[instrument(name = "spin_outbound_pg.open", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", db.address = Empty, server.port = Empty, db.namespace = Empty))]
+    async fn open(
+        &mut self,
+        address: String,
+    ) -> Result<Resource<v3::postgres::Connection>, v3::rdbms_types::Error> {
+        spin_factor_outbound_networking::record_address_fields(&address);
+
+        if !self
+            .is_address_allowed(&address)
+            .await
+            .map_err(|e| v3::rdbms_types::Error::Other(e.to_string()))?
+        {
+            return Err(v3::rdbms_types::Error::ConnectionFailed(format!(
+                "address {address} is not permitted"
+            )));
+        }
+        self.open_connection(&address).await
+    }
+
+    #[instrument(name = "spin_outbound_pg.execute", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
+    async fn execute(
+        &mut self,
+        connection: Resource<v3::postgres::Connection>,
+        statement: String,
+        params: Vec<v3::rdbms_types::ParameterValue>,
+    ) -> Result<u64, v3::rdbms_types::Error> {
+        Ok(self
+            .get_client(connection)
+            .await?
+            .execute(statement, params)
+            .await?)
+    }
+
+    #[instrument(name = "spin_outbound_pg.query", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
+    async fn query(
+        &mut self,
+        connection: Resource<v3::postgres::Connection>,
+        statement: String,
+        params: Vec<v3::rdbms_types::ParameterValue>,
+    ) -> Result<v3::rdbms_types::RowSet, v3::rdbms_types::Error> {
+        Ok(self
+            .get_client(connection)
+            .await?
+            .query(statement, params)
+            .await?)
+    }
+
+    async fn drop(&mut self, connection: Resource<v3::postgres::Connection>) -> anyhow::Result<()> {
+        self.connections.remove(connection.rep());
+        Ok(())
+    }
+}
+
+impl<C: Send> v2types::Host for InstanceState<C> {
+    fn convert_error(&mut self, error: v2::Error) -> Result<v2::Error> {
+        Ok(error)
+    }
+}
+
+impl<C: Send> v3::rdbms_types::Host for InstanceState<C> {
+    fn convert_error(&mut self, error: v3::rdbms_types::Error) -> Result<v3::rdbms_types::Error> {
+        Ok(error)
+    }
+}
+
+/// Delegate a function call to the v3::HostConnection implementation
+macro_rules! delegate {
+    ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
+        if !$self.is_address_allowed(&$address).await.map_err(|e| v3::rdbms_types::Error::Other(e.to_string()))? {
+            return Err(v1::PgError::ConnectionFailed(format!(
+                "address {} is not permitted", $address
+            )));
+        }
+        let connection = match $self.open_connection(&$address).await {
+            Ok(c) => c,
+            Err(e) => return Err(e.into()),
+        };
+        <Self as v3::postgres::HostConnection>::$name($self, connection, $($arg),*)
+            .await
+            .map_err(|e| e.into())
+    }};
+}
+
+#[async_trait]
 impl<C: Send + Sync + Client> v2::Host for InstanceState<C> {}
 
 #[async_trait]
 impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
     #[instrument(name = "spin_outbound_pg.open", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", db.address = Empty, server.port = Empty, db.namespace = Empty))]
-    async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
+    async fn open(&mut self, address: String) -> Result<Resource<v2::Connection>, v2::Error> {
         spin_factor_outbound_networking::record_address_fields(&address);
 
         if !self
@@ -77,65 +177,42 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
                 "address {address} is not permitted"
             )));
         }
-        self.open_connection(&address).await
+        Ok(self.open_connection(&address).await?)
     }
 
     #[instrument(name = "spin_outbound_pg.execute", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn execute(
         &mut self,
-        connection: Resource<Connection>,
+        connection: Resource<v2::Connection>,
         statement: String,
-        params: Vec<ParameterValue>,
+        params: Vec<v2types::ParameterValue>,
     ) -> Result<u64, v2::Error> {
         Ok(self
             .get_client(connection)
             .await?
-            .execute(statement, params)
+            .execute(statement, v2_params_to_v3(params))
             .await?)
     }
 
     #[instrument(name = "spin_outbound_pg.query", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn query(
         &mut self,
-        connection: Resource<Connection>,
+        connection: Resource<v2::Connection>,
         statement: String,
-        params: Vec<ParameterValue>,
-    ) -> Result<RowSet, v2::Error> {
+        params: Vec<v2types::ParameterValue>,
+    ) -> Result<v2types::RowSet, v2::Error> {
         Ok(self
             .get_client(connection)
             .await?
-            .query(statement, params)
-            .await?)
+            .query(statement, v2_params_to_v3(params))
+            .await?
+            .into())
     }
 
-    async fn drop(&mut self, connection: Resource<Connection>) -> anyhow::Result<()> {
+    async fn drop(&mut self, connection: Resource<v2::Connection>) -> anyhow::Result<()> {
         self.connections.remove(connection.rep());
         Ok(())
     }
-}
-
-impl<C: Send> rdbms_types::Host for InstanceState<C> {
-    fn convert_error(&mut self, error: v2::Error) -> Result<v2::Error> {
-        Ok(error)
-    }
-}
-
-/// Delegate a function call to the v2::HostConnection implementation
-macro_rules! delegate {
-    ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address).await.map_err(|e| v2::Error::Other(e.to_string()))? {
-            return Err(v1::PgError::ConnectionFailed(format!(
-                "address {} is not permitted", $address
-            )));
-        }
-        let connection = match $self.open_connection(&$address).await {
-            Ok(c) => c,
-            Err(e) => return Err(e.into()),
-        };
-        <Self as v2::HostConnection>::$name($self, connection, $($arg),*)
-            .await
-            .map_err(|e| e.into())
-    }};
 }
 
 #[async_trait]

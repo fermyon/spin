@@ -12,6 +12,24 @@ mod rdbms_types {
         }
     }
 
+    impl From<spin::postgres::rdbms_types::Column> for v1::rdbms_types::Column {
+        fn from(value: spin::postgres::rdbms_types::Column) -> Self {
+            v1::rdbms_types::Column {
+                name: value.name,
+                data_type: value.data_type.into(),
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::Column> for v2::rdbms_types::Column {
+        fn from(value: spin::postgres::rdbms_types::Column) -> Self {
+            v2::rdbms_types::Column {
+                name: value.name,
+                data_type: value.data_type.into(),
+            }
+        }
+    }
+
     impl From<v2::rdbms_types::DbValue> for v1::rdbms_types::DbValue {
         fn from(value: v2::rdbms_types::DbValue) -> v1::rdbms_types::DbValue {
             match value {
@@ -30,6 +48,192 @@ mod rdbms_types {
                 v2::rdbms_types::DbValue::Binary(b) => v1::rdbms_types::DbValue::Binary(b),
                 v2::rdbms_types::DbValue::DbNull => v1::rdbms_types::DbValue::DbNull,
                 v2::rdbms_types::DbValue::Unsupported => v1::rdbms_types::DbValue::Unsupported,
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::DbValue> for v1::rdbms_types::DbValue {
+        fn from(value: spin::postgres::rdbms_types::DbValue) -> v1::rdbms_types::DbValue {
+            match value {
+                spin::postgres::rdbms_types::DbValue::Boolean(b) => {
+                    v1::rdbms_types::DbValue::Boolean(b)
+                }
+                spin::postgres::rdbms_types::DbValue::Int8(i) => v1::rdbms_types::DbValue::Int8(i),
+                spin::postgres::rdbms_types::DbValue::Int16(i) => {
+                    v1::rdbms_types::DbValue::Int16(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Int32(i) => {
+                    v1::rdbms_types::DbValue::Int32(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Int64(i) => {
+                    v1::rdbms_types::DbValue::Int64(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint8(j) => {
+                    v1::rdbms_types::DbValue::Uint8(j)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint16(u) => {
+                    v1::rdbms_types::DbValue::Uint16(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint32(u) => {
+                    v1::rdbms_types::DbValue::Uint32(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint64(u) => {
+                    v1::rdbms_types::DbValue::Uint64(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Floating32(r) => {
+                    v1::rdbms_types::DbValue::Floating32(r)
+                }
+                spin::postgres::rdbms_types::DbValue::Floating64(r) => {
+                    v1::rdbms_types::DbValue::Floating64(r)
+                }
+                spin::postgres::rdbms_types::DbValue::Str(s) => v1::rdbms_types::DbValue::Str(s),
+                spin::postgres::rdbms_types::DbValue::Binary(b) => {
+                    v1::rdbms_types::DbValue::Binary(b)
+                }
+                spin::postgres::rdbms_types::DbValue::DbNull => v1::rdbms_types::DbValue::DbNull,
+                spin::postgres::rdbms_types::DbValue::Unsupported => {
+                    v1::rdbms_types::DbValue::Unsupported
+                }
+                _ => v1::rdbms_types::DbValue::Unsupported,
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::DbValue> for v2::rdbms_types::DbValue {
+        fn from(value: spin::postgres::rdbms_types::DbValue) -> v2::rdbms_types::DbValue {
+            match value {
+                spin::postgres::rdbms_types::DbValue::Boolean(b) => {
+                    v2::rdbms_types::DbValue::Boolean(b)
+                }
+                spin::postgres::rdbms_types::DbValue::Int8(i) => v2::rdbms_types::DbValue::Int8(i),
+                spin::postgres::rdbms_types::DbValue::Int16(i) => {
+                    v2::rdbms_types::DbValue::Int16(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Int32(i) => {
+                    v2::rdbms_types::DbValue::Int32(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Int64(i) => {
+                    v2::rdbms_types::DbValue::Int64(i)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint8(j) => {
+                    v2::rdbms_types::DbValue::Uint8(j)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint16(u) => {
+                    v2::rdbms_types::DbValue::Uint16(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint32(u) => {
+                    v2::rdbms_types::DbValue::Uint32(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Uint64(u) => {
+                    v2::rdbms_types::DbValue::Uint64(u)
+                }
+                spin::postgres::rdbms_types::DbValue::Floating32(r) => {
+                    v2::rdbms_types::DbValue::Floating32(r)
+                }
+                spin::postgres::rdbms_types::DbValue::Floating64(r) => {
+                    v2::rdbms_types::DbValue::Floating64(r)
+                }
+                spin::postgres::rdbms_types::DbValue::Str(s) => v2::rdbms_types::DbValue::Str(s),
+                spin::postgres::rdbms_types::DbValue::Binary(b) => {
+                    v2::rdbms_types::DbValue::Binary(b)
+                }
+                spin::postgres::rdbms_types::DbValue::DbNull => v2::rdbms_types::DbValue::DbNull,
+                spin::postgres::rdbms_types::DbValue::Unsupported => {
+                    v2::rdbms_types::DbValue::Unsupported
+                }
+                _ => v2::rdbms_types::DbValue::Unsupported,
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::DbDataType> for v1::rdbms_types::DbDataType {
+        fn from(value: spin::postgres::rdbms_types::DbDataType) -> v1::rdbms_types::DbDataType {
+            match value {
+                spin::postgres::rdbms_types::DbDataType::Boolean => {
+                    v1::rdbms_types::DbDataType::Boolean
+                }
+                spin::postgres::rdbms_types::DbDataType::Int8 => v1::rdbms_types::DbDataType::Int8,
+                spin::postgres::rdbms_types::DbDataType::Int16 => {
+                    v1::rdbms_types::DbDataType::Int16
+                }
+                spin::postgres::rdbms_types::DbDataType::Int32 => {
+                    v1::rdbms_types::DbDataType::Int32
+                }
+                spin::postgres::rdbms_types::DbDataType::Int64 => {
+                    v1::rdbms_types::DbDataType::Int64
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint8 => {
+                    v1::rdbms_types::DbDataType::Uint8
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint16 => {
+                    v1::rdbms_types::DbDataType::Uint16
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint32 => {
+                    v1::rdbms_types::DbDataType::Uint32
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint64 => {
+                    v1::rdbms_types::DbDataType::Uint64
+                }
+                spin::postgres::rdbms_types::DbDataType::Floating32 => {
+                    v1::rdbms_types::DbDataType::Floating32
+                }
+                spin::postgres::rdbms_types::DbDataType::Floating64 => {
+                    v1::rdbms_types::DbDataType::Floating64
+                }
+                spin::postgres::rdbms_types::DbDataType::Str => v1::rdbms_types::DbDataType::Str,
+                spin::postgres::rdbms_types::DbDataType::Binary => {
+                    v1::rdbms_types::DbDataType::Binary
+                }
+                spin::postgres::rdbms_types::DbDataType::Other => {
+                    v1::rdbms_types::DbDataType::Other
+                }
+                _ => v1::rdbms_types::DbDataType::Other,
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::DbDataType> for v2::rdbms_types::DbDataType {
+        fn from(value: spin::postgres::rdbms_types::DbDataType) -> v2::rdbms_types::DbDataType {
+            match value {
+                spin::postgres::rdbms_types::DbDataType::Boolean => {
+                    v2::rdbms_types::DbDataType::Boolean
+                }
+                spin::postgres::rdbms_types::DbDataType::Int8 => v2::rdbms_types::DbDataType::Int8,
+                spin::postgres::rdbms_types::DbDataType::Int16 => {
+                    v2::rdbms_types::DbDataType::Int16
+                }
+                spin::postgres::rdbms_types::DbDataType::Int32 => {
+                    v2::rdbms_types::DbDataType::Int32
+                }
+                spin::postgres::rdbms_types::DbDataType::Int64 => {
+                    v2::rdbms_types::DbDataType::Int64
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint8 => {
+                    v2::rdbms_types::DbDataType::Uint8
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint16 => {
+                    v2::rdbms_types::DbDataType::Uint16
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint32 => {
+                    v2::rdbms_types::DbDataType::Uint32
+                }
+                spin::postgres::rdbms_types::DbDataType::Uint64 => {
+                    v2::rdbms_types::DbDataType::Uint64
+                }
+                spin::postgres::rdbms_types::DbDataType::Floating32 => {
+                    v2::rdbms_types::DbDataType::Floating32
+                }
+                spin::postgres::rdbms_types::DbDataType::Floating64 => {
+                    v2::rdbms_types::DbDataType::Floating64
+                }
+                spin::postgres::rdbms_types::DbDataType::Str => v2::rdbms_types::DbDataType::Str,
+                spin::postgres::rdbms_types::DbDataType::Binary => {
+                    v2::rdbms_types::DbDataType::Binary
+                }
+                spin::postgres::rdbms_types::DbDataType::Other => {
+                    v2::rdbms_types::DbDataType::Other
+                }
+                _ => v2::rdbms_types::DbDataType::Other,
             }
         }
     }
@@ -100,6 +304,108 @@ mod rdbms_types {
         }
     }
 
+    impl From<v1::rdbms_types::ParameterValue> for spin::postgres::rdbms_types::ParameterValue {
+        fn from(
+            value: v1::rdbms_types::ParameterValue,
+        ) -> spin::postgres::rdbms_types::ParameterValue {
+            match value {
+                v1::rdbms_types::ParameterValue::Boolean(b) => {
+                    spin::postgres::rdbms_types::ParameterValue::Boolean(b)
+                }
+                v1::rdbms_types::ParameterValue::Int8(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int8(i)
+                }
+                v1::rdbms_types::ParameterValue::Int16(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int16(i)
+                }
+                v1::rdbms_types::ParameterValue::Int32(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int32(i)
+                }
+                v1::rdbms_types::ParameterValue::Int64(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int64(i)
+                }
+                v1::rdbms_types::ParameterValue::Uint8(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint8(u)
+                }
+                v1::rdbms_types::ParameterValue::Uint16(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint16(u)
+                }
+                v1::rdbms_types::ParameterValue::Uint32(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint32(u)
+                }
+                v1::rdbms_types::ParameterValue::Uint64(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint64(u)
+                }
+                v1::rdbms_types::ParameterValue::Floating32(r) => {
+                    spin::postgres::rdbms_types::ParameterValue::Floating32(r)
+                }
+                v1::rdbms_types::ParameterValue::Floating64(r) => {
+                    spin::postgres::rdbms_types::ParameterValue::Floating64(r)
+                }
+                v1::rdbms_types::ParameterValue::Str(s) => {
+                    spin::postgres::rdbms_types::ParameterValue::Str(s)
+                }
+                v1::rdbms_types::ParameterValue::Binary(b) => {
+                    spin::postgres::rdbms_types::ParameterValue::Binary(b)
+                }
+                v1::rdbms_types::ParameterValue::DbNull => {
+                    spin::postgres::rdbms_types::ParameterValue::DbNull
+                }
+            }
+        }
+    }
+
+    impl From<v2::rdbms_types::ParameterValue> for spin::postgres::rdbms_types::ParameterValue {
+        fn from(
+            value: v2::rdbms_types::ParameterValue,
+        ) -> spin::postgres::rdbms_types::ParameterValue {
+            match value {
+                v2::rdbms_types::ParameterValue::Boolean(b) => {
+                    spin::postgres::rdbms_types::ParameterValue::Boolean(b)
+                }
+                v2::rdbms_types::ParameterValue::Int8(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int8(i)
+                }
+                v2::rdbms_types::ParameterValue::Int16(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int16(i)
+                }
+                v2::rdbms_types::ParameterValue::Int32(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int32(i)
+                }
+                v2::rdbms_types::ParameterValue::Int64(i) => {
+                    spin::postgres::rdbms_types::ParameterValue::Int64(i)
+                }
+                v2::rdbms_types::ParameterValue::Uint8(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint8(u)
+                }
+                v2::rdbms_types::ParameterValue::Uint16(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint16(u)
+                }
+                v2::rdbms_types::ParameterValue::Uint32(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint32(u)
+                }
+                v2::rdbms_types::ParameterValue::Uint64(u) => {
+                    spin::postgres::rdbms_types::ParameterValue::Uint64(u)
+                }
+                v2::rdbms_types::ParameterValue::Floating32(r) => {
+                    spin::postgres::rdbms_types::ParameterValue::Floating32(r)
+                }
+                v2::rdbms_types::ParameterValue::Floating64(r) => {
+                    spin::postgres::rdbms_types::ParameterValue::Floating64(r)
+                }
+                v2::rdbms_types::ParameterValue::Str(s) => {
+                    spin::postgres::rdbms_types::ParameterValue::Str(s)
+                }
+                v2::rdbms_types::ParameterValue::Binary(b) => {
+                    spin::postgres::rdbms_types::ParameterValue::Binary(b)
+                }
+                v2::rdbms_types::ParameterValue::DbNull => {
+                    spin::postgres::rdbms_types::ParameterValue::DbNull
+                }
+            }
+        }
+    }
+
     impl From<v2::rdbms_types::Error> for v1::mysql::MysqlError {
         fn from(error: v2::rdbms_types::Error) -> v1::mysql::MysqlError {
             match error {
@@ -114,16 +420,74 @@ mod rdbms_types {
         }
     }
 
-    impl From<v2::rdbms_types::Error> for v1::postgres::PgError {
-        fn from(error: v2::rdbms_types::Error) -> v1::postgres::PgError {
+    impl From<spin::postgres::rdbms_types::Error> for v1::postgres::PgError {
+        fn from(error: spin::postgres::rdbms_types::Error) -> v1::postgres::PgError {
             match error {
-                v2::mysql::Error::ConnectionFailed(e) => v1::postgres::PgError::ConnectionFailed(e),
-                v2::mysql::Error::BadParameter(e) => v1::postgres::PgError::BadParameter(e),
-                v2::mysql::Error::QueryFailed(e) => v1::postgres::PgError::QueryFailed(e),
-                v2::mysql::Error::ValueConversionFailed(e) => {
+                spin::postgres::rdbms_types::Error::ConnectionFailed(e) => {
+                    v1::postgres::PgError::ConnectionFailed(e)
+                }
+                spin::postgres::rdbms_types::Error::BadParameter(e) => {
+                    v1::postgres::PgError::BadParameter(e)
+                }
+                spin::postgres::rdbms_types::Error::QueryFailed(e) => {
+                    v1::postgres::PgError::QueryFailed(e)
+                }
+                spin::postgres::rdbms_types::Error::ValueConversionFailed(e) => {
                     v1::postgres::PgError::ValueConversionFailed(e)
                 }
-                v2::mysql::Error::Other(e) => v1::postgres::PgError::OtherError(e),
+                spin::postgres::rdbms_types::Error::Other(e) => {
+                    v1::postgres::PgError::OtherError(e)
+                }
+            }
+        }
+    }
+
+    impl From<spin::postgres::rdbms_types::Error> for v2::rdbms_types::Error {
+        fn from(error: spin::postgres::rdbms_types::Error) -> v2::rdbms_types::Error {
+            match error {
+                spin::postgres::rdbms_types::Error::ConnectionFailed(e) => {
+                    v2::rdbms_types::Error::ConnectionFailed(e)
+                }
+                spin::postgres::rdbms_types::Error::BadParameter(e) => {
+                    v2::rdbms_types::Error::BadParameter(e)
+                }
+                spin::postgres::rdbms_types::Error::QueryFailed(e) => {
+                    v2::rdbms_types::Error::QueryFailed(e)
+                }
+                spin::postgres::rdbms_types::Error::ValueConversionFailed(e) => {
+                    v2::rdbms_types::Error::ValueConversionFailed(e)
+                }
+                spin::postgres::rdbms_types::Error::Other(e) => v2::rdbms_types::Error::Other(e),
+            }
+        }
+    }
+}
+
+mod postgres {
+    use super::*;
+
+    impl From<spin::postgres::postgres::RowSet> for v1::postgres::RowSet {
+        fn from(value: spin::postgres::postgres::RowSet) -> v1::postgres::RowSet {
+            v1::mysql::RowSet {
+                columns: value.columns.into_iter().map(Into::into).collect(),
+                rows: value
+                    .rows
+                    .into_iter()
+                    .map(|r| r.into_iter().map(Into::into).collect())
+                    .collect(),
+            }
+        }
+    }
+
+    impl From<spin::postgres::postgres::RowSet> for v2::rdbms_types::RowSet {
+        fn from(value: spin::postgres::postgres::RowSet) -> v2::rdbms_types::RowSet {
+            v2::rdbms_types::RowSet {
+                columns: value.columns.into_iter().map(Into::into).collect(),
+                rows: value
+                    .rows
+                    .into_iter()
+                    .map(|r| r.into_iter().map(Into::into).collect())
+                    .collect(),
             }
         }
     }

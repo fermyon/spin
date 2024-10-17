@@ -1,6 +1,6 @@
 use helper::{ensure, ensure_eq, ensure_matches, ensure_ok};
 
-use bindings::fermyon::spin2_0_0::{postgres, rdbms_types};
+use bindings::spin::postgres::postgres;
 
 helper::define_component!(Component);
 const DB_URL_ENV: &str = "DB_URL";
@@ -21,15 +21,19 @@ impl Component {
 
         let rowset = ensure_ok!(numeric_types(&conn));
         ensure!(rowset.rows.iter().all(|r| r.len() == 12));
-        ensure_matches!(rowset.rows[0][11], rdbms_types::DbValue::Floating64(f) if f == 1.0);
+        ensure_matches!(rowset.rows[0][11], postgres::DbValue::Floating64(f) if f == 1.0);
 
         let rowset = ensure_ok!(character_types(&conn));
         ensure!(rowset.rows.iter().all(|r| r.len() == 3));
-        ensure!(matches!(rowset.rows[0][0], rdbms_types::DbValue::Str(ref s) if s == "rvarchar"));
+        ensure!(matches!(rowset.rows[0][0], postgres::DbValue::Str(ref s) if s == "rvarchar"));
+
+        let rowset = ensure_ok!(date_time_types(&conn));
+        ensure!(rowset.rows.iter().all(|r| r.len() == 3));
+        ensure_matches!(rowset.rows[0][0], postgres::DbValue::Date((y, m, d)) if y == 2525 && m == 12 && d == 25);
 
         let rowset = ensure_ok!(nullable(&conn));
         ensure!(rowset.rows.iter().all(|r| r.len() == 1));
-        ensure!(matches!(rowset.rows[0][0], rdbms_types::DbValue::DbNull));
+        ensure!(matches!(rowset.rows[0][0], postgres::DbValue::DbNull));
 
         let pid1 = format!("{:?}", ensure_ok!(pg_backend_pid(&conn)));
         let pid2 = format!("{:?}", ensure_ok!(pg_backend_pid(&conn)));
@@ -117,6 +121,37 @@ fn character_types(conn: &postgres::Connection) -> Result<postgres::RowSet, post
     conn.query(sql, &[])
 }
 
+fn date_time_types(conn: &postgres::Connection) -> Result<postgres::RowSet, postgres::Error> {
+    let create_table_sql = r#"
+        CREATE TEMPORARY TABLE test_date_time_types (
+            rdate date NOT NULL,
+            rtime time NOT NULL,
+            rtimestamp timestamp NOT NULL
+         );
+    "#;
+
+    conn.execute(create_table_sql, &[])?;
+
+    let insert_sql = r#"
+        INSERT INTO test_date_time_types
+            (rdate, rtime, rtimestamp)
+        VALUES
+            (date '2525-12-25', time '04:05:06.789', timestamp '1989-11-24 01:02:03');
+    "#;
+
+    conn.execute(insert_sql, &[])?;
+
+    let sql = r#"
+        SELECT
+            rdate,
+            rtime,
+            rtimestamp
+        FROM test_date_time_types;
+    "#;
+
+    conn.query(sql, &[])
+}
+
 fn nullable(conn: &postgres::Connection) -> Result<postgres::RowSet, postgres::Error> {
     let create_table_sql = r#"
         CREATE TEMPORARY TABLE test_nullable (
@@ -133,7 +168,7 @@ fn nullable(conn: &postgres::Connection) -> Result<postgres::RowSet, postgres::E
             ($1);
     "#;
 
-    conn.execute(insert_sql, &[rdbms_types::ParameterValue::DbNull])?;
+    conn.execute(insert_sql, &[postgres::ParameterValue::DbNull])?;
 
     let sql = r#"
         SELECT
@@ -144,7 +179,7 @@ fn nullable(conn: &postgres::Connection) -> Result<postgres::RowSet, postgres::E
     conn.query(sql, &[])
 }
 
-fn pg_backend_pid(conn: &postgres::Connection) -> Result<rdbms_types::DbValue, postgres::Error> {
+fn pg_backend_pid(conn: &postgres::Connection) -> Result<postgres::DbValue, postgres::Error> {
     let sql = "SELECT pg_backend_pid()";
 
     let rowset = conn.query(sql, &[])?;

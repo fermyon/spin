@@ -228,17 +228,20 @@ impl wasi_keyvalue::store::HostBucket for KeyValueDispatch {
     async fn list_keys(
         &mut self,
         self_: Resource<Bucket>,
-        cursor: Option<u64>,
+        cursor: Option<String>,
     ) -> Result<wasi_keyvalue::store::KeyResponse, wasi_keyvalue::store::Error> {
-        if cursor.unwrap_or_default() != 0 {
-            return Err(wasi_keyvalue::store::Error::Other(
-                "list_keys: cursor not supported".to_owned(),
-            ));
+        match cursor {
+            Some(_) => {
+                Err(wasi_keyvalue::store::Error::Other(
+                    "list_keys: cursor not supported".to_owned(),
+                ))
+            },
+            None => {
+                let store = self.get_store_wasi(self_)?;
+                let keys = store.get_keys().await.map_err(to_wasi_err)?;
+                Ok(wasi_keyvalue::store::KeyResponse { keys, cursor: None })
+            }
         }
-
-        let store = self.get_store_wasi(self_)?;
-        let keys = store.get_keys().await.map_err(to_wasi_err)?;
-        Ok(wasi_keyvalue::store::KeyResponse { keys, cursor: None })
     }
 
     async fn drop(&mut self, rep: Resource<Bucket>) -> anyhow::Result<()> {

@@ -29,7 +29,7 @@ wasmtime::component::bindgen!({
         "fermyon:spin/sqlite@2.0.0/error" => v2::sqlite::Error,
         "fermyon:spin/sqlite/error" => v1::sqlite::Error,
         "fermyon:spin/variables@2.0.0/error" => v2::variables::Error,
-        "spin:postgres/rdbms-types/error" => spin::postgres::rdbms_types::Error,
+        "spin:postgres/postgres/error" => spin::postgres::postgres::Error,
     },
     trappable_imports: true,
 });

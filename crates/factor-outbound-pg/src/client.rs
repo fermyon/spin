@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 use spin_world::async_trait;
-use spin_world::spin::postgres::rdbms_types::{
-    self as v2, Column, DbDataType, DbValue, ParameterValue, RowSet,
+use spin_world::spin::postgres::postgres::{
+    self as v3, Column, DbDataType, DbValue, ParameterValue, RowSet,
 };
 use tokio_postgres::types::Type;
 use tokio_postgres::{config::SslMode, types::ToSql, Row};
@@ -19,13 +19,13 @@ pub trait Client {
         &self,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<u64, v2::Error>;
+    ) -> Result<u64, v3::Error>;
 
     async fn query(
         &self,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<RowSet, v2::Error>;
+    ) -> Result<RowSet, v3::Error>;
 }
 
 #[async_trait]
@@ -55,12 +55,12 @@ impl Client for TokioClient {
         &self,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<u64, v2::Error> {
+    ) -> Result<u64, v3::Error> {
         let params = params
             .iter()
             .map(to_sql_parameter)
             .collect::<Result<Vec<_>>>()
-            .map_err(|e| v2::Error::ValueConversionFailed(format!("{:?}", e)))?;
+            .map_err(|e| v3::Error::ValueConversionFailed(format!("{:?}", e)))?;
 
         let params_refs: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -69,19 +69,19 @@ impl Client for TokioClient {
 
         self.execute(&statement, params_refs.as_slice())
             .await
-            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))
+            .map_err(|e| v3::Error::QueryFailed(format!("{:?}", e)))
     }
 
     async fn query(
         &self,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<RowSet, v2::Error> {
+    ) -> Result<RowSet, v3::Error> {
         let params = params
             .iter()
             .map(to_sql_parameter)
             .collect::<Result<Vec<_>>>()
-            .map_err(|e| v2::Error::BadParameter(format!("{:?}", e)))?;
+            .map_err(|e| v3::Error::BadParameter(format!("{:?}", e)))?;
 
         let params_refs: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -91,7 +91,7 @@ impl Client for TokioClient {
         let results = self
             .query(&statement, params_refs.as_slice())
             .await
-            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+            .map_err(|e| v3::Error::QueryFailed(format!("{:?}", e)))?;
 
         if results.is_empty() {
             return Ok(RowSet {
@@ -105,7 +105,7 @@ impl Client for TokioClient {
             .iter()
             .map(convert_row)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+            .map_err(|e| v3::Error::QueryFailed(format!("{:?}", e)))?;
 
         Ok(RowSet { columns, rows })
     }

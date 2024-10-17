@@ -6,10 +6,10 @@ use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
 use spin_world::async_trait;
-use spin_world::v2::postgres::HostConnection;
-use spin_world::v2::postgres::{self as v2};
-use spin_world::v2::rdbms_types::Error as PgError;
-use spin_world::v2::rdbms_types::{ParameterValue, RowSet};
+use spin_world::spin::postgres::postgres::Error as PgError;
+use spin_world::spin::postgres::postgres::HostConnection;
+use spin_world::spin::postgres::postgres::{self as v2};
+use spin_world::spin::postgres::postgres::{ParameterValue, RowSet};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {

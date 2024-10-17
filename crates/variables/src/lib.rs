@@ -19,20 +19,22 @@ use spin_factor_variables::runtime_config::RuntimeConfig;
 /// Resolves a runtime configuration for the variables factor from a TOML table.
 pub fn runtime_config_from_toml(table: &impl GetTomlValue) -> anyhow::Result<RuntimeConfig> {
     // Always include the environment variable provider.
-    let mut providers = vec![Box::<EnvVariablesProvider>::default() as _];
+    let var_provider = vec![Box::<EnvVariablesProvider>::default() as _];
     let value = table
         .get("variables_provider")
         .or_else(|| table.get("config_provider"));
     let Some(array) = value else {
-        return Ok(RuntimeConfig { providers });
+        return Ok(RuntimeConfig {
+            providers: var_provider,
+        });
     };
 
     let provider_configs: Vec<VariableProviderConfiguration> = array.clone().try_into()?;
-    let new_providers = provider_configs
+    let mut providers = provider_configs
         .into_iter()
         .map(VariableProviderConfiguration::into_provider)
         .collect::<anyhow::Result<Vec<_>>>()?;
-    providers.extend(new_providers);
+    providers.extend(var_provider);
     Ok(RuntimeConfig { providers })
 }
 

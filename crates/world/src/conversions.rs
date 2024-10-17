@@ -62,10 +62,6 @@ mod rdbms_types {
                 spin::postgres::postgres::DbValue::Int16(i) => v1::rdbms_types::DbValue::Int16(i),
                 spin::postgres::postgres::DbValue::Int32(i) => v1::rdbms_types::DbValue::Int32(i),
                 spin::postgres::postgres::DbValue::Int64(i) => v1::rdbms_types::DbValue::Int64(i),
-                spin::postgres::postgres::DbValue::Uint8(j) => v1::rdbms_types::DbValue::Uint8(j),
-                spin::postgres::postgres::DbValue::Uint16(u) => v1::rdbms_types::DbValue::Uint16(u),
-                spin::postgres::postgres::DbValue::Uint32(u) => v1::rdbms_types::DbValue::Uint32(u),
-                spin::postgres::postgres::DbValue::Uint64(u) => v1::rdbms_types::DbValue::Uint64(u),
                 spin::postgres::postgres::DbValue::Floating32(r) => {
                     v1::rdbms_types::DbValue::Floating32(r)
                 }
@@ -93,10 +89,6 @@ mod rdbms_types {
                 spin::postgres::postgres::DbValue::Int16(i) => v2::rdbms_types::DbValue::Int16(i),
                 spin::postgres::postgres::DbValue::Int32(i) => v2::rdbms_types::DbValue::Int32(i),
                 spin::postgres::postgres::DbValue::Int64(i) => v2::rdbms_types::DbValue::Int64(i),
-                spin::postgres::postgres::DbValue::Uint8(j) => v2::rdbms_types::DbValue::Uint8(j),
-                spin::postgres::postgres::DbValue::Uint16(u) => v2::rdbms_types::DbValue::Uint16(u),
-                spin::postgres::postgres::DbValue::Uint32(u) => v2::rdbms_types::DbValue::Uint32(u),
-                spin::postgres::postgres::DbValue::Uint64(u) => v2::rdbms_types::DbValue::Uint64(u),
                 spin::postgres::postgres::DbValue::Floating32(r) => {
                     v2::rdbms_types::DbValue::Floating32(r)
                 }
@@ -124,10 +116,6 @@ mod rdbms_types {
                 spin::postgres::postgres::DbDataType::Int16 => v1::rdbms_types::DbDataType::Int16,
                 spin::postgres::postgres::DbDataType::Int32 => v1::rdbms_types::DbDataType::Int32,
                 spin::postgres::postgres::DbDataType::Int64 => v1::rdbms_types::DbDataType::Int64,
-                spin::postgres::postgres::DbDataType::Uint8 => v1::rdbms_types::DbDataType::Uint8,
-                spin::postgres::postgres::DbDataType::Uint16 => v1::rdbms_types::DbDataType::Uint16,
-                spin::postgres::postgres::DbDataType::Uint32 => v1::rdbms_types::DbDataType::Uint32,
-                spin::postgres::postgres::DbDataType::Uint64 => v1::rdbms_types::DbDataType::Uint64,
                 spin::postgres::postgres::DbDataType::Floating32 => {
                     v1::rdbms_types::DbDataType::Floating32
                 }
@@ -152,10 +140,6 @@ mod rdbms_types {
                 spin::postgres::postgres::DbDataType::Int16 => v2::rdbms_types::DbDataType::Int16,
                 spin::postgres::postgres::DbDataType::Int32 => v2::rdbms_types::DbDataType::Int32,
                 spin::postgres::postgres::DbDataType::Int64 => v2::rdbms_types::DbDataType::Int64,
-                spin::postgres::postgres::DbDataType::Uint8 => v2::rdbms_types::DbDataType::Uint8,
-                spin::postgres::postgres::DbDataType::Uint16 => v2::rdbms_types::DbDataType::Uint16,
-                spin::postgres::postgres::DbDataType::Uint32 => v2::rdbms_types::DbDataType::Uint32,
-                spin::postgres::postgres::DbDataType::Uint64 => v2::rdbms_types::DbDataType::Uint64,
                 spin::postgres::postgres::DbDataType::Floating32 => {
                     v2::rdbms_types::DbDataType::Floating32
                 }
@@ -236,11 +220,13 @@ mod rdbms_types {
         }
     }
 
-    impl From<v1::rdbms_types::ParameterValue> for spin::postgres::postgres::ParameterValue {
-        fn from(
+    impl TryFrom<v1::rdbms_types::ParameterValue> for spin::postgres::postgres::ParameterValue {
+        type Error = v1::postgres::PgError;
+
+        fn try_from(
             value: v1::rdbms_types::ParameterValue,
-        ) -> spin::postgres::postgres::ParameterValue {
-            match value {
+        ) -> Result<spin::postgres::postgres::ParameterValue, Self::Error> {
+            let converted = match value {
                 v1::rdbms_types::ParameterValue::Boolean(b) => {
                     spin::postgres::postgres::ParameterValue::Boolean(b)
                 }
@@ -256,17 +242,13 @@ mod rdbms_types {
                 v1::rdbms_types::ParameterValue::Int64(i) => {
                     spin::postgres::postgres::ParameterValue::Int64(i)
                 }
-                v1::rdbms_types::ParameterValue::Uint8(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint8(u)
-                }
-                v1::rdbms_types::ParameterValue::Uint16(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint16(u)
-                }
-                v1::rdbms_types::ParameterValue::Uint32(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint32(u)
-                }
-                v1::rdbms_types::ParameterValue::Uint64(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint64(u)
+                v1::rdbms_types::ParameterValue::Uint8(_)
+                | v1::rdbms_types::ParameterValue::Uint16(_)
+                | v1::rdbms_types::ParameterValue::Uint32(_)
+                | v1::rdbms_types::ParameterValue::Uint64(_) => {
+                    return Err(v1::postgres::PgError::ValueConversionFailed(
+                        "Postgres does not support unsigned integers".to_owned(),
+                    ));
                 }
                 v1::rdbms_types::ParameterValue::Floating32(r) => {
                     spin::postgres::postgres::ParameterValue::Floating32(r)
@@ -283,15 +265,18 @@ mod rdbms_types {
                 v1::rdbms_types::ParameterValue::DbNull => {
                     spin::postgres::postgres::ParameterValue::DbNull
                 }
-            }
+            };
+            Ok(converted)
         }
     }
 
-    impl From<v2::rdbms_types::ParameterValue> for spin::postgres::postgres::ParameterValue {
-        fn from(
+    impl TryFrom<v2::rdbms_types::ParameterValue> for spin::postgres::postgres::ParameterValue {
+        type Error = v2::rdbms_types::Error;
+
+        fn try_from(
             value: v2::rdbms_types::ParameterValue,
-        ) -> spin::postgres::postgres::ParameterValue {
-            match value {
+        ) -> Result<spin::postgres::postgres::ParameterValue, Self::Error> {
+            let converted = match value {
                 v2::rdbms_types::ParameterValue::Boolean(b) => {
                     spin::postgres::postgres::ParameterValue::Boolean(b)
                 }
@@ -307,17 +292,13 @@ mod rdbms_types {
                 v2::rdbms_types::ParameterValue::Int64(i) => {
                     spin::postgres::postgres::ParameterValue::Int64(i)
                 }
-                v2::rdbms_types::ParameterValue::Uint8(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint8(u)
-                }
-                v2::rdbms_types::ParameterValue::Uint16(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint16(u)
-                }
-                v2::rdbms_types::ParameterValue::Uint32(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint32(u)
-                }
-                v2::rdbms_types::ParameterValue::Uint64(u) => {
-                    spin::postgres::postgres::ParameterValue::Uint64(u)
+                v2::rdbms_types::ParameterValue::Uint8(_)
+                | v2::rdbms_types::ParameterValue::Uint16(_)
+                | v2::rdbms_types::ParameterValue::Uint32(_)
+                | v2::rdbms_types::ParameterValue::Uint64(_) => {
+                    return Err(v2::rdbms_types::Error::ValueConversionFailed(
+                        "Postgres does not support unsigned integers".to_owned(),
+                    ));
                 }
                 v2::rdbms_types::ParameterValue::Floating32(r) => {
                     spin::postgres::postgres::ParameterValue::Floating32(r)
@@ -334,7 +315,8 @@ mod rdbms_types {
                 v2::rdbms_types::ParameterValue::DbNull => {
                     spin::postgres::postgres::ParameterValue::DbNull
                 }
-            }
+            };
+            Ok(converted)
         }
     }
 

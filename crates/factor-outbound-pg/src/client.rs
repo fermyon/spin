@@ -131,10 +131,6 @@ fn to_sql_parameter(value: &ParameterValue) -> Result<Box<dyn ToSql + Send + Syn
         ParameterValue::Int16(v) => Ok(Box::new(*v)),
         ParameterValue::Floating32(v) => Ok(Box::new(*v)),
         ParameterValue::Floating64(v) => Ok(Box::new(*v)),
-        ParameterValue::Uint8(_)
-        | ParameterValue::Uint16(_)
-        | ParameterValue::Uint32(_)
-        | ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
         ParameterValue::Str(v) => Ok(Box::new(v.clone())),
         ParameterValue::Binary(v) => Ok(Box::new(v.clone())),
         ParameterValue::Date((y, mon, d)) => {

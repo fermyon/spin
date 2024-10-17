@@ -65,8 +65,10 @@ impl<C: Client> InstanceState<C> {
     }
 }
 
-fn v2_params_to_v3(params: Vec<v2_types::ParameterValue>) -> Vec<v3::ParameterValue> {
-    params.into_iter().map(|p| p.into()).collect()
+fn v2_params_to_v3(
+    params: Vec<v2_types::ParameterValue>,
+) -> Result<Vec<v3::ParameterValue>, v2::Error> {
+    params.into_iter().map(|p| p.try_into()).collect()
 }
 
 #[async_trait]
@@ -184,7 +186,7 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
         Ok(self
             .get_client(connection)
             .await?
-            .execute(statement, v2_params_to_v3(params))
+            .execute(statement, v2_params_to_v3(params)?)
             .await?)
     }
 
@@ -198,7 +200,7 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
         Ok(self
             .get_client(connection)
             .await?
-            .query(statement, v2_params_to_v3(params))
+            .query(statement, v2_params_to_v3(params)?)
             .await?
             .into())
     }
@@ -220,7 +222,10 @@ impl<C: Send + Sync + Client> v1::Host for InstanceState<C> {
         delegate!(self.execute(
             address,
             statement,
-            params.into_iter().map(Into::into).collect()
+            params
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?
         ))
     }
 
@@ -233,7 +238,10 @@ impl<C: Send + Sync + Client> v1::Host for InstanceState<C> {
         delegate!(self.query(
             address,
             statement,
-            params.into_iter().map(Into::into).collect()
+            params
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?
         ))
         .map(Into::into)
     }

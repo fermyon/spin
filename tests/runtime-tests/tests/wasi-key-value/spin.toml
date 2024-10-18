@@ -1,0 +1,14 @@
+spin_manifest_version = 2
+
+[application]
+name = "wasi-key-value"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=wasi-key-value}"
+key_value_stores = ["default"]

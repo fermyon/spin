@@ -187,6 +187,9 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
         Type::INT4 => DbDataType::Int32,
         Type::INT8 => DbDataType::Int64,
         Type::TEXT | Type::VARCHAR | Type::BPCHAR => DbDataType::Str,
+        Type::TIMESTAMP | Type::TIMESTAMPTZ => DbDataType::Timestamp,
+        Type::DATE => DbDataType::Date,
+        Type::TIME => DbDataType::Time,
         _ => {
             tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
             DbDataType::Other
@@ -194,7 +197,7 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
     }
 }
 
-fn convert_row(row: &Row) -> Result<Vec<DbValue>, tokio_postgres::Error> {
+fn convert_row(row: &Row) -> anyhow::Result<Vec<DbValue>> {
     let mut result = Vec::with_capacity(row.len());
     for index in 0..row.len() {
         result.push(convert_entry(row, index)?);
@@ -202,7 +205,7 @@ fn convert_row(row: &Row) -> Result<Vec<DbValue>, tokio_postgres::Error> {
     Ok(result)
 }
 
-fn convert_entry(row: &Row, index: usize) -> Result<DbValue, tokio_postgres::Error> {
+fn convert_entry(row: &Row, index: usize) -> anyhow::Result<DbValue> {
     let column = &row.columns()[index];
     let value = match column.type_() {
         &Type::BOOL => {
@@ -261,6 +264,27 @@ fn convert_entry(row: &Row, index: usize) -> Result<DbValue, tokio_postgres::Err
                 None => DbValue::DbNull,
             }
         }
+        &Type::TIMESTAMP | &Type::TIMESTAMPTZ => {
+            let value: Option<chrono::NaiveDateTime> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Datetime(tuplify_date_time(v)?),
+                None => DbValue::DbNull,
+            }
+        }
+        &Type::DATE => {
+            let value: Option<chrono::NaiveDate> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Date(tuplify_date(v)?),
+                None => DbValue::DbNull,
+            }
+        }
+        &Type::TIME => {
+            let value: Option<chrono::NaiveTime> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Time(tuplify_time(v)?),
+                None => DbValue::DbNull,
+            }
+        }
         t => {
             tracing::debug!(
                 "Couldn't convert Postgres type {} in column {}",
@@ -271,6 +295,41 @@ fn convert_entry(row: &Row, index: usize) -> Result<DbValue, tokio_postgres::Err
         }
     };
     Ok(value)
+}
+
+// Functions to convert from the chrono types to the WIT interface tuples
+fn tuplify_date_time(
+    value: chrono::NaiveDateTime,
+) -> anyhow::Result<(i32, u8, u8, u8, u8, u8, u32)> {
+    use chrono::{Datelike, Timelike};
+    Ok((
+        value.year(),
+        value.month().try_into()?,
+        value.day().try_into()?,
+        value.hour().try_into()?,
+        value.minute().try_into()?,
+        value.second().try_into()?,
+        value.nanosecond(),
+    ))
+}
+
+fn tuplify_date(value: chrono::NaiveDate) -> anyhow::Result<(i32, u8, u8)> {
+    use chrono::Datelike;
+    Ok((
+        value.year(),
+        value.month().try_into()?,
+        value.day().try_into()?,
+    ))
+}
+
+fn tuplify_time(value: chrono::NaiveTime) -> anyhow::Result<(u8, u8, u8, u32)> {
+    use chrono::Timelike;
+    Ok((
+        value.hour().try_into()?,
+        value.minute().try_into()?,
+        value.second().try_into()?,
+        value.nanosecond(),
+    ))
 }
 
 /// Although the Postgres crate converts Rust Option::None to Postgres NULL,

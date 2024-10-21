@@ -5,6 +5,12 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 spin-locked-app = { path = "../locked-app" }
+
+[dev-dependencies]
+toml = { workspace = true }
+spin-factors-test = { path = "../factors-test" }
+tokio = { workspace = true }

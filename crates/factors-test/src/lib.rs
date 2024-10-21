@@ -91,10 +91,14 @@ impl<T: RuntimeFactors> TestEnvironment<T> {
     }
 
     pub async fn build_locked_app(&self) -> anyhow::Result<LockedApp> {
-        let toml_str = toml::to_string(&self.manifest).context("failed serializing manifest")?;
-        let dir = tempfile::tempdir().context("failed creating tempdir")?;
-        let path = dir.path().join("spin.toml");
-        std::fs::write(&path, toml_str).context("failed writing manifest")?;
-        spin_loader::from_file(&path, FilesMountStrategy::Direct, None).await
+        build_locked_app(&self.manifest).await
     }
+}
+
+pub async fn build_locked_app(manifest: &toml::Table) -> anyhow::Result<LockedApp> {
+    let toml_str = toml::to_string(manifest).context("failed serializing manifest")?;
+    let dir = tempfile::tempdir().context("failed creating tempdir")?;
+    let path = dir.path().join("spin.toml");
+    std::fs::write(&path, toml_str).context("failed writing manifest")?;
+    spin_loader::from_file(&path, FilesMountStrategy::Direct, None).await
 }

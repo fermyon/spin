@@ -1,4 +1,4 @@
-package wasi:config@0.2.0-draft;
+package wasi:config@0.2.0-draft-2024-09-27;
 
 world imports {
     /// The interface for wasi:config/store

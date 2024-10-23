@@ -266,6 +266,24 @@ impl Client {
 
             layers.push(layer);
 
+            let mut deps = BTreeMap::default();
+            for (dep_name, mut dep) in c.dependencies {
+                let source = dep
+                    .source
+                    .content
+                    .source
+                    .context("dependency loaded from disk should contain a file source")?;
+                let source = parse_file_url(source.as_str())?;
+
+                let layer = Self::wasm_layer(&source).await?;
+
+                dep.source.content = self.content_ref_for_layer(&layer);
+                deps.insert(dep_name, dep);
+
+                layers.push(layer);
+            }
+            c.dependencies = deps;
+
             let mut files = Vec::new();
             for f in c.files {
                 let source = f
@@ -292,6 +310,7 @@ impl Client {
                 }
             }
             c.files = files;
+
             components.push(c);
         }
         locked.components = components;
@@ -863,252 +882,284 @@ mod test {
         }
     }
 
-    // #[tokio::test]
-    // async fn can_assemble_layers() {
-    //     use spin_locked_app::locked::LockedComponent;
-    //     use tokio::io::AsyncWriteExt;
+    // Convenience wrapper for deserializing from literal JSON
+    #[macro_export]
+    macro_rules! from_json {
+        ($($json:tt)+) => {
+            serde_json::from_value(serde_json::json!($($json)+)).expect("valid json")
+        };
+    }
 
-    //     let working_dir = tempfile::tempdir().unwrap();
+    #[tokio::test]
+    async fn can_assemble_layers() {
+        use spin_locked_app::locked::LockedComponent;
+        use tokio::io::AsyncWriteExt;
 
-    //     // Set up component/file directory tree
-    //     //
-    //     // create component1 and component2 dirs
-    //     let _ = tokio::fs::create_dir(working_dir.path().join("component1").as_path()).await;
-    //     let _ = tokio::fs::create_dir(working_dir.path().join("component2").as_path()).await;
+        let working_dir = tempfile::tempdir().unwrap();
 
-    //     // create component "wasm" files
-    //     let mut c1 = tokio::fs::File::create(working_dir.path().join("component1.wasm"))
-    //         .await
-    //         .expect("should create component wasm file");
-    //     c1.write_all(b"c1")
-    //         .await
-    //         .expect("should write component wasm contents");
-    //     let mut c2 = tokio::fs::File::create(working_dir.path().join("component2.wasm"))
-    //         .await
-    //         .expect("should create component wasm file");
-    //     c2.write_all(b"c2")
-    //         .await
-    //         .expect("should write component wasm contents");
+        // Set up component/file directory tree
+        //
+        // create component1 and component2 dirs
+        let _ = tokio::fs::create_dir(working_dir.path().join("component1").as_path()).await;
+        let _ = tokio::fs::create_dir(working_dir.path().join("component2").as_path()).await;
 
-    //     // component1 files
-    //     let mut c1f1 = tokio::fs::File::create(working_dir.path().join("component1").join("bar"))
-    //         .await
-    //         .expect("should create component file");
-    //     c1f1.write_all(b"bar")
-    //         .await
-    //         .expect("should write file contents");
-    //     let mut c1f2 = tokio::fs::File::create(working_dir.path().join("component1").join("baz"))
-    //         .await
-    //         .expect("should create component file");
-    //     c1f2.write_all(b"baz")
-    //         .await
-    //         .expect("should write file contents");
+        // create component "wasm" files
+        let mut c1 = tokio::fs::File::create(working_dir.path().join("component1.wasm"))
+            .await
+            .expect("should create component wasm file");
+        c1.write_all(b"c1")
+            .await
+            .expect("should write component wasm contents");
+        let mut c2 = tokio::fs::File::create(working_dir.path().join("component2.wasm"))
+            .await
+            .expect("should create component wasm file");
+        c2.write_all(b"c2")
+            .await
+            .expect("should write component wasm contents");
 
-    //     // component2 files
-    //     let mut c2f1 = tokio::fs::File::create(working_dir.path().join("component2").join("baz"))
-    //         .await
-    //         .expect("should create component file");
-    //     c2f1.write_all(b"baz")
-    //         .await
-    //         .expect("should write file contents");
+        // component1 files
+        let mut c1f1 = tokio::fs::File::create(working_dir.path().join("component1").join("bar"))
+            .await
+            .expect("should create component file");
+        c1f1.write_all(b"bar")
+            .await
+            .expect("should write file contents");
+        let mut c1f2 = tokio::fs::File::create(working_dir.path().join("component1").join("baz"))
+            .await
+            .expect("should create component file");
+        c1f2.write_all(b"baz")
+            .await
+            .expect("should write file contents");
 
-    //     #[derive(Clone)]
-    //     struct TestCase {
-    //         name: &'static str,
-    //         opts: Option<ClientOpts>,
-    //         locked_components: Vec<LockedComponent>,
-    //         expected_layer_count: usize,
-    //         expected_error: Option<&'static str>,
-    //     }
+        // component2 files
+        let mut c2f1 = tokio::fs::File::create(working_dir.path().join("component2").join("baz"))
+            .await
+            .expect("should create component file");
+        c2f1.write_all(b"baz")
+            .await
+            .expect("should write file contents");
 
-    //     let tests: Vec<TestCase> = [
-    //         TestCase {
-    //             name: "Two component layers",
-    //             opts: None,
-    //             locked_components: spin_testing::from_json!([{
-    //                 "id": "component1",
-    //                 "source": {
-    //                     "content_type": "application/wasm",
-    //                     "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                     "digest": "digest",
-    //             }},
-    //             {
-    //                 "id": "component2",
-    //                 "source": {
-    //                     "content_type": "application/wasm",
-    //                     "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
-    //                     "digest": "digest",
-    //             }}]),
-    //             expected_layer_count: 2,
-    //             expected_error: None,
-    //         },
-    //         TestCase {
-    //             name: "One component layer and two file layers",
-    //             opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
-    //             locked_components: spin_testing::from_json!([{
-    //             "id": "component1",
-    //             "source": {
-    //                 "content_type": "application/wasm",
-    //                 "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                 "digest": "digest",
-    //             },
-    //             "files": [
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
-    //                 },
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
-    //                 }
-    //             ]
-    //             }]),
-    //             expected_layer_count: 3,
-    //             expected_error: None,
-    //         },
-    //         TestCase {
-    //             name: "One component layer and one file with inlined content",
-    //             opts: None,
-    //             locked_components: spin_testing::from_json!([{
-    //             "id": "component1",
-    //             "source": {
-    //                 "content_type": "application/wasm",
-    //                 "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                 "digest": "digest",
-    //             },
-    //             "files": [
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
-    //                 }
-    //             ]
-    //             }]),
-    //             expected_layer_count: 1,
-    //             expected_error: None,
-    //         },
-    //         TestCase {
-    //             name: "Component has no source",
-    //             opts: None,
-    //             locked_components: spin_testing::from_json!([{
-    //             "id": "component1",
-    //             "source": {
-    //                 "content_type": "application/wasm",
-    //                 "source": "",
-    //                 "digest": "digest",
-    //             }
-    //             }]),
-    //             expected_layer_count: 0,
-    //             expected_error: Some("Invalid URL: \"\""),
-    //         },
-    //         TestCase {
-    //             name: "Duplicate component sources",
-    //             opts: None,
-    //             locked_components: spin_testing::from_json!([{
-    //                 "id": "component1",
-    //                 "source": {
-    //                     "content_type": "application/wasm",
-    //                     "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                     "digest": "digest",
-    //             }},
-    //             {
-    //                 "id": "component2",
-    //                 "source": {
-    //                     "content_type": "application/wasm",
-    //                     "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                     "digest": "digest",
-    //             }}]),
-    //             expected_layer_count: 1,
-    //             expected_error: None,
-    //         },
-    //         TestCase {
-    //             name: "Duplicate file paths",
-    //             opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
-    //             locked_components: spin_testing::from_json!([{
-    //             "id": "component1",
-    //             "source": {
-    //                 "content_type": "application/wasm",
-    //                 "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
-    //                 "digest": "digest",
-    //             },
-    //             "files": [
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
-    //                 },
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
-    //                 }
-    //             ]},
-    //             {
-    //                 "id": "component2",
-    //                 "source": {
-    //                     "content_type": "application/wasm",
-    //                     "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
-    //                     "digest": "digest",
-    //             },
-    //             "files": [
-    //                 {
-    //                     "source": format!("file://{}", working_dir.path().join("component2").to_str().unwrap()),
-    //                     "path": working_dir.path().join("component2").join("baz").to_str().unwrap()
-    //                 }
-    //             ]
-    //             }]),
-    //             expected_layer_count: 4,
-    //             expected_error: None,
-    //         },
-    //     ]
-    //     .to_vec();
+        #[derive(Clone)]
+        struct TestCase {
+            name: &'static str,
+            opts: Option<ClientOpts>,
+            locked_components: Vec<LockedComponent>,
+            expected_layer_count: usize,
+            expected_error: Option<&'static str>,
+        }
 
-    //     for tc in tests {
-    //         let triggers = Default::default();
-    //         let metadata = Default::default();
-    //         let variables = Default::default();
-    //         let mut locked = LockedApp {
-    //             spin_lock_version: Default::default(),
-    //             components: tc.locked_components,
-    //             triggers,
-    //             metadata,
-    //             variables,
-    //             must_understand: Default::default(),
-    //             host_requirements: Default::default(),
-    //         };
+        let tests: Vec<TestCase> = [
+            TestCase {
+                name: "Two component layers",
+                opts: None,
+                locked_components: from_json!([{
+                    "id": "component1",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }}]),
+                expected_layer_count: 2,
+                expected_error: None,
+            },
+            TestCase {
+                name: "One component layer and two file layers",
+                opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
+                locked_components: from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    },
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
+                    }
+                ]
+                }]),
+                expected_layer_count: 3,
+                expected_error: None,
+            },
+            TestCase {
+                name: "One component layer and one file with inlined content",
+                opts: None,
+                locked_components: from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    }
+                ]
+                }]),
+                expected_layer_count: 1,
+                expected_error: None,
+            },
+            TestCase {
+                name: "One component layer and one dependency component layer",
+                opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
+                locked_components: from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "dependencies": {
+                    "test:comp2": {
+                        "source": {
+                            "content_type": "application/wasm",
+                            "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
+                            "digest": "digest",
+                        },
+                        "export": null,
+                    }
+                }
+                }]),
+                expected_layer_count: 2,
+                expected_error: None,
+            },
+            TestCase {
+                name: "Component has no source",
+                opts: None,
+                locked_components: from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": "",
+                    "digest": "digest",
+                }
+                }]),
+                expected_layer_count: 0,
+                expected_error: Some("Invalid URL: \"\""),
+            },
+            TestCase {
+                name: "Duplicate component sources",
+                opts: None,
+                locked_components: from_json!([{
+                    "id": "component1",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }}]),
+                expected_layer_count: 1,
+                expected_error: None,
+            },
+            TestCase {
+                name: "Duplicate file paths",
+                opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
+                locked_components: from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    },
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
+                    }
+                ]},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component2").to_str().unwrap()),
+                        "path": working_dir.path().join("component2").join("baz").to_str().unwrap()
+                    }
+                ]
+                }]),
+                expected_layer_count: 4,
+                expected_error: None,
+            },
+        ]
+        .to_vec();
 
-    //         let mut client = Client::new(false, Some(working_dir.path().to_path_buf()))
-    //             .await
-    //             .expect("should create new client");
-    //         if let Some(o) = tc.opts {
-    //             client.opts = o;
-    //         }
+        for tc in tests {
+            let triggers = Default::default();
+            let metadata = Default::default();
+            let variables = Default::default();
+            let mut locked = LockedApp {
+                spin_lock_version: Default::default(),
+                components: tc.locked_components,
+                triggers,
+                metadata,
+                variables,
+                must_understand: Default::default(),
+                host_requirements: Default::default(),
+            };
 
-    //         match tc.expected_error {
-    //             Some(e) => {
-    //                 assert_eq!(
-    //                     e,
-    //                     client
-    //                         .assemble_layers(&mut locked, AssemblyMode::Simple)
-    //                         .await
-    //                         .unwrap_err()
-    //                         .to_string(),
-    //                     "{}",
-    //                     tc.name
-    //                 )
-    //             }
-    //             None => {
-    //                 assert_eq!(
-    //                     tc.expected_layer_count,
-    //                     client
-    //                         .assemble_layers(&mut locked, AssemblyMode::Simple)
-    //                         .await
-    //                         .unwrap()
-    //                         .len(),
-    //                     "{}",
-    //                     tc.name
-    //                 )
-    //             }
-    //         }
-    //     }
-    // }
+            let mut client = Client::new(false, Some(working_dir.path().to_path_buf()))
+                .await
+                .expect("should create new client");
+            if let Some(o) = tc.opts {
+                client.opts = o;
+            }
+
+            match tc.expected_error {
+                Some(e) => {
+                    assert_eq!(
+                        e,
+                        client
+                            .assemble_layers(&mut locked, AssemblyMode::Simple)
+                            .await
+                            .unwrap_err()
+                            .to_string(),
+                        "{}",
+                        tc.name
+                    )
+                }
+                None => {
+                    assert_eq!(
+                        tc.expected_layer_count,
+                        client
+                            .assemble_layers(&mut locked, AssemblyMode::Simple)
+                            .await
+                            .unwrap()
+                            .len(),
+                        "{}",
+                        tc.name
+                    )
+                }
+            }
+        }
+    }
 
     fn annotatable_app() -> LockedApp {
         let mut meta_builder = spin_locked_app::values::ValuesMapBuilder::new();

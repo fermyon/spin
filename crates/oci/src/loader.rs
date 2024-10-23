@@ -82,6 +82,12 @@ impl OciLoader {
         let wasm_path = cache.wasm_file(wasm_digest)?;
         component.source.content = content_ref(wasm_path)?;
 
+        for dep in &mut component.dependencies.values_mut() {
+            let dep_wasm_digest = content_digest(&dep.source.content)?;
+            let dep_wasm_path = cache.wasm_file(dep_wasm_digest)?;
+            dep.source.content = content_ref(dep_wasm_path)?;
+        }
+
         if !component.files.is_empty() {
             let mount_dir = self.working_dir.join("assets").join(&component.id);
             for file in &mut component.files {

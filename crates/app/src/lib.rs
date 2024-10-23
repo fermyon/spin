@@ -31,7 +31,7 @@ pub const OCI_IMAGE_DIGEST_KEY: MetadataKey = MetadataKey::new("oci_image_digest
 
 /// Validation function type for ensuring that applications meet requirements
 /// even with components filtered out.
-pub type ValidatorFn = dyn Fn(&App, &[String]) -> anyhow::Result<()>;
+pub type ValidatorFn = dyn Fn(&App, &[&str]) -> anyhow::Result<()>;
 
 /// An `App` holds loaded configuration for a Spin application.
 #[derive(Debug, Clone)]
@@ -171,7 +171,7 @@ impl App {
     /// Introspects the LockedApp to find and selectively retain the triggers that correspond to those components
     fn retain_components(
         mut self,
-        retained_components: &[String],
+        retained_components: &[&str],
         validators: &[&ValidatorFn],
     ) -> Result<LockedApp> {
         self.validate_retained_components_exist(retained_components)?;
@@ -181,7 +181,7 @@ impl App {
         let (component_ids, trigger_ids): (HashSet<String>, HashSet<String>) = self
             .triggers()
             .filter_map(|t| match t.component() {
-                Ok(comp) if retained_components.contains(&comp.id().to_string()) => {
+                Ok(comp) if retained_components.contains(&comp.id()) => {
                     Some((comp.id().to_owned(), t.id().to_owned()))
                 }
                 _ => None,
@@ -195,13 +195,13 @@ impl App {
     }
 
     /// Validates that all components specified to be retained actually exist in the app
-    fn validate_retained_components_exist(&self, retained_components: &[String]) -> Result<()> {
+    fn validate_retained_components_exist(&self, retained_components: &[&str]) -> Result<()> {
         let app_components = self
             .components()
             .map(|c| c.id().to_string())
             .collect::<HashSet<_>>();
         for c in retained_components {
-            if !app_components.contains(c) {
+            if !app_components.contains(*c) {
                 return Err(Error::ValidationError(anyhow::anyhow!(
                     "Specified component \"{c}\" not found in application"
                 )));
@@ -320,7 +320,7 @@ struct CommonTriggerConfig {
 /// Introspects the LockedApp to find and selectively retain the triggers that correspond to those components
 pub fn retain_components(
     locked: LockedApp,
-    components: &[String],
+    components: &[&str],
     validators: &[&ValidatorFn],
 ) -> Result<LockedApp> {
     App::new("unused", locked).retain_components(components, validators)
@@ -332,7 +332,7 @@ mod test {
 
     use super::*;
 
-    fn does_nothing_validator(_: &App, _: &[String]) -> anyhow::Result<()> {
+    fn does_nothing_validator(_: &App, _: &[&str]) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -351,12 +351,7 @@ mod test {
             source = "does-not-exist.wasm"
         };
         let mut locked_app = build_locked_app(&manifest).await.unwrap();
-        locked_app = retain_components(
-            locked_app,
-            &["empty".to_string()],
-            &[&does_nothing_validator],
-        )
-        .unwrap();
+        locked_app = retain_components(locked_app, &["empty"], &[&does_nothing_validator]).unwrap();
         let components = locked_app
             .components
             .iter()

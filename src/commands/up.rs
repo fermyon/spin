@@ -201,7 +201,11 @@ impl UpCommand {
         if !self.components.is_empty() {
             locked_app = spin_app::retain_components(
                 locked_app,
-                &self.components,
+                &self
+                    .components
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>(),
                 &[&validate_service_chaining_for_components],
             )
             .context(

@@ -44,18 +44,18 @@ pub fn allowed_outbound_hosts(component: &AppComponent) -> anyhow::Result<Vec<St
 /// are ignored.
 pub fn validate_service_chaining_for_components(
     app: &App,
-    retained_components: &[String],
+    retained_components: &[&str],
 ) -> anyhow::Result<()> {
     app
         .triggers().try_for_each(|t| {
             let Ok(component) = t.component() else  { return Ok(()) };
-            if retained_components.contains(&component.id().to_string()) {
+            if retained_components.contains(&component.id()) {
             let allowed_hosts = allowed_outbound_hosts(&component).context("failed to get allowed hosts")?;
             for host in allowed_hosts {
                 // Templated URLs are not yet resolved at this point, so ignore unresolvable URIs
                 if let Ok(uri) = host.parse::<http::Uri>() {
                     if let Some(chaining_target) = parse_service_chaining_target(&uri) {
-                        if !retained_components.contains(&chaining_target) {
+                        if !retained_components.contains(&chaining_target.as_ref()) {
                             if chaining_target == "*" {
                                 return  Err(anyhow::anyhow!("Selected component '{}' cannot use wildcard service chaining: allowed_outbound_hosts = [\"http://*.spin.internal\"]", component.id()));
                             }
@@ -891,24 +891,21 @@ mod test {
             .await
             .expect("could not build locked app");
         let app = App::new("unused", locked_app);
-        let Err(e) = validate_service_chaining_for_components(&app, &["empty".to_string()]) else {
+        let Err(e) = validate_service_chaining_for_components(&app, &["empty"]) else {
             panic!("Expected service chaining to non-retained component error");
         };
         assert_eq!(
             e.to_string(),
             "Selected component 'empty' cannot use service chaining to unselected component: allowed_outbound_hosts = [\"http://another.spin.internal\"]"
         );
-        let Err(e) = validate_service_chaining_for_components(
-            &app,
-            &["third".to_string(), "another".to_string()],
-        ) else {
+        let Err(e) = validate_service_chaining_for_components(&app, &["third", "another"]) else {
             panic!("Expected wildcard service chaining error");
         };
         assert_eq!(
             e.to_string(),
             "Selected component 'third' cannot use wildcard service chaining: allowed_outbound_hosts = [\"http://*.spin.internal\"]"
         );
-        assert!(validate_service_chaining_for_components(&app, &["another".to_string()]).is_ok());
+        assert!(validate_service_chaining_for_components(&app, &["another"]).is_ok());
     }
 
     #[tokio::test]
@@ -945,10 +942,6 @@ mod test {
             .await
             .expect("could not build locked app");
         let app = App::new("unused", locked_app);
-        assert!(validate_service_chaining_for_components(
-            &app,
-            &["empty".to_string(), "third".to_string()]
-        )
-        .is_ok());
+        assert!(validate_service_chaining_for_components(&app, &["empty", "third"]).is_ok());
     }
 }

@@ -6877,9 +6877,13 @@ dependencies = [
 name = "spin-app"
 version = "2.8.0-pre0"
 dependencies = [
+ "anyhow",
  "serde 1.0.210",
  "serde_json",
+ "spin-factors-test",
  "spin-locked-app",
+ "tokio",
+ "toml 0.8.19",
 ]
 
 [[package]]

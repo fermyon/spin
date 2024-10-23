@@ -6,6 +6,8 @@
 
 #![deny(missing_docs)]
 
+use std::collections::HashSet;
+
 use serde::Deserialize;
 use serde_json::Value;
 use spin_locked_app::MetadataExt;
@@ -26,6 +28,10 @@ pub const APP_VERSION_KEY: MetadataKey = MetadataKey::new("version");
 pub const APP_DESCRIPTION_KEY: MetadataKey = MetadataKey::new("description");
 /// MetadataKey for extracting the OCI image digest.
 pub const OCI_IMAGE_DIGEST_KEY: MetadataKey = MetadataKey::new("oci_image_digest");
+
+/// Validation function type for ensuring that applications meet requirements
+/// even with components filtered out.
+pub type ValidatorFn = dyn Fn(&App, &[&str]) -> anyhow::Result<()>;
 
 /// An `App` holds loaded configuration for a Spin application.
 #[derive(Debug, Clone)]
@@ -160,6 +166,49 @@ impl App {
     pub fn ensure_needs_only(&self, supported: &[&str]) -> std::result::Result<(), String> {
         self.locked.ensure_needs_only(supported)
     }
+
+    /// Scrubs the locked app to only contain the given list of components
+    /// Introspects the LockedApp to find and selectively retain the triggers that correspond to those components
+    fn retain_components(
+        mut self,
+        retained_components: &[&str],
+        validators: &[&ValidatorFn],
+    ) -> Result<LockedApp> {
+        self.validate_retained_components_exist(retained_components)?;
+        for validator in validators {
+            validator(&self, retained_components).map_err(Error::ValidationError)?;
+        }
+        let (component_ids, trigger_ids): (HashSet<String>, HashSet<String>) = self
+            .triggers()
+            .filter_map(|t| match t.component() {
+                Ok(comp) if retained_components.contains(&comp.id()) => {
+                    Some((comp.id().to_owned(), t.id().to_owned()))
+                }
+                _ => None,
+            })
+            .collect();
+        self.locked
+            .components
+            .retain(|c| component_ids.contains(&c.id));
+        self.locked.triggers.retain(|t| trigger_ids.contains(&t.id));
+        Ok(self.locked)
+    }
+
+    /// Validates that all components specified to be retained actually exist in the app
+    fn validate_retained_components_exist(&self, retained_components: &[&str]) -> Result<()> {
+        let app_components = self
+            .components()
+            .map(|c| c.id().to_string())
+            .collect::<HashSet<_>>();
+        for c in retained_components {
+            if !app_components.contains(*c) {
+                return Err(Error::ValidationError(anyhow::anyhow!(
+                    "Specified component \"{c}\" not found in application"
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// An `AppComponent` holds configuration for a Spin application component.
@@ -265,4 +314,50 @@ impl<'a> AppTrigger<'a> {
 #[derive(Deserialize)]
 struct CommonTriggerConfig {
     component: Option<String>,
+}
+
+/// Scrubs the locked app to only contain the given list of components
+/// Introspects the LockedApp to find and selectively retain the triggers that correspond to those components
+pub fn retain_components(
+    locked: LockedApp,
+    components: &[&str],
+    validators: &[&ValidatorFn],
+) -> Result<LockedApp> {
+    App::new("unused", locked).retain_components(components, validators)
+}
+
+#[cfg(test)]
+mod test {
+    use spin_factors_test::build_locked_app;
+
+    use super::*;
+
+    fn does_nothing_validator(_: &App, _: &[&str]) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retain_components_filtering_for_only_component_works() {
+        let manifest = toml::toml! {
+            spin_manifest_version = 2
+
+            [application]
+            name = "test-app"
+
+            [[trigger.test-trigger]]
+            component = "empty"
+
+            [component.empty]
+            source = "does-not-exist.wasm"
+        };
+        let mut locked_app = build_locked_app(&manifest).await.unwrap();
+        locked_app = retain_components(locked_app, &["empty"], &[&does_nothing_validator]).unwrap();
+        let components = locked_app
+            .components
+            .iter()
+            .map(|c| c.id.to_string())
+            .collect::<HashSet<_>>();
+        assert!(components.contains("empty"));
+        assert!(components.len() == 1);
+    }
 }

@@ -52,6 +52,22 @@ impl ProviderResolver {
         self.resolve_template(template).await
     }
 
+    /// Resolves all variables for the given component.
+    pub async fn resolve_all(&self, component_id: &str) -> Result<Vec<(String, String)>> {
+        use futures::FutureExt;
+
+        let Some(keys2templates) = self.internal.component_configs.get(component_id) else {
+            return Ok(vec![]);
+        };
+
+        let resolve_futs = keys2templates.iter().map(|(key, template)| {
+            self.resolve_template(template)
+                .map(|r| r.map(|value| (key.to_string(), value)))
+        });
+
+        futures::future::try_join_all(resolve_futs).await
+    }
+
     /// Resolves the given template.
     pub async fn resolve_template(&self, template: &Template) -> Result<String> {
         let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());

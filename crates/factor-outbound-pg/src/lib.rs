@@ -23,6 +23,7 @@ impl<C: Send + Sync + Client + 'static> Factor for OutboundPgFactor<C> {
     ) -> anyhow::Result<()> {
         ctx.link_bindings(spin_world::v1::postgres::add_to_linker)?;
         ctx.link_bindings(spin_world::v2::postgres::add_to_linker)?;
+        ctx.link_bindings(spin_world::spin::postgres::postgres::add_to_linker)?;
         Ok(())
     }
 

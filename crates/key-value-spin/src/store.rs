@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 use spin_core::async_trait;
-use spin_factor_key_value::{log_error, Error, Store, StoreManager};
+use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager};
 use std::{
     path::PathBuf,
     sync::OnceLock,
@@ -155,6 +155,26 @@ impl Store for SqliteStore {
                 .map(|r| r.map_err(log_error))
                 .collect()
         })
+    }
+
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+        todo!()
+    }
+
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
+        todo!()
+    }
+
+    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn Cas>, Error> {
+        todo!()
     }
 }
 

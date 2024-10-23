@@ -17,6 +17,7 @@ use spin_locked_app::MetadataKey;
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 pub use host::{log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
+use spin_core::async_trait;
 pub use util::{CachingStoreManager, DelegatingStoreManager};
 
 /// A factor that provides key-value storage.
@@ -130,6 +131,12 @@ impl AppState {
     pub async fn get_store(&self, label: &str) -> Option<Arc<dyn Store>> {
         self.store_manager.get(label).await.ok()
     }
+}
+
+#[async_trait]
+pub trait Cas: Sync + Send {
+    async fn current(&self) -> anyhow::Result<Option<Vec<u8>>, Error>;
+    async fn swap(&self, value: Vec<u8>) -> anyhow::Result<(), Error>;
 }
 
 pub struct InstanceBuilder {

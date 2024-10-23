@@ -5,6 +5,7 @@ use spin_world::v2::key_value;
 use spin_world::wasi::keyvalue as wasi_keyvalue;
 use std::{collections::HashSet, sync::Arc};
 use tracing::{instrument, Level};
+use super::Cas;
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 
@@ -31,12 +32,20 @@ pub trait Store: Sync + Send {
     async fn delete(&self, key: &str) -> Result<(), Error>;
     async fn exists(&self, key: &str) -> Result<bool, Error>;
     async fn get_keys(&self) -> Result<Vec<String>, Error>;
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error>;
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error>;
+    async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error>;
+    async fn increment(&self, key: String, delta: i64) -> Result<i64, Error>;
+    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn Cas>, Error>;
 }
+
+
 
 pub struct KeyValueDispatch {
     allowed_stores: HashSet<String>,
     manager: Arc<dyn StoreManager>,
     stores: Table<Arc<dyn Store>>,
+    compare_and_swaps: Table<Arc<dyn Cas>>,
 }
 
 impl KeyValueDispatch {
@@ -53,11 +62,18 @@ impl KeyValueDispatch {
             allowed_stores,
             manager,
             stores: Table::new(capacity),
+            compare_and_swaps: Table::new(capacity),
         }
     }
 
     pub fn get_store<T: 'static>(&self, store: Resource<T>) -> anyhow::Result<&Arc<dyn Store>> {
         self.stores.get(store.rep()).context("invalid store")
+    }
+
+    pub fn get_cas<T: 'static>(&self, cas: Resource<T>) -> Result<&Arc<dyn Cas>> {
+        self.compare_and_swaps
+            .get(cas.rep())
+            .context("invalid compare and swap")
     }
 
     pub fn allowed_stores(&self) -> &HashSet<String> {
@@ -71,6 +87,17 @@ impl KeyValueDispatch {
         self.stores
             .get(store.rep())
             .ok_or(wasi_keyvalue::store::Error::NoSuchStore)
+    }
+
+    pub fn get_cas_wasi<T: 'static>(
+        &self,
+        cas: Resource<T>,
+    ) -> Result<&Arc<dyn Cas>, wasi_keyvalue::atomics::Error> {
+        self.compare_and_swaps
+            .get(cas.rep())
+            .ok_or(wasi_keyvalue::atomics::Error::Other(
+                "compare and swap not found".to_string(),
+            ))
     }
 }
 
@@ -231,11 +258,9 @@ impl wasi_keyvalue::store::HostBucket for KeyValueDispatch {
         cursor: Option<String>,
     ) -> Result<wasi_keyvalue::store::KeyResponse, wasi_keyvalue::store::Error> {
         match cursor {
-            Some(_) => {
-                Err(wasi_keyvalue::store::Error::Other(
-                    "list_keys: cursor not supported".to_owned(),
-                ))
-            },
+            Some(_) => Err(wasi_keyvalue::store::Error::Other(
+                "list_keys: cursor not supported".to_owned(),
+            )),
             None => {
                 let store = self.get_store_wasi(self_)?;
                 let keys = store.get_keys().await.map_err(to_wasi_err)?;
@@ -247,6 +272,104 @@ impl wasi_keyvalue::store::HostBucket for KeyValueDispatch {
     async fn drop(&mut self, rep: Resource<Bucket>) -> anyhow::Result<()> {
         self.stores.remove(rep.rep());
         Ok(())
+    }
+}
+
+#[async_trait]
+impl wasi_keyvalue::batch::Host for KeyValueDispatch {
+    #[instrument(name = "spin_key_value.get_many", skip(self, bucket, keys), err(level = Level::INFO), fields(otel.kind = "client"))]
+    async fn get_many(
+        &mut self,
+        bucket: Resource<wasi_keyvalue::batch::Bucket>,
+        keys: Vec<String>,
+    ) -> std::result::Result<Vec<Option<(String, Vec<u8>)>>, wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(bucket)?;
+        store
+            .get_many(keys.iter().map(|k| k.to_string()).collect())
+            .await
+            .map_err(to_wasi_err)
+    }
+
+    #[instrument(name = "spin_key_value.set_many", skip(self, bucket, key_values), err(level = Level::INFO), fields(otel.kind = "client"))]
+    async fn set_many(
+        &mut self,
+        bucket: Resource<wasi_keyvalue::batch::Bucket>,
+        key_values: Vec<(String, Vec<u8>)>,
+    ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(bucket)?;
+        store.set_many(key_values).await.map_err(to_wasi_err)
+    }
+
+    #[instrument(name = "spin_key_value.get_many", skip(self, bucket, keys), err(level = Level::INFO), fields(otel.kind = "client"))]
+    async fn delete_many(
+        &mut self,
+        bucket: Resource<wasi_keyvalue::batch::Bucket>,
+        keys: Vec<String>,
+    ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(bucket)?;
+        store
+            .delete_many(keys.iter().map(|k| k.to_string()).collect())
+            .await
+            .map_err(to_wasi_err)
+    }
+}
+
+#[async_trait]
+impl wasi_keyvalue::atomics::HostCas for KeyValueDispatch {
+    async fn new(
+        &mut self,
+        bucket: Resource<wasi_keyvalue::atomics::Bucket>,
+        key: String,
+    ) -> Result<Resource<wasi_keyvalue::atomics::Cas>, wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(bucket)?;
+        let cas = store.new_compare_and_swap(&key).await.map_err(to_wasi_err)?;
+        self.compare_and_swaps
+            .push(cas)
+            .map_err(|()| spin_world::wasi::keyvalue::store::Error::Other("too many compare_and_swaps opened".to_string()))
+            .map(Resource::new_own)
+    }
+
+    async fn current(
+        &mut self,
+        cas: Resource<wasi_keyvalue::atomics::Cas>,
+    ) -> Result<Option<Vec<u8>>, wasi_keyvalue::store::Error> {
+        let cas = self
+            .get_cas(cas)
+            .map_err(|e| wasi_keyvalue::store::Error::Other(e.to_string()))?;
+        cas.current().await.map_err(to_wasi_err)
+    }
+
+    async fn drop(&mut self, rep: Resource<wasi_keyvalue::atomics::Cas>) -> Result<()> {
+        self.compare_and_swaps.remove(rep.rep());
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
+    #[instrument(name = "spin_key_value.increment", skip(self, bucket, key, delta), err(level = Level::INFO), fields(otel.kind = "client"))]
+    async fn increment(
+        &mut self,
+        bucket: Resource<wasi_keyvalue::atomics::Bucket>,
+        key: String,
+        delta: i64,
+    ) -> Result<i64, wasi_keyvalue::store::Error> {
+        let store = self.get_store_wasi(bucket)?;
+        store.increment(key, delta).await.map_err(to_wasi_err)
+    }
+
+    #[instrument(name = "spin_key_value.swap", skip(self, cas_res, value), err(level = Level::INFO), fields(otel.kind = "client"))]
+    async fn swap(
+        &mut self,
+        cas_res: Resource<wasi_keyvalue::atomics::Cas>,
+        value: Vec<u8>,
+    ) -> Result<std::result::Result<(), wasi_keyvalue::atomics::CasError>> {
+        let cas = self
+            .get_cas(cas_res)
+            .map_err(|e| wasi_keyvalue::atomics::CasError::StoreError(wasi_keyvalue::atomics::Error::Other(e.to_string())))?;
+        Ok(cas.swap(value)
+            .await
+            .map_err(|e| wasi_keyvalue::atomics::CasError::StoreError(wasi_keyvalue::atomics::Error::Other(e.to_string()))))
     }
 }
 

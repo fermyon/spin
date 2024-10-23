@@ -151,6 +151,26 @@ impl Store for AzureCosmosStore {
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         self.get_keys().await
     }
+
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+        todo!()
+    }
+
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
+        todo!()
+    }
+
+    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
+        todo!()
+    }
 }
 
 impl AzureCosmosStore {

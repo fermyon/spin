@@ -1,4 +1,4 @@
-use crate::{Error, Store, StoreManager};
+use crate::{Cas, Error, Store, StoreManager};
 use lru::LruCache;
 use spin_core::async_trait;
 use std::{
@@ -236,5 +236,25 @@ impl Store for CachingStore {
             .collect::<HashSet<_>>()
             .into_iter()
             .collect())
+    }
+
+    async fn get_many(&self, keys: Vec<String>) -> anyhow::Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+        todo!()
+    }
+
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> anyhow::Result<(), Error> {
+        todo!()
+    }
+
+    async fn delete_many(&self, keys: Vec<String>) -> anyhow::Result<(), Error> {
+        todo!()
+    }
+
+    async fn increment(&self, key: String, delta: i64) -> anyhow::Result<i64, Error> {
+        todo!()
+    }
+
+    async fn new_compare_and_swap(&self, key: &str) -> anyhow::Result<Arc<dyn Cas>, Error> {
+        todo!()
     }
 }

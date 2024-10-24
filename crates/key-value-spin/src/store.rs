@@ -2,6 +2,7 @@ use anyhow::Result;
 use rusqlite::Connection;
 use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager};
+use std::rc::Rc;
 use std::{
     path::PathBuf,
     sync::OnceLock,
@@ -158,23 +159,137 @@ impl Store for SqliteStore {
     }
 
     async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error> {
-        todo!()
+        task::block_in_place(|| {
+            let sql_value_keys: Vec<rusqlite::types::Value> =
+                keys.into_iter().map(rusqlite::types::Value::from).collect();
+            let ptr = Rc::new(sql_value_keys);
+            let row_iter: Vec<Result<(String, Vec<u8>), Error>> = self.connection
+                .lock()
+                .unwrap()
+                .prepare_cached("SELECT key, value FROM spin_key_value WHERE store=:name AND key IN rarray(:keys)")
+                .map_err(log_error)?
+                .query_map((":name", &self.name, ":keys", ptr), |row| {
+                    <(String, Vec<u8>)>::try_from(row)
+                })
+                .map_err(log_error)?
+                .map(|r: Result<(String, Vec<u8>), rusqlite::Error>| r.map_err(log_error))
+                .collect();
+
+            let mut keys_and_values: Vec<Option<(String, Vec<u8>)>> = Vec::new();
+            for row in row_iter {
+                let res = row.map_err(log_error)?;
+                keys_and_values.push(Some(res));
+            }
+            Ok(keys_and_values)
+        })
     }
 
     async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error> {
-        todo!()
+        task::block_in_place(|| {
+            let mut binding = self.connection.lock().unwrap();
+            let tx = binding.transaction().map_err(log_error)?;
+            for kv in key_values {
+                tx.prepare_cached(
+                    "INSERT INTO spin_key_value (store, key, value) VALUES ($1, $2, $3)
+                     ON CONFLICT(store, key) DO UPDATE SET value=$3",
+                )
+                .map_err(log_error)?
+                .execute(rusqlite::params![&self.name, kv.0, kv.1])
+                .map_err(log_error)
+                .map(drop)?;
+            }
+            tx.commit().map_err(log_error)
+        })
     }
 
     async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error> {
-        todo!()
+        task::block_in_place(|| {
+            let sql_value_keys: Vec<rusqlite::types::Value> =
+                keys.into_iter().map(rusqlite::types::Value::from).collect();
+            let ptr = Rc::new(sql_value_keys);
+            self.connection
+                .lock()
+                .unwrap()
+                .prepare_cached("DELETE FROM spin_key_value WHERE store=:name AND key IN (:keys)")
+                .map_err(log_error)?
+                .execute((":name", &self.name, ":keys", ptr))
+                .map_err(log_error)
+                .map(drop)
+        })
     }
 
+    // The assumption with increment is that if the value for the key does not exist, it will be
+    // assumed to be zero. In the case that we are unable to unmarshal the value into an i64 an error will be returned.
     async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
-        todo!()
+        task::block_in_place(|| {
+            let mut binding = self.connection.lock().unwrap();
+
+            let tx = binding.transaction().map_err(log_error)?;
+
+            let value: Option<Vec<u8>> = tx
+                .prepare_cached("SELECT value FROM spin_key_value WHERE store=$1 AND key=$2")
+                .map_err(log_error)?
+                .query_map([&self.name, &key], |row| row.get(0))
+                .map_err(log_error)?
+                .next()
+                .transpose()
+                .map_err(log_error)?;
+
+            let numeric: i64 = match value {
+                Some(v) => i64::from_be_bytes(v.try_into().expect("incorrect length")),
+                None => 0,
+            };
+
+            let new_value = numeric + delta;
+            tx.prepare_cached(
+                "INSERT INTO spin_key_value (store, key, value) VALUES ($1, $2, $3)
+                     ON CONFLICT(store, key) DO UPDATE SET value=$3",
+            )
+            .map_err(log_error)?
+            .execute(rusqlite::params![&self.name, key, new_value])
+            .map_err(log_error)
+            .map(drop)?;
+
+            tx.commit().map_err(log_error)?;
+            Ok(new_value)
+        })
     }
 
     async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn Cas>, Error> {
-        todo!()
+        let value = self.get(key).await?;
+        Ok(Arc::new(CompareAndSwap {
+            name: self.name.clone(),
+            key: key.to_string(),
+            connection: self.connection.clone(),
+            value,
+        }))
+    }
+}
+
+struct CompareAndSwap {
+    name: String,
+    key: String,
+    value: Option<Vec<u8>>,
+    connection: Arc<Mutex<Connection>>,
+}
+
+#[async_trait]
+impl Cas for CompareAndSwap {
+    async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
+        Ok(self.value.clone())
+    }
+
+    async fn swap(&self, value: Vec<u8>) -> Result<(), Error> {
+        task::block_in_place(|| {
+            self.connection
+                .lock()
+                .unwrap()
+                .prepare_cached("UPDATE spin_key_value SET value=$3 WHERE store=$1 and key=$2")
+                .map_err(log_error)?
+                .execute(rusqlite::params![&self.name, self.key, value])
+                .map_err(log_error)
+                .map(drop)
+        })
     }
 }
 

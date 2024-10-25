@@ -98,6 +98,11 @@ pub struct Install {
     #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
     pub override_compatibility_check: bool,
 
+    /// Provide the value for the authorization header to be able to install a plugin from a private repository.
+    /// (e.g) --auth-header-value "Bearer <token>"
+    #[clap(long = "auth-header-value", requires = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT)]
+    pub auth_header_value: Option<String>,
+
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
     #[clap(
@@ -126,6 +131,7 @@ impl Install {
                 &manifest_location,
                 self.override_compatibility_check,
                 SPIN_VERSION,
+                &self.auth_header_value,
             )
             .await?;
         try_install(
@@ -135,6 +141,7 @@ impl Install {
             self.override_compatibility_check,
             downgrade,
             &manifest_location,
+            &self.auth_header_value,
         )
         .await?;
         Ok(())
@@ -206,6 +213,11 @@ pub struct Upgrade {
     /// Skips prompt to accept the installation of the plugin[s].
     #[clap(short = 'y', long = "yes", takes_value = false)]
     pub yes_to_all: bool,
+
+    /// Provide the value for the authorization header to be able to install a plugin from a private repository.
+    /// (e.g) --auth-header-value "Bearer <token>"
+    #[clap(long = "auth-header-value", requires = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT)]
+    pub auth_header_value: Option<String>,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
     #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
@@ -288,7 +300,12 @@ impl Upgrade {
 
             // Attempt to get the manifest to check eligibility to upgrade
             if let Ok(manifest) = manager
-                .get_manifest(&manifest_location, false, SPIN_VERSION)
+                .get_manifest(
+                    &manifest_location,
+                    false,
+                    SPIN_VERSION,
+                    &self.auth_header_value,
+                )
                 .await
             {
                 // Check if upgraded candidates have a newer version and if are compatible
@@ -341,7 +358,16 @@ impl Upgrade {
                 None,
             ));
 
-            try_install(&manifest, &manager, true, false, false, &manifest_location).await?;
+            try_install(
+                &manifest,
+                &manager,
+                true,
+                false,
+                false,
+                &manifest_location,
+                &self.auth_header_value,
+            )
+            .await?;
         }
 
         Ok(())
@@ -365,6 +391,7 @@ impl Upgrade {
                     &manifest_location,
                     self.override_compatibility_check,
                     SPIN_VERSION,
+                    &self.auth_header_value,
                 )
                 .await
             {
@@ -382,6 +409,7 @@ impl Upgrade {
                 self.override_compatibility_check,
                 self.downgrade,
                 &manifest_location,
+                &self.auth_header_value,
             )
             .await?;
         }
@@ -405,6 +433,7 @@ impl Upgrade {
                 &manifest_location,
                 self.override_compatibility_check,
                 SPIN_VERSION,
+                &self.auth_header_value,
             )
             .await?;
         try_install(
@@ -414,6 +443,7 @@ impl Upgrade {
             self.override_compatibility_check,
             self.downgrade,
             &manifest_location,
+            &self.auth_header_value,
         )
         .await?;
         Ok(())
@@ -434,6 +464,7 @@ impl Show {
                 &ManifestLocation::PluginsRepository(PluginLookup::new(&self.name, None)),
                 false,
                 SPIN_VERSION,
+                &None,
             )
             .await?;
 
@@ -789,6 +820,7 @@ async fn try_install(
     override_compatibility_check: bool,
     downgrade: bool,
     source: &ManifestLocation,
+    auth_header_value: &Option<String>,
 ) -> Result<bool> {
     let install_action = manager.check_manifest(
         manifest,
@@ -804,7 +836,9 @@ async fn try_install(
 
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
-        let installed = manager.install(manifest, package, source).await?;
+        let installed = manager
+            .install(manifest, package, source, auth_header_value)
+            .await?;
         println!("Plugin '{installed}' was installed successfully!");
 
         if let Some(description) = manifest.description() {

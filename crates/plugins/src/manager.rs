@@ -8,6 +8,7 @@ use crate::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use path_absolutize::Absolutize;
+use reqwest::{header::HeaderMap, Client};
 use serde::Serialize;
 use spin_common::sha256;
 use std::{
@@ -87,6 +88,7 @@ impl PluginManager {
         plugin_manifest: &PluginManifest,
         plugin_package: &PluginPackage,
         source: &ManifestLocation,
+        auth_header_value: &Option<String>,
     ) -> Result<String> {
         let target = plugin_package.url.to_owned();
         let target_url = Url::parse(&target)?;
@@ -105,7 +107,15 @@ impl PluginManager {
                     );
                 }
             }
-            _ => download_plugin(&plugin_manifest.name(), &temp_dir, &target).await?,
+            _ => {
+                download_plugin(
+                    &plugin_manifest.name(),
+                    &temp_dir,
+                    &target,
+                    auth_header_value,
+                )
+                .await?
+            }
         };
         verify_checksum(&plugin_tarball_path, &plugin_package.sha256)?;
 
@@ -185,11 +195,16 @@ impl PluginManager {
         manifest_location: &ManifestLocation,
         skip_compatibility_check: bool,
         spin_version: &str,
+        auth_header_value: &Option<String>,
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
                 tracing::info!("Pulling manifest for plugin from {url}");
-                reqwest::get(url.as_ref())
+                let client = Client::new();
+                client
+                    .get(url.as_ref())
+                    .headers(request_headers(auth_header_value)?)
+                    .send()
                     .await
                     .map_err(|e| {
                         Error::ConnectionFailed(ConnectionFailedError::new(
@@ -334,9 +349,19 @@ pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
         })
 }
 
-async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
+async fn download_plugin(
+    name: &str,
+    temp_dir: &TempDir,
+    target_url: &str,
+    auth_header_value: &Option<String>,
+) -> Result<PathBuf> {
     tracing::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
-    let plugin_bin = reqwest::get(target_url).await?;
+    let client = Client::new();
+    let plugin_bin = client
+        .get(target_url)
+        .headers(request_headers(auth_header_value)?)
+        .send()
+        .await?;
     if !plugin_bin.status().is_success() {
         match plugin_bin.status() {
             reqwest::StatusCode::NOT_FOUND => bail!("The download URL specified in the plugin manifest was not found ({target_url} returned HTTP error 404). Please contact the plugin author."),
@@ -364,6 +389,17 @@ fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
     }
 }
 
+/// Get the request headers for a call to the plugin API
+///
+/// If set, this will include the user provided authorization header.
+fn request_headers(auth_header_value: &Option<String>) -> Result<HeaderMap> {
+    let mut headers = HeaderMap::new();
+    if let Some(auth_value) = auth_header_value {
+        headers.insert(reqwest::header::AUTHORIZATION, auth_value.parse()?);
+    }
+    Ok(headers)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,6 +421,7 @@ mod tests {
                 &ManifestLocation::Local(PathBuf::from(
                     "../tests/nonexistent-url/nonexistent-url.json",
                 )),
+                &None,
             )
             .await;
 

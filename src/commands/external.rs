@@ -209,6 +209,7 @@ fn installer_for(plugin_name: &str) -> Install {
         remote_manifest_src: None,
         override_compatibility_check: false,
         version: None,
+        auth_header_value: None,
     }
 }
 

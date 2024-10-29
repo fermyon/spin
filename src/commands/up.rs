@@ -115,7 +115,7 @@ pub struct UpCommand {
     pub build: bool,
 
     /// [Experimental] Component ID to run. This can be specified multiple times. The default is all components.
-    #[clap(hide = true, short = 'c', long = "component-id")]
+    #[clap(short = 'c', long = "component-id")]
     pub components: Vec<String>,
 
     /// All other args, to be passed through to the trigger

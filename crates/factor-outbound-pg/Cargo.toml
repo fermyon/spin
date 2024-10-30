@@ -6,6 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
+chrono = "0.4"
 native-tls = "0.2"
 postgres-native-tls = "0.5"
 spin-core = { path = "../core" }
@@ -14,7 +15,7 @@ spin-factors = { path = "../factors" }
 spin-resource-table = { path = "../table" }
 spin-world = { path = "../world" }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tokio-postgres = "0.7"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

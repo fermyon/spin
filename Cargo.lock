@@ -5401,6 +5401,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f66ea23a2d0e5734297357705193335e0a957696f34bed2f2faefacb2fec336f"
 dependencies = [
  "bytes",
+ "chrono",
  "fallible-iterator 0.2.0",
  "postgres-protocol",
 ]
@@ -7211,6 +7212,7 @@ name = "spin-factor-outbound-pg"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
+ "chrono",
  "native-tls",
  "postgres-native-tls",
  "spin-core",

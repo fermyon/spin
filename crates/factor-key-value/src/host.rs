@@ -1,3 +1,4 @@
+use super::Cas;
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_resource_table::Table;
@@ -5,7 +6,6 @@ use spin_world::v2::key_value;
 use spin_world::wasi::keyvalue as wasi_keyvalue;
 use std::{collections::HashSet, sync::Arc};
 use tracing::{instrument, Level};
-use super::Cas;
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 
@@ -32,14 +32,13 @@ pub trait Store: Sync + Send {
     async fn delete(&self, key: &str) -> Result<(), Error>;
     async fn exists(&self, key: &str) -> Result<bool, Error>;
     async fn get_keys(&self) -> Result<Vec<String>, Error>;
-    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error>;
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error>;
     async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error>;
     async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error>;
     async fn increment(&self, key: String, delta: i64) -> Result<i64, Error>;
-    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn Cas>, Error>;
+    async fn new_compare_and_swap(&self, bucket_rep: u32, key: &str)
+        -> Result<Arc<dyn Cas>, Error>;
 }
-
-
 
 pub struct KeyValueDispatch {
     allowed_stores: HashSet<String>,
@@ -282,7 +281,7 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         &mut self,
         bucket: Resource<wasi_keyvalue::batch::Bucket>,
         keys: Vec<String>,
-    ) -> std::result::Result<Vec<Option<(String, Vec<u8>)>>, wasi_keyvalue::store::Error> {
+    ) -> std::result::Result<Vec<(String, Option<Vec<u8>>)>, wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
         store
             .get_many(keys.iter().map(|k| k.to_string()).collect())
@@ -321,11 +320,20 @@ impl wasi_keyvalue::atomics::HostCas for KeyValueDispatch {
         bucket: Resource<wasi_keyvalue::atomics::Bucket>,
         key: String,
     ) -> Result<Resource<wasi_keyvalue::atomics::Cas>, wasi_keyvalue::store::Error> {
+        let bucket_rep = bucket.rep();
+        let bucket: Resource<Bucket> = Resource::new_own(bucket_rep);
         let store = self.get_store_wasi(bucket)?;
-        let cas = store.new_compare_and_swap(&key).await.map_err(to_wasi_err)?;
+        let cas = store
+            .new_compare_and_swap(bucket_rep, &key)
+            .await
+            .map_err(to_wasi_err)?;
         self.compare_and_swaps
             .push(cas)
-            .map_err(|()| spin_world::wasi::keyvalue::store::Error::Other("too many compare_and_swaps opened".to_string()))
+            .map_err(|()| {
+                spin_world::wasi::keyvalue::store::Error::Other(
+                    "too many compare_and_swaps opened".to_string(),
+                )
+            })
             .map(Resource::new_own)
     }
 
@@ -361,15 +369,32 @@ impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
     #[instrument(name = "spin_key_value.swap", skip(self, cas_res, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn swap(
         &mut self,
-        cas_res: Resource<wasi_keyvalue::atomics::Cas>,
+        cas_res: Resource<atomics::Cas>,
         value: Vec<u8>,
-    ) -> Result<std::result::Result<(), wasi_keyvalue::atomics::CasError>> {
+    ) -> Result<std::result::Result<(), CasError>> {
+        let cas_rep = cas_res.rep();
         let cas = self
-            .get_cas(cas_res)
-            .map_err(|e| wasi_keyvalue::atomics::CasError::StoreError(wasi_keyvalue::atomics::Error::Other(e.to_string())))?;
-        Ok(cas.swap(value)
-            .await
-            .map_err(|e| wasi_keyvalue::atomics::CasError::StoreError(wasi_keyvalue::atomics::Error::Other(e.to_string()))))
+            .get_cas(Resource::<Bucket>::new_own(cas_rep))
+            .map_err(|e| CasError::StoreError(atomics::Error::Other(e.to_string())))?;
+
+        match cas.swap(value).await {
+            Ok(cas) => Ok(Ok(())),
+            Err(err) => {
+                if err.to_string().contains("CAS_ERROR") {
+                    let bucket = Resource::new_own(cas.bucket_rep().await);
+                    let new_cas = self.new(bucket, cas.key().await).await?;
+                    let new_cas_rep = new_cas.rep();
+                    self.current(Resource::new_own(new_cas_rep)).await?;
+                    Err(anyhow::Error::new(CasError::CasFailed(Resource::new_own(
+                        new_cas_rep,
+                    ))))
+                } else {
+                    Err(anyhow::Error::new(CasError::StoreError(
+                        atomics::Error::Other(err.to_string()),
+                    )))
+                }
+            }
+        }
     }
 }
 
@@ -379,6 +404,8 @@ pub fn log_error(err: impl std::fmt::Debug) -> Error {
 }
 
 use spin_world::v1::key_value::Error as LegacyError;
+use spin_world::wasi::keyvalue::atomics;
+use spin_world::wasi::keyvalue::atomics::{CasError, HostCas};
 
 fn to_legacy_error(value: key_value::Error) -> LegacyError {
     match value {

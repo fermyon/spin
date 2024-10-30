@@ -137,6 +137,8 @@ impl AppState {
 pub trait Cas: Sync + Send {
     async fn current(&self) -> anyhow::Result<Option<Vec<u8>>, Error>;
     async fn swap(&self, value: Vec<u8>) -> anyhow::Result<(), Error>;
+    async fn bucket_rep(&self) -> u32;
+    async fn key(&self) -> String;
 }
 
 pub struct InstanceBuilder {

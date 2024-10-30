@@ -238,7 +238,33 @@ impl Store for CachingStore {
             .collect())
     }
 
-    async fn get_many(&self, keys: Vec<String>) -> anyhow::Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+    async fn get_many(
+        &self,
+        keys: Vec<String>,
+    ) -> anyhow::Result<Vec<(String, Option<Vec<u8>>)>, Error> {
+        // // Retrieve the specified value from the cache, lazily populating the cache as necessary.
+        // let mut state = self.state.lock().await;
+        //
+        // let mut keys_and_values: Vec<Option<(String, Vec<u8>)>> = Vec::new();
+        // let mut keys_not_found: Vec<String> = Vec::new();
+        // for key in keys {
+        //     match state.cache.get(key.as_str()).cloned() {
+        //         Some(value) => keys_and_values.push(Some((key, value))),
+        //         None => keys_not_found.push(key),
+        //     }
+        // }
+        //
+        // // guarantee the guest will read its own writes even if entries have been popped off the end of the LRU
+        // // cache prior to their corresponding writes reaching the backing store.
+        // state.flush().await?;
+        //
+        // let value = self.inner.get(key).await?;
+        //
+        // state.cache.put(key.to_owned(), value.clone());
+        //
+        // Ok(value)
+        //
+
         todo!()
     }
 
@@ -254,7 +280,11 @@ impl Store for CachingStore {
         todo!()
     }
 
-    async fn new_compare_and_swap(&self, key: &str) -> anyhow::Result<Arc<dyn Cas>, Error> {
+    async fn new_compare_and_swap(
+        &self,
+        bucket_rep: u32,
+        key: &str,
+    ) -> anyhow::Result<Arc<dyn Cas>, Error> {
         todo!()
     }
 }

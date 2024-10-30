@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rusqlite::Connection;
+use rusqlite::{named_params, Connection};
 use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager};
 use std::rc::Rc;
@@ -53,6 +53,9 @@ impl KeyValueSqlite {
                 [],
             )
             .map_err(log_error)?;
+
+        // the array module is needed for `rarray` usage in queries.
+        rusqlite::vtab::array::load_module(&connection).map_err(log_error)?;
 
         Ok(Arc::new(Mutex::new(connection)))
     }
@@ -158,27 +161,27 @@ impl Store for SqliteStore {
         })
     }
 
-    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
         task::block_in_place(|| {
             let sql_value_keys: Vec<rusqlite::types::Value> =
                 keys.into_iter().map(rusqlite::types::Value::from).collect();
             let ptr = Rc::new(sql_value_keys);
-            let row_iter: Vec<Result<(String, Vec<u8>), Error>> = self.connection
+            let row_iter: Vec<Result<(String, Option<Vec<u8>>), Error>> = self.connection
                 .lock()
                 .unwrap()
                 .prepare_cached("SELECT key, value FROM spin_key_value WHERE store=:name AND key IN rarray(:keys)")
                 .map_err(log_error)?
-                .query_map((":name", &self.name, ":keys", ptr), |row| {
-                    <(String, Vec<u8>)>::try_from(row)
+                .query_map(named_params! {":name": &self.name, ":keys": ptr}, |row| {
+                    <(String, Option<Vec<u8>>)>::try_from(row)
                 })
                 .map_err(log_error)?
-                .map(|r: Result<(String, Vec<u8>), rusqlite::Error>| r.map_err(log_error))
+                .map(|r: Result<(String, Option<Vec<u8>>), rusqlite::Error>| r.map_err(log_error))
                 .collect();
 
-            let mut keys_and_values: Vec<Option<(String, Vec<u8>)>> = Vec::new();
+            let mut keys_and_values: Vec<(String, Option<Vec<u8>>)> = Vec::new();
             for row in row_iter {
                 let res = row.map_err(log_error)?;
-                keys_and_values.push(Some(res));
+                keys_and_values.push(res);
             }
             Ok(keys_and_values)
         })
@@ -210,9 +213,11 @@ impl Store for SqliteStore {
             self.connection
                 .lock()
                 .unwrap()
-                .prepare_cached("DELETE FROM spin_key_value WHERE store=:name AND key IN (:keys)")
+                .prepare_cached(
+                    "DELETE FROM spin_key_value WHERE store=:name AND key IN rarray(:keys)",
+                )
                 .map_err(log_error)?
-                .execute((":name", &self.name, ":keys", ptr))
+                .execute(named_params! {":name": &self.name, ":keys": ptr})
                 .map_err(log_error)
                 .map(drop)
         })
@@ -236,7 +241,7 @@ impl Store for SqliteStore {
                 .map_err(log_error)?;
 
             let numeric: i64 = match value {
-                Some(v) => i64::from_be_bytes(v.try_into().expect("incorrect length")),
+                Some(v) => i64::from_le_bytes(v.try_into().expect("incorrect length")),
                 None => 0,
             };
 
@@ -246,7 +251,7 @@ impl Store for SqliteStore {
                      ON CONFLICT(store, key) DO UPDATE SET value=$3",
             )
             .map_err(log_error)?
-            .execute(rusqlite::params![&self.name, key, new_value])
+            .execute(rusqlite::params![&self.name, key, new_value.to_le_bytes()])
             .map_err(log_error)
             .map(drop)?;
 
@@ -255,13 +260,17 @@ impl Store for SqliteStore {
         })
     }
 
-    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn Cas>, Error> {
-        let value = self.get(key).await?;
+    async fn new_compare_and_swap(
+        &self,
+        bucket_rep: u32,
+        key: &str,
+    ) -> Result<Arc<dyn Cas>, Error> {
         Ok(Arc::new(CompareAndSwap {
             name: self.name.clone(),
             key: key.to_string(),
             connection: self.connection.clone(),
-            value,
+            value: Mutex::new(None),
+            bucket_rep,
         }))
     }
 }
@@ -269,27 +278,64 @@ impl Store for SqliteStore {
 struct CompareAndSwap {
     name: String,
     key: String,
-    value: Option<Vec<u8>>,
+    value: Mutex<Option<Vec<u8>>>,
     connection: Arc<Mutex<Connection>>,
+    bucket_rep: u32,
 }
 
 #[async_trait]
 impl Cas for CompareAndSwap {
     async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
-        Ok(self.value.clone())
+        task::block_in_place(|| {
+            let value: Option<Vec<u8>> = self
+                .connection
+                .lock()
+                .unwrap()
+                .prepare_cached("SELECT value FROM spin_key_value WHERE store=$1 AND key=$2")
+                .map_err(log_error)?
+                .query_map([&self.name, &self.key], |row| row.get(0))
+                .map_err(log_error)?
+                .next()
+                .transpose()
+                .map_err(log_error)?;
+
+            *self.value.lock().unwrap() = value.clone();
+            Ok(value.clone())
+        })
     }
 
     async fn swap(&self, value: Vec<u8>) -> Result<(), Error> {
         task::block_in_place(|| {
-            self.connection
+            let old_value = self.value.lock().unwrap();
+            let rows_changed = self.connection
                 .lock()
                 .unwrap()
-                .prepare_cached("UPDATE spin_key_value SET value=$3 WHERE store=$1 and key=$2")
+                .prepare_cached(
+                    "UPDATE spin_key_value SET value=:new_value WHERE store=:name and key=:key and value=:old_value",
+                )
                 .map_err(log_error)?
-                .execute(rusqlite::params![&self.name, self.key, value])
-                .map_err(log_error)
-                .map(drop)
+                .execute(named_params! {
+                    ":name": &self.name,
+                    ":key": self.key,
+                    ":old_value": old_value.clone().unwrap(),
+                    ":new_value": value,
+                })
+                .map_err(log_error)?;
+
+            if rows_changed == 1 {
+                Ok(())
+            } else {
+                Err(Error::Other("CAS_ERROR".to_owned()))
+            }
         })
+    }
+
+    async fn bucket_rep(&self) -> u32 {
+        self.bucket_rep
+    }
+
+    async fn key(&self) -> String {
+        self.key.clone()
     }
 }
 
@@ -299,6 +345,9 @@ mod test {
     use spin_core::wasmtime::component::Resource;
     use spin_factor_key_value::{DelegatingStoreManager, KeyValueDispatch};
     use spin_world::v2::key_value::HostStore;
+    use spin_world::wasi::keyvalue::atomics::HostCas as wasi_cas_host;
+    use spin_world::wasi::keyvalue::atomics::{CasError, Host};
+    use spin_world::wasi::keyvalue::batch::Host as wasi_batch_host;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
@@ -383,8 +432,138 @@ mod test {
             Ok(None)
         ));
 
-        kv.drop(Resource::new_own(rep)).await?;
+        let keys_and_values: Vec<(String, Vec<u8>)> = vec![
+            ("bin".to_string(), b"baz".to_vec()),
+            ("alex".to_string(), b"pat".to_vec()),
+        ];
+        assert!(kv
+            .set_many(Resource::new_own(rep), keys_and_values.clone())
+            .await
+            .is_ok());
+
+        let res = kv
+            .get_many(
+                Resource::new_own(rep),
+                keys_and_values
+                    .clone()
+                    .iter()
+                    .map(|key_value| key_value.0.clone())
+                    .collect(),
+            )
+            .await;
+
+        assert!(
+            res.is_ok(),
+            "failed with {}",
+            res.err().unwrap().to_string()
+        );
+        assert_eq!(
+            kv.get(Resource::new_own(rep), "bin".to_owned())
+                .await??
+                .unwrap(),
+            b"baz".to_vec()
+        );
+
+        assert_eq!(kv_incr(&mut kv, rep, 1).await, 1);
+        assert_eq!(kv_incr(&mut kv, rep, 2).await, 3);
+        assert_eq!(kv_incr(&mut kv, rep, -10).await, -7);
+
+        let res = kv
+            .delete_many(
+                Resource::new_own(rep),
+                vec!["counter".to_owned(), "bin".to_owned(), "alex".to_owned()],
+            )
+            .await;
+        assert!(
+            res.is_ok(),
+            "failed with {}",
+            res.err().unwrap().to_string()
+        );
+        assert_eq!(kv.get_keys(Resource::new_own(rep)).await??.len(), 0);
+
+        // Compare and Swap tests
+        cas_failed(&mut kv, rep).await?;
+        cas_succeeds(&mut kv, rep).await?;
+
+        HostStore::drop(&mut kv, Resource::new_own(rep)).await?;
 
         Ok(())
+    }
+
+    async fn cas_failed(kv: &mut KeyValueDispatch, rep: u32) -> Result<()> {
+        let cas_key = "fail".to_owned();
+        let cas_orig_value = b"baz".to_vec();
+        kv.set(
+            Resource::new_own(rep),
+            cas_key.clone(),
+            cas_orig_value.clone(),
+        )
+        .await??;
+        let cas = kv.new(Resource::new_own(rep), cas_key.clone()).await?;
+        let cas_rep = cas.rep();
+        let current_val = kv.current(Resource::new_own(cas_rep)).await?.unwrap();
+        assert_eq!(
+            String::from_utf8(cas_orig_value)?,
+            String::from_utf8(current_val)?
+        );
+
+        // change the value midway through a compare_and_set
+        kv.set(Resource::new_own(rep), cas_key.clone(), b"foo".to_vec())
+            .await??;
+        let cas_final_value = b"This should fail with a CAS error".to_vec();
+        let res = kv.swap(Resource::new_own(cas.rep()), cas_final_value).await;
+        match res {
+            Ok(_) => assert!(false, "expected a CAS failure"),
+            Err(err) => {
+                for cause in err.chain() {
+                    if let Some(cas_err) = cause.downcast_ref::<CasError>() {
+                        assert!(matches!(cas_err, CasError::CasFailed(_)));
+                        return Ok(());
+                    }
+                }
+                assert!(false, "expected a CAS failure")
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn cas_succeeds(kv: &mut KeyValueDispatch, rep: u32) -> Result<()> {
+        let cas_key = "succeed".to_owned();
+        let cas_orig_value = b"baz".to_vec();
+        kv.set(
+            Resource::new_own(rep),
+            cas_key.clone(),
+            cas_orig_value.clone(),
+        )
+        .await??;
+        let cas = kv.new(Resource::new_own(rep), cas_key.clone()).await?;
+        let cas_rep = cas.rep();
+        let current_val = kv.current(Resource::new_own(cas_rep)).await?.unwrap();
+        assert_eq!(
+            String::from_utf8(cas_orig_value)?,
+            String::from_utf8(current_val)?
+        );
+        let cas_final_value = b"This should update key bar".to_vec();
+        let res = kv.swap(Resource::new_own(cas.rep()), cas_final_value).await;
+        match res {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                assert!(false, "unexpected err: {}", err.to_string());
+                todo!()
+            }
+        }
+    }
+
+    async fn kv_incr(kv: &mut KeyValueDispatch, rep: u32, delta: i64) -> i64 {
+        let res = kv
+            .increment(Resource::new_own(rep), "counter".to_owned(), delta)
+            .await;
+        assert!(
+            res.is_ok(),
+            "failed with {}",
+            res.err().unwrap().to_string()
+        );
+        res.unwrap()
     }
 }

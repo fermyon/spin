@@ -152,7 +152,7 @@ impl Store for AzureCosmosStore {
         self.get_keys().await
     }
 
-    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<Option<(String, Vec<u8>)>>, Error> {
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
         todo!()
     }
 
@@ -168,7 +168,11 @@ impl Store for AzureCosmosStore {
         todo!()
     }
 
-    async fn new_compare_and_swap(&self, key: &str) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
+    async fn new_compare_and_swap(
+        &self,
+        bucket_rep: u32,
+        key: &str,
+    ) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
         todo!()
     }
 }

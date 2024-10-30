@@ -8,11 +8,11 @@ use store::{
 
 /// A key-value store that uses AWS Dynamo as the backend.
 #[derive(Default)]
-pub struct AwsKeyValueStore {
+pub struct AwsDynamoKeyValueStore {
     _priv: (),
 }
 
-impl AwsKeyValueStore {
+impl AwsDynamoKeyValueStore {
     /// Creates a new `AwsKeyValueStore`.
     pub fn new() -> Self {
         Self::default()
@@ -34,7 +34,7 @@ pub struct AwsDynamoKeyValueRuntimeConfig {
     table: String,
 }
 
-impl MakeKeyValueStore for AwsKeyValueStore {
+impl MakeKeyValueStore for AwsDynamoKeyValueStore {
     const RUNTIME_CONFIG_TYPE: &'static str = "aws_dynamo";
 
     type RuntimeConfig = AwsDynamoKeyValueRuntimeConfig;

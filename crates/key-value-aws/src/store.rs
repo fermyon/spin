@@ -77,27 +77,24 @@ impl KeyValueAwsDynamo {
         auth_options: KeyValueAwsDynamoAuthOptions,
     ) -> Result<Self> {
         let region_clone = region.clone();
-        let client_fut: std::pin::Pin<Box<dyn std::future::Future<Output = Client> + Send>> =
-            Box::pin(async move {
-                let config = match auth_options {
-                    KeyValueAwsDynamoAuthOptions::RuntimeConfigValues(config) => {
-                        SdkConfig::builder()
-                            .credentials_provider(SharedCredentialsProvider::new(config))
-                            .region(Region::new(region_clone))
-                            .behavior_version(BehaviorVersion::latest())
-                            .build()
-                    }
-                    KeyValueAwsDynamoAuthOptions::Environmental => {
-                        aws_config::load_defaults(BehaviorVersion::latest()).await
-                    }
-                };
-                Client::new(&config)
-            });
+        let client_fut = Box::pin(async move {
+            let sdk_config = match auth_options {
+                KeyValueAwsDynamoAuthOptions::RuntimeConfigValues(config) => SdkConfig::builder()
+                    .credentials_provider(SharedCredentialsProvider::new(config))
+                    .region(Region::new(region_clone))
+                    .behavior_version(BehaviorVersion::latest())
+                    .build(),
+                KeyValueAwsDynamoAuthOptions::Environmental => {
+                    aws_config::load_defaults(BehaviorVersion::latest()).await
+                }
+            };
+            Client::new(&sdk_config)
+        });
 
         Ok(Self {
-            client: async_once_cell::Lazy::from_future(client_fut),
             table,
             region,
+            client: async_once_cell::Lazy::from_future(client_fut),
         })
     }
 }
@@ -143,7 +140,7 @@ impl Store for AwsDynamoStore {
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         self.client
             .put_item()
-            .table_name(self.table.clone())
+            .table_name(&self.table)
             .item(PK, AttributeValue::S(key.to_string()))
             .item(VAL, AttributeValue::B(Blob::new(value)))
             .send()
@@ -156,7 +153,7 @@ impl Store for AwsDynamoStore {
         if self.exists(key).await? {
             self.client
                 .delete_item()
-                .table_name(self.table.clone())
+                .table_name(&self.table)
                 .key(PK, AttributeValue::S(key.to_string()))
                 .send()
                 .await
@@ -176,22 +173,27 @@ impl Store for AwsDynamoStore {
 
 impl AwsDynamoStore {
     async fn get_item(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
-        let query = self
+        let response = self
             .client
             .get_item()
-            .table_name(self.table.clone())
-            .key(PK, aws_sdk_dynamodb::types::AttributeValue::S(key.into()))
+            .table_name(&self.table)
+            .key(
+                PK,
+                aws_sdk_dynamodb::types::AttributeValue::S(key.to_string()),
+            )
             .send()
             .await
             .map_err(log_error)?;
 
-        Ok(query.item.and_then(|item| {
-            if let Some(AttributeValue::B(val)) = item.get(VAL) {
-                Some(val.clone().into_inner())
+        let val = response.item.and_then(|mut item| {
+            if let Some(AttributeValue::B(val)) = item.remove(VAL) {
+                Some(val.into_inner())
             } else {
                 None
             }
-        }))
+        });
+
+        Ok(val)
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
@@ -202,7 +204,7 @@ impl AwsDynamoStore {
             let mut scan_builder = self
                 .client
                 .scan()
-                .table_name(self.table.clone())
+                .table_name(&self.table)
                 .projection_expression(PK);
 
             if let Some(keys) = last_evaluated_key {
@@ -214,9 +216,9 @@ impl AwsDynamoStore {
             let scan_output = scan_builder.send().await.map_err(log_error)?;
 
             if let Some(items) = scan_output.items {
-                for item in items {
-                    if let Some(AttributeValue::S(pk)) = item.get(PK) {
-                        primary_keys.push(pk.clone());
+                for mut item in items {
+                    if let Some(AttributeValue::S(pk)) = item.remove(PK) {
+                        primary_keys.push(pk);
                     }
                 }
             }

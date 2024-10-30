@@ -401,7 +401,7 @@ pub fn key_value_config_resolver(
         .register_store_type(spin_key_value_azure::AzureKeyValueStore::new())
         .unwrap();
     key_value
-        .register_store_type(spin_key_value_aws::AwsKeyValueStore::new())
+        .register_store_type(spin_key_value_aws::AwsDynamoKeyValueStore::new())
         .unwrap();
 
     // Add handling of "default" store.

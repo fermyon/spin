@@ -1,4 +1,4 @@
-use crate::{Cas, Error, Store, StoreManager};
+use crate::{Cas, Error, Store, StoreManager, SwapError};
 use lru::LruCache;
 use spin_core::async_trait;
 use std::{
@@ -92,10 +92,10 @@ impl<T: StoreManager> StoreManager for CachingStoreManager<T> {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         Ok(Arc::new(CachingStore {
             inner: self.inner.get(name).await?,
-            state: AsyncMutex::new(CachingStoreState {
+            state: Arc::new(AsyncMutex::new(CachingStoreState {
                 cache: LruCache::new(self.capacity),
                 previous_task: None,
-            }),
+            })),
         }))
     }
 
@@ -143,7 +143,7 @@ impl CachingStoreState {
 
 struct CachingStore {
     inner: Arc<dyn Store>,
-    state: AsyncMutex<CachingStoreState>,
+    state: Arc<AsyncMutex<CachingStoreState>>,
 }
 
 #[async_trait]
@@ -242,42 +242,52 @@ impl Store for CachingStore {
         &self,
         keys: Vec<String>,
     ) -> anyhow::Result<Vec<(String, Option<Vec<u8>>)>, Error> {
-        // // Retrieve the specified value from the cache, lazily populating the cache as necessary.
-        // let mut state = self.state.lock().await;
-        //
-        // let mut keys_and_values: Vec<Option<(String, Vec<u8>)>> = Vec::new();
-        // let mut keys_not_found: Vec<String> = Vec::new();
-        // for key in keys {
-        //     match state.cache.get(key.as_str()).cloned() {
-        //         Some(value) => keys_and_values.push(Some((key, value))),
-        //         None => keys_not_found.push(key),
-        //     }
-        // }
-        //
-        // // guarantee the guest will read its own writes even if entries have been popped off the end of the LRU
-        // // cache prior to their corresponding writes reaching the backing store.
-        // state.flush().await?;
-        //
-        // let value = self.inner.get(key).await?;
-        //
-        // state.cache.put(key.to_owned(), value.clone());
-        //
-        // Ok(value)
-        //
+        let mut state = self.state.lock().await;
+        let mut found: Vec<(String, Option<Vec<u8>>)> = Vec::new();
+        let mut not_found: Vec<String> = Vec::new();
+        for key in keys {
+            match state.cache.get(key.as_str()) {
+                Some(Some(value)) => found.push((key, Some(value.clone()))),
+                _ => not_found.push(key),
+            }
+        }
 
-        todo!()
+        let keys_and_values = self.inner.get_many(not_found).await?;
+        for (key, value) in keys_and_values {
+            found.push((key.clone(), value.clone()));
+            state.cache.put(key, value);
+        }
+
+        Ok(found)
     }
 
     async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> anyhow::Result<(), Error> {
-        todo!()
+        let mut state = self.state.lock().await;
+
+        for (key, value) in key_values.clone() {
+            state.cache.put(key, Some(value));
+        }
+
+        self.inner.set_many(key_values).await
     }
 
     async fn delete_many(&self, keys: Vec<String>) -> anyhow::Result<(), Error> {
-        todo!()
+        let mut state = self.state.lock().await;
+
+        for key in keys.clone() {
+            state.cache.put(key, None);
+        }
+
+        self.inner.delete_many(keys).await
     }
 
     async fn increment(&self, key: String, delta: i64) -> anyhow::Result<i64, Error> {
-        todo!()
+        let mut state = self.state.lock().await;
+        let counter = self.inner.increment(key.clone(), delta).await?;
+        state
+            .cache
+            .put(key, Some(i64::to_le_bytes(counter).to_vec()));
+        Ok(counter)
     }
 
     async fn new_compare_and_swap(
@@ -285,6 +295,65 @@ impl Store for CachingStore {
         bucket_rep: u32,
         key: &str,
     ) -> anyhow::Result<Arc<dyn Cas>, Error> {
-        todo!()
+        let inner = self.inner.new_compare_and_swap(bucket_rep, key).await?;
+        Ok(Arc::new(CompareAndSwap {
+            bucket_rep,
+            state: self.state.clone(),
+            key: key.to_string(),
+            inner_cas: inner,
+        }))
+    }
+}
+
+struct CompareAndSwap {
+    bucket_rep: u32,
+    key: String,
+    state: Arc<AsyncMutex<CachingStoreState>>,
+    inner_cas: Arc<dyn Cas>,
+}
+
+#[async_trait]
+impl Cas for CompareAndSwap {
+    async fn current(&self) -> anyhow::Result<Option<Vec<u8>>, Error> {
+        let mut state = self.state.lock().await;
+        state.flush().await?;
+        let res = self.inner_cas.current().await;
+        match res.clone() {
+            Ok(value) => {
+                state.cache.put(self.key.clone(), value.clone());
+                state.flush().await?;
+                Ok(value)
+            }
+            Err(err) => Err(err),
+        }?;
+        res
+    }
+
+    async fn swap(&self, value: Vec<u8>) -> anyhow::Result<(), SwapError> {
+        let mut state = self.state.lock().await;
+        state
+            .flush()
+            .await
+            .map_err(|_e| SwapError::Other("failed flushing".to_string()))?;
+        let res = self.inner_cas.swap(value.clone()).await;
+        match res {
+            Ok(()) => {
+                state.cache.put(self.key.clone(), Some(value));
+                state
+                    .flush()
+                    .await
+                    .map_err(|_e| SwapError::Other("failed flushing".to_string()))?;
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn bucket_rep(&self) -> u32 {
+        self.bucket_rep
+    }
+
+    async fn key(&self) -> String {
+        self.key.clone()
     }
 }

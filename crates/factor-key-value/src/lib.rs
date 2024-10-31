@@ -15,7 +15,7 @@ use spin_locked_app::MetadataKey;
 
 /// Metadata key for key-value stores.
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
-pub use host::{log_error, Error, KeyValueDispatch, Store, StoreManager};
+pub use host::{log_cas_error, log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
 use spin_core::async_trait;
 pub use util::{CachingStoreManager, DelegatingStoreManager};
@@ -42,6 +42,8 @@ impl Factor for KeyValueFactor {
         ctx.link_bindings(spin_world::v1::key_value::add_to_linker)?;
         ctx.link_bindings(spin_world::v2::key_value::add_to_linker)?;
         ctx.link_bindings(spin_world::wasi::keyvalue::store::add_to_linker)?;
+        ctx.link_bindings(spin_world::wasi::keyvalue::batch::add_to_linker)?;
+        ctx.link_bindings(spin_world::wasi::keyvalue::atomics::add_to_linker)?;
         Ok(())
     }
 
@@ -133,10 +135,33 @@ impl AppState {
     }
 }
 
+/// `SwapError` are errors that occur during compare and swap operations
+#[derive(Debug, thiserror::Error)]
+pub enum SwapError {
+    #[error("{0}")]
+    CasFailed(String),
+
+    #[error("{0}")]
+    Other(String),
+}
+
+/// `Cas` trait describes the interface a key value compare and swap implementor must fulfill.
+///
+/// `current` is expected to get the current value for the key associated with the CAS operation
+/// while also starting what is needed to ensure the value to be replaced will not have mutated
+/// between the time of calling `current` and `swap`. For example, a get from a backend store
+/// may provide the caller with an etag (a version stamp), which can be used with an if-match
+/// header to ensure the version updated is the version that was read (optimistic concurrency).
+/// Rather than an etag, one could start a transaction, if supported by the backing store, which
+/// would provide atomicity.
+///
+/// `swap` is expected to replace the old value with the new value respecting the atomicity of the
+/// operation. If there was no key / value with the given key in the store, the `swap` operation
+/// should **insert** the key and value, disallowing an update.
 #[async_trait]
 pub trait Cas: Sync + Send {
     async fn current(&self) -> anyhow::Result<Option<Vec<u8>>, Error>;
-    async fn swap(&self, value: Vec<u8>) -> anyhow::Result<(), Error>;
+    async fn swap(&self, value: Vec<u8>) -> anyhow::Result<(), SwapError>;
     async fn bucket_rep(&self) -> u32;
     async fn key(&self) -> String;
 }

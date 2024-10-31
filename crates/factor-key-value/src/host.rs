@@ -1,4 +1,4 @@
-use super::Cas;
+use super::{Cas, SwapError};
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_resource_table::Table;
@@ -378,9 +378,9 @@ impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
             .map_err(|e| CasError::StoreError(atomics::Error::Other(e.to_string())))?;
 
         match cas.swap(value).await {
-            Ok(cas) => Ok(Ok(())),
-            Err(err) => {
-                if err.to_string().contains("CAS_ERROR") {
+            Ok(_) => Ok(Ok(())),
+            Err(err) => match err {
+                SwapError::CasFailed(_) => {
                     let bucket = Resource::new_own(cas.bucket_rep().await);
                     let new_cas = self.new(bucket, cas.key().await).await?;
                     let new_cas_rep = new_cas.rep();
@@ -388,12 +388,11 @@ impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
                     Err(anyhow::Error::new(CasError::CasFailed(Resource::new_own(
                         new_cas_rep,
                     ))))
-                } else {
-                    Err(anyhow::Error::new(CasError::StoreError(
-                        atomics::Error::Other(err.to_string()),
-                    )))
                 }
-            }
+                SwapError::Other(msg) => Err(anyhow::Error::new(CasError::StoreError(
+                    atomics::Error::Other(msg),
+                ))),
+            },
         }
     }
 }
@@ -401,6 +400,11 @@ impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
 pub fn log_error(err: impl std::fmt::Debug) -> Error {
     tracing::warn!("key-value error: {err:?}");
     Error::Other(format!("{err:?}"))
+}
+
+pub fn log_cas_error(err: impl std::fmt::Debug) -> SwapError {
+    tracing::warn!("key-value error: {err:?}");
+    SwapError::Other(format!("{err:?}"))
 }
 
 use spin_world::v1::key_value::Error as LegacyError;

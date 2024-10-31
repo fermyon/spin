@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::{named_params, Connection};
 use spin_core::async_trait;
-use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager};
+use spin_factor_key_value::{log_cas_error, log_error, Cas, Error, Store, StoreManager, SwapError};
 use std::rc::Rc;
 use std::{
     path::PathBuf,
@@ -299,12 +299,12 @@ impl Cas for CompareAndSwap {
                 .transpose()
                 .map_err(log_error)?;
 
-            *self.value.lock().unwrap() = value.clone();
+            self.value.lock().unwrap().clone_from(&value);
             Ok(value.clone())
         })
     }
 
-    async fn swap(&self, value: Vec<u8>) -> Result<(), Error> {
+    async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
         task::block_in_place(|| {
             let old_value = self.value.lock().unwrap();
             let rows_changed = self.connection
@@ -313,19 +313,20 @@ impl Cas for CompareAndSwap {
                 .prepare_cached(
                     "UPDATE spin_key_value SET value=:new_value WHERE store=:name and key=:key and value=:old_value",
                 )
-                .map_err(log_error)?
+                .map_err(log_cas_error)?
                 .execute(named_params! {
                     ":name": &self.name,
                     ":key": self.key,
                     ":old_value": old_value.clone().unwrap(),
                     ":new_value": value,
                 })
-                .map_err(log_error)?;
+                .map_err(log_cas_error)?;
 
+            // We expect only 1 row to be updated. If 0, we know that the underlying value has changed.
             if rows_changed == 1 {
                 Ok(())
             } else {
-                Err(Error::Other("CAS_ERROR".to_owned()))
+                Err(SwapError::CasFailed("failed to update 1 row".to_owned()))
             }
         })
     }
@@ -452,11 +453,7 @@ mod test {
             )
             .await;
 
-        assert!(
-            res.is_ok(),
-            "failed with {}",
-            res.err().unwrap().to_string()
-        );
+        assert!(res.is_ok(), "failed with {:?}", res.err());
         assert_eq!(
             kv.get(Resource::new_own(rep), "bin".to_owned())
                 .await??
@@ -474,11 +471,7 @@ mod test {
                 vec!["counter".to_owned(), "bin".to_owned(), "alex".to_owned()],
             )
             .await;
-        assert!(
-            res.is_ok(),
-            "failed with {}",
-            res.err().unwrap().to_string()
-        );
+        assert!(res.is_ok(), "failed with {:?}", res.err());
         assert_eq!(kv.get_keys(Resource::new_own(rep)).await??.len(), 0);
 
         // Compare and Swap tests
@@ -513,7 +506,7 @@ mod test {
         let cas_final_value = b"This should fail with a CAS error".to_vec();
         let res = kv.swap(Resource::new_own(cas.rep()), cas_final_value).await;
         match res {
-            Ok(_) => assert!(false, "expected a CAS failure"),
+            Ok(_) => panic!("expected a CAS failure"),
             Err(err) => {
                 for cause in err.chain() {
                     if let Some(cas_err) = cause.downcast_ref::<CasError>() {
@@ -521,11 +514,9 @@ mod test {
                         return Ok(());
                     }
                 }
-                assert!(false, "expected a CAS failure")
+                panic!("expected a CAS failure")
             }
         }
-
-        Ok(())
     }
 
     async fn cas_succeeds(kv: &mut KeyValueDispatch, rep: u32) -> Result<()> {
@@ -549,8 +540,7 @@ mod test {
         match res {
             Ok(_) => Ok(()),
             Err(err) => {
-                assert!(false, "unexpected err: {}", err.to_string());
-                todo!()
+                panic!("unexpected err: {:?}", err);
             }
         }
     }
@@ -559,11 +549,7 @@ mod test {
         let res = kv
             .increment(Resource::new_own(rep), "counter".to_owned(), delta)
             .await;
-        assert!(
-            res.is_ok(),
-            "failed with {}",
-            res.err().unwrap().to_string()
-        );
+        assert!(res.is_ok(), "failed with {:?}", res.err());
         res.unwrap()
     }
 }

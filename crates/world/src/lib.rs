@@ -10,6 +10,7 @@ wasmtime::component::bindgen!({
         include fermyon:spin/host;
         include fermyon:spin/platform@2.0.0;
         include fermyon:spin/platform@3.0.0;
+        include wasi:keyvalue/imports@0.2.0-draft2;
     }
     "#,
     path: "../../wit",

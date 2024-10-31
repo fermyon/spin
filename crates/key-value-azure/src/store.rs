@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::Result;
+use azure_data_cosmos::prelude::Operation;
+use azure_data_cosmos::resources::collection::PartitionKey;
 use azure_data_cosmos::{
     prelude::{AuthorizationToken, CollectionClient, CosmosClient, Query},
     CosmosEntity,
@@ -8,7 +8,8 @@ use azure_data_cosmos::{
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use spin_core::async_trait;
-use spin_factor_key_value::{log_error, Error, Store, StoreManager};
+use spin_factor_key_value::{log_cas_error, log_error, Cas, Error, Store, StoreManager, SwapError};
+use std::sync::{Arc, Mutex};
 
 pub struct KeyValueAzureCosmos {
     client: CollectionClient,
@@ -111,9 +112,17 @@ impl StoreManager for KeyValueAzureCosmos {
     }
 }
 
+#[derive(Clone)]
 struct AzureCosmosStore {
     _name: String,
     client: CollectionClient,
+}
+
+struct CompareAndSwap {
+    key: String,
+    client: CollectionClient,
+    bucket_rep: u32,
+    etag: Mutex<Option<String>>,
 }
 
 #[async_trait]
@@ -153,19 +162,61 @@ impl Store for AzureCosmosStore {
     }
 
     async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
-        todo!()
+        let in_clause: String = keys
+            .into_iter()
+            .map(|k| format!("'{}'", k))
+            .collect::<Vec<String>>()
+            .join(", ");
+        let stmt = Query::new(format!("SELECT * FROM c WHERE c.id IN ({})", in_clause));
+        let query = self
+            .client
+            .query_documents(stmt)
+            .query_cross_partition(true);
+
+        let mut res = Vec::new();
+        let mut stream = query.into_stream::<Pair>();
+        while let Some(resp) = stream.next().await {
+            let resp = resp.map_err(log_error)?;
+            for (pair, _) in resp.results {
+                res.push((pair.id, Some(pair.value)));
+            }
+        }
+        Ok(res)
     }
 
     async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error> {
-        todo!()
+        for (key, value) in key_values {
+            self.set(key.as_ref(), &value).await?
+        }
+        Ok(())
     }
 
     async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error> {
-        todo!()
+        for key in keys {
+            self.delete(key.as_ref()).await?
+        }
+        Ok(())
     }
 
     async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
-        todo!()
+        let operations = vec![Operation::incr("/value", delta).map_err(log_error)?];
+        let _ = self
+            .client
+            .document_client(key.clone(), &key.as_str())
+            .map_err(log_error)?
+            .patch_document(operations)
+            .await
+            .map_err(log_error)?;
+        let pair = self.get_pair(key.as_ref()).await?;
+        match pair {
+            Some(p) => Ok(i64::from_le_bytes(
+                p.value.try_into().expect("incorrect length"),
+            )),
+            None => Err(Error::Other(
+                "increment returned an empty value after patching, which indicates a bug"
+                    .to_string(),
+            )),
+        }
     }
 
     async fn new_compare_and_swap(
@@ -173,7 +224,95 @@ impl Store for AzureCosmosStore {
         bucket_rep: u32,
         key: &str,
     ) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
-        todo!()
+        Ok(Arc::new(CompareAndSwap {
+            key: key.to_string(),
+            client: self.client.clone(),
+            etag: Mutex::new(None),
+            bucket_rep,
+        }))
+    }
+}
+
+#[async_trait]
+impl Cas for CompareAndSwap {
+    /// `current` will fetch the current value for the key and store the etag for the record. The
+    /// etag will be used to perform and optimistic concurrency update using the `if-match` header.
+    async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
+        let mut stream = self
+            .client
+            .query_documents(Query::new(format!(
+                "SELECT * FROM c WHERE c.id='{}'",
+                self.key
+            )))
+            .query_cross_partition(true)
+            .max_item_count(1)
+            .into_stream::<Pair>();
+
+        let current_value: Option<(Vec<u8>, Option<String>)> = match stream.next().await {
+            Some(r) => {
+                let r = r.map_err(log_error)?;
+                match r.results.first() {
+                    Some((item, Some(attr))) => {
+                        Some((item.clone().value, Some(attr.etag().to_string())))
+                    }
+                    Some((item, None)) => Some((item.clone().value, None)),
+                    _ => None,
+                }
+            }
+            None => None,
+        };
+
+        match current_value {
+            Some((value, etag)) => {
+                self.etag.lock().unwrap().clone_from(&etag);
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// `swap` updates the value for the key using the etag saved in the `current` function for
+    /// optimistic concurrency.
+    async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
+        let pk = PartitionKey::from(&self.key);
+        let pair = Pair {
+            id: self.key.clone(),
+            value,
+        };
+
+        let doc_client = self
+            .client
+            .document_client(&self.key, &pk)
+            .map_err(log_cas_error)?;
+
+        let etag_value = self.etag.lock().unwrap().clone();
+        match etag_value {
+            Some(etag) => {
+                // attempt to replace the document if the etag matches
+                doc_client
+                    .replace_document(pair)
+                    .if_match_condition(azure_core::request_options::IfMatchCondition::Match(etag))
+                    .await
+                    .map_err(|e| SwapError::CasFailed(format!("{e:?}")))
+                    .map(drop)
+            }
+            None => {
+                // if we have no etag, then we assume the document does not yet exist and must insert; no upserts.
+                self.client
+                    .create_document(pair)
+                    .await
+                    .map_err(|e| SwapError::CasFailed(format!("{e:?}")))
+                    .map(drop)
+            }
+        }
+    }
+
+    async fn bucket_rep(&self) -> u32 {
+        self.bucket_rep
+    }
+
+    async fn key(&self) -> String {
+        self.key.clone()
     }
 }
 

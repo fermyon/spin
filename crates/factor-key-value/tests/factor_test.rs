@@ -1,6 +1,6 @@
 use anyhow::bail;
 use spin_core::async_trait;
-use spin_factor_key_value::{KeyValueFactor, RuntimeConfig, Store, StoreManager};
+use spin_factor_key_value::{Cas, KeyValueFactor, RuntimeConfig, Store, StoreManager};
 use spin_factors::RuntimeFactors;
 use spin_factors_test::{toml, TestEnvironment};
 use spin_world::v2::key_value::{Error, HostStore};
@@ -138,6 +138,38 @@ impl Store for MockStore {
         todo!()
     }
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
+        todo!()
+    }
+
+    async fn get_many(
+        &self,
+        keys: Vec<String>,
+    ) -> anyhow::Result<Vec<(String, Option<Vec<u8>>)>, Error> {
+        let _ = keys;
+        todo!()
+    }
+
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> anyhow::Result<(), Error> {
+        let _ = key_values;
+        todo!()
+    }
+
+    async fn delete_many(&self, keys: Vec<String>) -> anyhow::Result<(), Error> {
+        let _ = keys;
+        todo!()
+    }
+
+    async fn increment(&self, key: String, delta: i64) -> anyhow::Result<i64, Error> {
+        let (_, _) = (key, delta);
+        todo!()
+    }
+
+    async fn new_compare_and_swap(
+        &self,
+        bucket_rep: u32,
+        key: &str,
+    ) -> anyhow::Result<Arc<dyn Cas>, Error> {
+        let (_, _) = (key, bucket_rep);
         todo!()
     }
 }

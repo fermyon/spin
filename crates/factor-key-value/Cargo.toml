@@ -16,6 +16,7 @@ spin-world = { path = "../world" }
 tokio = { workspace = true, features = ["macros", "sync", "rt"] }
 toml = { workspace = true }
 tracing = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

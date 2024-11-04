@@ -7093,6 +7093,7 @@ dependencies = [
  "spin-resource-table",
  "spin-world",
  "tempfile",
+ "thiserror",
  "tokio",
  "toml 0.8.19",
  "tracing",
@@ -7355,6 +7356,7 @@ name = "spin-key-value-azure"
 version = "2.8.0-pre0"
 dependencies = [
  "anyhow",
+ "azure_core",
  "azure_data_cosmos",
  "azure_identity",
  "futures",

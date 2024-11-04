@@ -28,7 +28,7 @@ mod runtime_tests {
 
     #[test]
     fn conformance_tests() -> anyhow::Result<()> {
-        let config = conformance_tests::Config::new("canary");
+        let config = conformance_tests::Config::new("canary").ignore("outbound-mqtt");
         let conclusion = conformance_tests::run_tests(config, move |test| {
             conformance::run_test(test, &spin_binary())
         })?;

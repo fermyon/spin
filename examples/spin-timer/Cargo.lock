@@ -2814,6 +2814,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02048d9e032fb3cc3413bbf7b83a15d84a5d419778e2628751896d856498eee9"
 dependencies = [
  "bytes",
+ "chrono",
  "fallible-iterator 0.2.0",
  "postgres-protocol",
 ]
@@ -3737,7 +3738,7 @@ dependencies = [
 
 [[package]]
 name = "spin-app"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -3747,7 +3748,7 @@ dependencies = [
 
 [[package]]
 name = "spin-common"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "dirs 5.0.1",
@@ -3759,7 +3760,7 @@ dependencies = [
 
 [[package]]
 name = "spin-componentize"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "tracing",
@@ -3772,7 +3773,7 @@ dependencies = [
 
 [[package]]
 name = "spin-compose"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3786,7 +3787,7 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3796,17 +3797,18 @@ dependencies = [
 
 [[package]]
 name = "spin-expressions"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "futures",
  "spin-locked-app",
  "thiserror",
 ]
 
 [[package]]
 name = "spin-factor-key-value"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "lru",
@@ -3816,6 +3818,7 @@ dependencies = [
  "spin-locked-app",
  "spin-resource-table",
  "spin-world",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",
@@ -3823,7 +3826,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-llm"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3840,7 +3843,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-http"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "http 1.1.0",
@@ -3863,7 +3866,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-mqtt"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "rumqttc",
@@ -3878,7 +3881,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-mysql"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "mysql_async",
@@ -3894,7 +3897,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-networking"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -3919,9 +3922,10 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-pg"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "chrono",
  "native-tls",
  "postgres-native-tls",
  "spin-core",
@@ -3936,7 +3940,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-outbound-redis"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "redis 0.25.4",
@@ -3950,7 +3954,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-sqlite"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "async-trait",
  "spin-factors",
@@ -3963,7 +3967,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-variables"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "spin-expressions",
  "spin-factors",
@@ -3973,7 +3977,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factor-wasi"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -3986,7 +3990,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -3999,7 +4003,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors-derive"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4008,7 +4012,7 @@ dependencies = [
 
 [[package]]
 name = "spin-factors-executor"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "spin-app",
@@ -4018,9 +4022,10 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-azure"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "azure_core",
  "azure_data_cosmos",
  "azure_identity",
  "futures",
@@ -4031,7 +4036,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-redis"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "redis 0.27.2",
@@ -4044,7 +4049,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-spin"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "rusqlite",
@@ -4057,7 +4062,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm-remote-http"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "reqwest 0.12.7",
@@ -4070,7 +4075,7 @@ dependencies = [
 
 [[package]]
 name = "spin-locked-app"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4082,7 +4087,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "indexmap 2.2.6",
@@ -4098,11 +4103,11 @@ dependencies = [
 
 [[package]]
 name = "spin-resource-table"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 
 [[package]]
 name = "spin-runtime-config"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "spin-common",
@@ -4129,7 +4134,7 @@ dependencies = [
 
 [[package]]
 name = "spin-runtime-factors"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -4155,7 +4160,7 @@ dependencies = [
 
 [[package]]
 name = "spin-serde"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4166,7 +4171,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "serde",
  "spin-factor-sqlite",
@@ -4178,7 +4183,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-inproc"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4190,7 +4195,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-libsql"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4202,7 +4207,7 @@ dependencies = [
 
 [[package]]
 name = "spin-telemetry"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "http 0.2.12",
@@ -4218,7 +4223,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -4244,7 +4249,7 @@ dependencies = [
 
 [[package]]
 name = "spin-variables"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "azure_core",
  "azure_identity",
@@ -4262,7 +4267,7 @@ dependencies = [
 
 [[package]]
 name = "spin-world"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "async-trait",
  "wasmtime",
@@ -4456,7 +4461,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "2.8.0-pre0"
+version = "3.0.0-rc.1"
 dependencies = [
  "termcolor",
 ]

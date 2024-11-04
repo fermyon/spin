@@ -386,6 +386,9 @@ jobs:
   docker:
     runs-on: "ubuntu-20.04"
     needs: [build-and-sign, build-spin-static]
+    # Only build/push Docker images if this is a v* tag or if this is main/canary
+    # i.e. skip for v* release branches
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write

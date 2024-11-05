@@ -7,6 +7,7 @@
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
       <a href="https://github.com/fermyon/spin/actions/workflows/build.yml"><img src="https://github.com/fermyon/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
       <a href="https://discord.gg/eGN8saYqCk"><img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord"></a>
+      <a href="https://gurubase.io/g/fermyon-spin"><img src="https://img.shields.io/badge/Gurubase-Ask%20Fermyon%20Spin%20Guru-006BFF" alt="Gurubase" /></a>
 </div>
 
 ## What is Spin?

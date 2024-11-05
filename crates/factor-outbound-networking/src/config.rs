@@ -443,12 +443,19 @@ impl OutboundUrl {
         // we can always url encode the authority even if it is already encoded.
         if let Some(at) = url.find('@') {
             let scheme_end = url.find("://").map(|e| e + 3).unwrap_or(0);
-            let userinfo = &url[scheme_end..at];
+            let path_start = url[scheme_end..]
+                .find('/') // This can calculate the wrong index if the username or password contains a '/'
+                .map(|e| e + scheme_end)
+                .unwrap_or(usize::MAX);
 
-            let encoded = urlencoding::encode(userinfo);
-            let prefix = &url[..scheme_end];
-            let suffix = &url[scheme_end + userinfo.len()..];
-            url = format!("{prefix}{encoded}{suffix}");
+            if at < path_start {
+                let userinfo = &url[scheme_end..at];
+
+                let encoded = urlencoding::encode(userinfo);
+                let prefix = &url[..scheme_end];
+                let suffix = &url[scheme_end + userinfo.len()..];
+                url = format!("{prefix}{encoded}{suffix}");
+            }
         }
 
         let parsed = match url::Url::parse(&url) {
@@ -561,6 +568,25 @@ mod test {
 
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn outbound_url_handles_at_in_paths() {
+        let url = "https://example.com/file@0.1.0.json";
+        let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
+        assert_eq!("example.com", url.host);
+
+        let url = "https://user:password@example.com/file@0.1.0.json";
+        let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
+        assert_eq!("example.com", url.host);
+
+        let url = "https://user:pass#word@example.com/file@0.1.0.json";
+        let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
+        assert_eq!("example.com", url.host);
+
+        let url = "https://user:password@example.com";
+        let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
+        assert_eq!("example.com", url.host);
+    }
 
     #[test]
     fn test_allowed_hosts_accepts_url_without_port() {

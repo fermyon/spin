@@ -1,17 +1,20 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
-    operation::batch_get_item::BatchGetItemOutput,
+    operation::{batch_get_item::BatchGetItemOutput, update_item::UpdateItemOutput},
     primitives::Blob,
     types::{AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, WriteRequest},
     Client,
 };
 use spin_core::async_trait;
-use spin_factor_key_value::{log_error, Error, Store, StoreManager};
+use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager, SwapError};
 
 pub struct KeyValueAwsDynamo {
     table: String,
@@ -128,12 +131,12 @@ struct AwsDynamoStore {
     table: String,
 }
 
-// struct CompareAndSwap {
-//     key: String,
-//     client: CollectionClient,
-//     bucket_rep: u32,
-//     etag: Mutex<Option<String>>,
-// }
+struct CompareAndSwap {
+    key: String,
+    client: Client,
+    bucket_rep: u32,
+    etag: Mutex<Option<String>>,
+}
 
 const PK: &str = "PK";
 const VAL: &str = "val";
@@ -304,7 +307,26 @@ impl Store for AwsDynamoStore {
     }
 
     async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
-        todo!()
+        let result = self
+            .client
+            .update_item()
+            .table_name(&self.table)
+            .key(PK, AttributeValue::S(key))
+            .update_expression("ADD #val :delta")
+            .expression_attribute_names("#val", VAL)
+            .expression_attribute_values(":delta", AttributeValue::N(delta.to_string()))
+            .return_values(aws_sdk_dynamodb::types::ReturnValue::UpdatedNew)
+            .send()
+            .await
+            .map_err(log_error)?;
+
+        if let Some(updated_attributes) = result.attributes {
+            if let Some(AttributeValue::N(new_value)) = updated_attributes.get(VAL) {
+                return Ok(new_value.parse::<i64>().map_err(log_error))?;
+            }
+        }
+
+        Err(Error::Other("Failed to increment value".into()))
     }
 
     async fn new_compare_and_swap(
@@ -312,7 +334,33 @@ impl Store for AwsDynamoStore {
         bucket_rep: u32,
         key: &str,
     ) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
-        todo!()
+        Ok(Arc::new(CompareAndSwap {
+            key: key.to_string(),
+            client: self.client.clone(),
+            etag: Mutex::new(None),
+            bucket_rep,
+        }))
+    }
+}
+
+#[async_trait]
+impl Cas for CompareAndSwap {
+    async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
+        todo!();
+    }
+
+    /// `swap` updates the value for the key using the etag saved in the `current` function for
+    /// optimistic concurrency.
+    async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
+        todo!();
+    }
+
+    async fn bucket_rep(&self) -> u32 {
+        self.bucket_rep
+    }
+
+    async fn key(&self) -> String {
+        self.key.clone()
     }
 }
 

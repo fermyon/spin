@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use aws_config::{BehaviorVersion, Region, SdkConfig};
@@ -6,7 +6,7 @@ use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
     primitives::Blob,
-    types::AttributeValue,
+    types::{AttributeValue, KeysAndAttributes},
     Client,
 };
 use spin_core::async_trait;
@@ -127,6 +127,13 @@ struct AwsDynamoStore {
     table: String,
 }
 
+// struct CompareAndSwap {
+//     key: String,
+//     client: CollectionClient,
+//     bucket_rep: u32,
+//     etag: Mutex<Option<String>>,
+// }
+
 const PK: &str = "PK";
 const VAL: &str = "val";
 
@@ -168,6 +175,30 @@ impl Store for AwsDynamoStore {
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         self.get_keys().await
+    }
+
+    async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
+        todo!()
+    }
+
+    async fn set_many(&self, key_values: Vec<(String, Vec<u8>)>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn delete_many(&self, keys: Vec<String>) -> Result<(), Error> {
+        todo!()
+    }
+
+    async fn increment(&self, key: String, delta: i64) -> Result<i64, Error> {
+        todo!()
+    }
+
+    async fn new_compare_and_swap(
+        &self,
+        bucket_rep: u32,
+        key: &str,
+    ) -> Result<Arc<dyn spin_factor_key_value::Cas>, Error> {
+        todo!()
     }
 }
 

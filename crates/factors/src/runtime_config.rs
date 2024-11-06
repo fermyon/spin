@@ -14,7 +14,7 @@ impl<F: Factor> FactorRuntimeConfigSource<F> for () {
     }
 }
 
-/// Run some finalization logic on a [`RuntimeConfigSource`].
+/// Run some finalization logic on a [`FactorRuntimeConfigSource`].
 pub trait RuntimeConfigSourceFinalizer {
     /// Finalize the runtime config source.
     fn finalize(&mut self) -> anyhow::Result<()>;

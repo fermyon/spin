@@ -6,18 +6,18 @@ use wasmtime_wasi_http::{body::HyperOutgoingBody, HttpResult};
 pub type HyperBody = HyperOutgoingBody;
 
 /// An outbound HTTP request interceptor to be used with
-/// [`InstanceState::set_request_interceptor`].
+/// [`super::InstanceState::set_request_interceptor`].
 #[async_trait]
 pub trait OutboundHttpInterceptor: Send + Sync {
     /// Intercept an outgoing HTTP request.
     ///
-    /// If this method returns [`InterceptedResponse::Continue`], the (possibly
+    /// If this method returns [`InterceptOutcome::Continue`], the (possibly
     /// updated) request will be passed on to the default outgoing request
     /// handler.
     ///
-    /// If this method returns [`InterceptedResponse::Intercepted`], the inner
-    /// result will be returned as the result of the request, bypassing the
-    /// default handler. The `request` will also be dropped immediately.
+    /// If this method returns [`InterceptOutcome::Complete`], the inner result
+    /// will be returned as the result of the request, bypassing the default
+    /// handler. The `request` will also be dropped immediately.
     async fn intercept(&self, request: InterceptRequest) -> HttpResult<InterceptOutcome>;
 }
 

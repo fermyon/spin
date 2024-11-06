@@ -128,7 +128,7 @@ pub trait Diagnostic: Send + Sync {
     /// A [`Diagnosis`] representing the problem(s) this can detect.
     type Diagnosis: Diagnosis;
 
-    /// Check the given [`Patient`], returning any problem(s) found.
+    /// Check the given [`PatientApp`], returning any problem(s) found.
     ///
     /// If multiple _independently addressable_ problems are found, this may
     /// return multiple instances. If two "logically separate" problems would

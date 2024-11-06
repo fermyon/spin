@@ -40,10 +40,9 @@ fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
 
 /// Converts from toml based runtime configuration into a [`RuntimeConfig`].
 ///
-/// Also acts as [`DefaultLabelResolver`].
-///
-/// The various store types (i.e., the "type" field in the toml field) are registered with the
-/// resolver using `add_store_type`. The default store for a label is registered using `add_default_store`.
+/// The various store types (i.e., the "type" field in the toml field) are
+/// registered with the resolver using `add_store_type`. The default store for a
+/// label is registered using `add_default_store`.
 #[derive(Default, Clone)]
 pub struct RuntimeConfigResolver {
     /// A map of store types to a function that returns the appropriate store

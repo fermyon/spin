@@ -9,7 +9,7 @@ use crate::PluginStore;
 
 /// Expected schema of a plugin manifest. Should match the latest Spin plugin
 /// manifest JSON schema:
-/// https://github.com/fermyon/spin-plugins/tree/main/json-schema
+/// <https://github.com/fermyon/spin-plugins/tree/main/json-schema>
 #[derive(Serialize, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifest {

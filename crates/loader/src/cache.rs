@@ -111,11 +111,14 @@ impl Cache {
     }
 
     /// Ensure the expected configuration directories are found in the root.
+    ///
+    /// ```text
     /// └── <configuration-root>
     ///     └── registry
     ///             └──manifests
     ///             └──wasm
-    ///             └─-data
+    ///             └──data
+    /// ```
     pub async fn ensure_dirs(&self) -> Result<()> {
         tracing::debug!("using cache root directory {}", self.root.display());
 

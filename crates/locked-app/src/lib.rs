@@ -29,13 +29,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors returned by methods in this crate.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// An error propagated from the [`spin_core`] crate.
+    /// An error propagated from the `spin_core` crate.
     #[error(transparent)]
     CoreError(anyhow::Error),
-    /// An error from a [`DynamicHostComponent`].
+    /// An error from a `DynamicHostComponent`.
     #[error("host component error: {0:#}")]
     HostComponentError(#[source] anyhow::Error),
-    /// An error from a [`Loader`] implementation.
+    /// An error from a `Loader` implementation.
     #[error(transparent)]
     LoaderError(anyhow::Error),
     /// An error indicating missing or unexpected metadata.

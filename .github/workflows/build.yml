@@ -72,7 +72,7 @@ jobs:
           CARGO_INCREMENTAL: 0
 
       - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spin-ubuntu-latest
           path: target/release/spin
@@ -108,7 +108,7 @@ jobs:
           BUILD_SPIN_EXAMPLES: 0
 
       - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spin-static-${{ matrix.config.arch }}
           path: target/${{ matrix.config.target }}/release/spin
@@ -136,7 +136,7 @@ jobs:
           CARGO_INCREMENTAL: 0
 
       - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spin-${{ matrix.os }}
           path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}

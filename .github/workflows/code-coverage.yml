@@ -25,7 +25,7 @@ jobs:
         run: cargo build --workspace --all-targets --features all-tests --features openssl/vendored
 
       - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spin-ubuntu-latest
           path: target/debug/spin
@@ -68,7 +68,7 @@ jobs:
           verbose: true
 
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
           name: code-coverage-report

@@ -58,7 +58,7 @@ impl PatientWasm {
     }
 }
 
-/// WasmDiagnose helps implement [`Diagnose`] for Wasm source problems.
+/// WasmDiagnostic helps implement [`Diagnostic`] for Wasm source problems.
 #[async_trait]
 pub trait WasmDiagnostic {
     /// A [`Diagnosis`] representing the problem(s) this can detect.

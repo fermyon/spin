@@ -47,7 +47,7 @@ impl<T: RuntimeFactors, U: Send + 'static> FactorsExecutor<T, U> {
         self.hooks.push(Box::new(hooks));
     }
 
-    /// Loads a [`FactorsApp`] with this executor.
+    /// Loads a [`App`] with this executor.
     pub async fn load_app(
         self: Arc<Self>,
         app: App,
@@ -93,7 +93,7 @@ where
         Ok(())
     }
 
-    /// Prepare instance hooks run immediately before [`FactorsExecutor::prepare`] returns.
+    /// Prepare instance hooks run immediately before [`FactorsExecutorApp::prepare`] returns.
     fn prepare_instance(&self, builder: &mut FactorsInstanceBuilder<T, U>) -> anyhow::Result<()> {
         let _ = builder;
         Ok(())

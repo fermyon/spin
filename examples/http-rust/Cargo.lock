@@ -179,7 +179,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "http",
- "serde",
  "spin-sdk",
 ]
 

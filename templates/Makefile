@@ -17,7 +17,7 @@ bump-go-versions:
 bump-rust-versions:
 	for dir in $$(ls -d *-rust) ; do \
 		cd $$dir/content ; \
-		sed -r -i.sed-bak -e 's%(spin-sdk = )(("[0-9]+.[0-9]+.[0-9]+(-rc.[0-9]+)?")|(\{ git = "https://github.com/fermyon/spin", branch = "main" \}))%spin-sdk = "${CRATES_IO_VERSION}"%g' Cargo.toml ; \
+		sed -r -i.sed-bak -e 's%(spin-sdk = )(("[0-9]+.[0-9]+.[0-9]+(-rc.[0-9]+)?")|(\{ git = "https://github.com/fermyon/spin", branch = "main" \}))%spin-sdk = "${CRATES_IO_VERSION}"%g' Cargo.toml.tmpl ; \
 		rm *.sed-bak ; \
 		cd - 2>&1 >/dev/null ; \
 	done

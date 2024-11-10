@@ -8,7 +8,10 @@ use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
-    operation::{batch_get_item::BatchGetItemOutput, get_item::GetItemOutput},
+    operation::{
+        batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput,
+        get_item::GetItemOutput,
+    },
     primitives::Blob,
     types::{AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, WriteRequest},
     Client,
@@ -136,7 +139,7 @@ struct CompareAndSwap {
     client: Client,
     table: Arc<String>,
     bucket_rep: u32,
-    etag: Mutex<Option<String>>,
+    version: Mutex<Option<String>>,
 }
 
 /// Primary key in DynamoDB items used for querying items
@@ -234,7 +237,7 @@ impl Store for AwsDynamoStore {
                 }
             }
 
-            request_items = unprocessed_keys;
+            request_items = unprocessed_keys.filter(|unprocessed| !unprocessed.is_empty());
         }
 
         Ok(results)
@@ -259,7 +262,9 @@ impl Store for AwsDynamoStore {
         let mut request_items = Some(HashMap::from_iter([(self.table.to_string(), data)]));
 
         while request_items.is_some() {
-            let results = self
+            let BatchWriteItemOutput {
+                unprocessed_items, ..
+            } = self
                 .client
                 .batch_write_item()
                 .set_request_items(request_items)
@@ -267,7 +272,7 @@ impl Store for AwsDynamoStore {
                 .await
                 .map_err(log_error)?;
 
-            request_items = results.unprocessed_items;
+            request_items = unprocessed_items.filter(|unprocessed| !unprocessed.is_empty());
         }
 
         Ok(())
@@ -291,7 +296,9 @@ impl Store for AwsDynamoStore {
         let mut request_items = Some(HashMap::from_iter([(self.table.to_string(), data)]));
 
         while request_items.is_some() {
-            let results = self
+            let BatchWriteItemOutput {
+                unprocessed_items, ..
+            } = self
                 .client
                 .batch_write_item()
                 .set_request_items(request_items)
@@ -299,7 +306,7 @@ impl Store for AwsDynamoStore {
                 .await
                 .map_err(log_error)?;
 
-            request_items = results.unprocessed_items;
+            request_items = unprocessed_items.filter(|unprocessed| !unprocessed.is_empty());
         }
 
         Ok(())
@@ -337,7 +344,7 @@ impl Store for AwsDynamoStore {
             key: key.to_string(),
             client: self.client.clone(),
             table: self.table.clone(),
-            etag: Mutex::new(None),
+            version: Mutex::new(None),
             bucket_rep,
         }))
     }
@@ -365,12 +372,12 @@ impl Cas for CompareAndSwap {
         };
 
         if let Some(AttributeValue::B(val)) = current_item.remove(VAL) {
-            let version = if let Some(AttributeValue::N(ver)) = current_item.remove(VER) {
-                Some(ver)
-            } else {
-                Some(String::from("0"))
+            let version = match current_item.remove(VER) {
+                Some(AttributeValue::N(ver)) => Some(ver),
+                _ => None,
             };
-            self.etag.lock().unwrap().clone_from(&version);
+
+            self.version.lock().unwrap().clone_from(&version);
             Ok(Some(val.into_inner()))
         } else {
             Ok(None)
@@ -385,38 +392,35 @@ impl Cas for CompareAndSwap {
             .update_item()
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(self.key.clone()))
-            .update_expression("SET #val=:val, ADD #ver :increment")
             .expression_attribute_names("#val", VAL)
-            .expression_attribute_names("#ver", VER)
             .expression_attribute_values(":val", AttributeValue::B(Blob::new(value)))
+            .expression_attribute_names("#ver", VER)
             .expression_attribute_values(":increment", AttributeValue::N("1".to_owned()))
-            .return_values(aws_sdk_dynamodb::types::ReturnValue::None);
+            .return_values(aws_sdk_dynamodb::types::ReturnValue::UpdatedNew);
 
-        let current_version = self.etag.lock().unwrap().clone();
+        let current_version = self.version.lock().unwrap().clone();
         match current_version {
-            // Existing item with no version key, update under condition that version key still does not exist in Dynamo when operation is executed
-            Some(version) if version == "0" => {
-                update_item = update_item.condition_expression("attribute_not_exists(#ver)");
-            }
-            // Existing item with version key, update under condition that version in Dynamo matches stored version
+            // Existing item with version key, update under condition that version in DynamoDB matches stored version (optimistic lock)
             Some(version) => {
                 update_item = update_item
+                    .update_expression("SET #val=:val ADD #ver :increment")
                     .condition_expression("#ver = :ver")
                     .expression_attribute_values(":ver", AttributeValue::N(version));
             }
-            // Assume new item, insert under condition that item does not already exist
+            // Assume new/unversioned item, upsert under condition that item does not already have a version -- if it does, another atomic operation has already started
             None => {
                 update_item = update_item
-                    .condition_expression("attribute_not_exists(#pk)")
-                    .expression_attribute_names("#pk", PK);
+                    .condition_expression("attribute_not_exists(#ver)")
+                    .update_expression("SET #val=:val, #ver=:increment");
             }
-        }
+        };
 
         update_item
             .send()
             .await
-            .map(|_| ())
-            .map_err(|e| SwapError::CasFailed(format!("{e:?}")))
+            .map_err(|e| SwapError::CasFailed(format!("{e:?}")))?;
+
+        Ok(())
     }
 
     async fn bucket_rep(&self) -> u32 {

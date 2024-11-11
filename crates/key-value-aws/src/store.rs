@@ -8,12 +8,12 @@ use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
-    operation::{
-        batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput,
-        get_item::GetItemOutput,
-    },
+    operation::{batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput},
     primitives::Blob,
-    types::{AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, WriteRequest},
+    types::{
+        AttributeValue, DeleteRequest, Get, KeysAndAttributes, PutRequest, TransactGetItem,
+        TransactWriteItem, Update, WriteRequest,
+    },
     Client,
 };
 use spin_core::async_trait;
@@ -353,21 +353,34 @@ impl Store for AwsDynamoStore {
 #[async_trait]
 impl Cas for CompareAndSwap {
     async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
-        let GetItemOutput {
-            item: Some(mut current_item),
-            ..
-        } = self
+        // TransactGetItems fails if concurrent writes are in progress on an item
+        let output = self
             .client
-            .get_item()
-            .table_name(self.table.as_str())
-            .key(
-                PK,
-                aws_sdk_dynamodb::types::AttributeValue::S(self.key.clone()),
+            .transact_get_items()
+            .transact_items(
+                TransactGetItem::builder()
+                    .get(
+                        Get::builder()
+                            .table_name(self.table.as_str())
+                            .key(
+                                PK,
+                                aws_sdk_dynamodb::types::AttributeValue::S(self.key.clone()),
+                            )
+                            .build()
+                            .map_err(log_error)?,
+                    )
+                    .build(),
             )
             .send()
             .await
-            .map_err(log_error)?
-        else {
+            .map_err(log_error)?;
+
+        let item = output
+            .responses
+            .and_then(|responses| responses.into_iter().next())
+            .and_then(|response| response.item);
+
+        let Some(mut current_item) = item else {
             return Ok(None);
         };
 
@@ -384,38 +397,47 @@ impl Cas for CompareAndSwap {
         }
     }
 
-    /// `swap` updates the value for the key using the etag saved in the `current` function for
+    /// `swap` updates the value for the key using the version saved in the `current` function for
     /// optimistic concurrency.
     async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
-        let mut update_item = self
-            .client
-            .update_item()
+        let mut update_item = Update::builder()
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(self.key.clone()))
             .expression_attribute_names("#val", VAL)
             .expression_attribute_values(":val", AttributeValue::B(Blob::new(value)))
             .expression_attribute_names("#ver", VER)
             .expression_attribute_values(":increment", AttributeValue::N("1".to_owned()))
-            .return_values(aws_sdk_dynamodb::types::ReturnValue::UpdatedNew);
+            .return_values_on_condition_check_failure(
+                aws_sdk_dynamodb::types::ReturnValuesOnConditionCheckFailure::None,
+            );
 
         let current_version = self.version.lock().unwrap().clone();
         match current_version {
-            // Existing item with version key, update under condition that version in DynamoDB matches stored version (optimistic lock)
+            // Existing item with version, update under condition that version in DynamoDB matches cached version
             Some(version) => {
                 update_item = update_item
                     .update_expression("SET #val=:val ADD #ver :increment")
                     .condition_expression("#ver = :ver")
                     .expression_attribute_values(":ver", AttributeValue::N(version));
             }
-            // Assume new/unversioned item, upsert under condition that item does not already have a version -- if it does, another atomic operation has already started
+            // New/unversioned item, upsert atomically but without optimistic locking guarantee
             None => {
-                update_item = update_item
-                    .condition_expression("attribute_not_exists(#ver)")
-                    .update_expression("SET #val=:val, #ver=:increment");
+                update_item = update_item.update_expression("SET #val=:val, #ver=:increment");
             }
         };
 
-        update_item
+        // TransactWriteItems fails if concurrent writes are in progress on an item.
+        self.client
+            .transact_write_items()
+            .transact_items(
+                TransactWriteItem::builder()
+                    .update(
+                        update_item
+                            .build()
+                            .map_err(|e| SwapError::Other(format!("{e:?}")))?,
+                    )
+                    .build(),
+            )
             .send()
             .await
             .map_err(|e| SwapError::CasFailed(format!("{e:?}")))?;

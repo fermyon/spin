@@ -92,9 +92,8 @@ impl KeyValueAzureCosmos {
 
 #[async_trait]
 impl StoreManager for KeyValueAzureCosmos {
-    async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
+    async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
         Ok(Arc::new(AzureCosmosStore {
-            _name: name.to_owned(),
             client: self.client.clone(),
         }))
     }
@@ -114,7 +113,6 @@ impl StoreManager for KeyValueAzureCosmos {
 
 #[derive(Clone)]
 struct AzureCosmosStore {
-    _name: String,
     client: CollectionClient,
 }
 

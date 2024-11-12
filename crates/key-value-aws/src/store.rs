@@ -8,11 +8,14 @@ use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
-    operation::{batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput},
+    operation::{
+        batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput,
+        get_item::GetItemOutput, update_item::UpdateItemOutput,
+    },
     primitives::Blob,
     types::{
-        AttributeValue, DeleteRequest, Get, KeysAndAttributes, PutRequest, TransactGetItem,
-        TransactWriteItem, Update, WriteRequest,
+        AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, TransactWriteItem, Update,
+        WriteRequest,
     },
     Client,
 };
@@ -20,8 +23,9 @@ use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager, SwapError};
 
 pub struct KeyValueAwsDynamo {
+    region: String,
+    // Needs to be cloned when getting a store
     table: Arc<String>,
-    region: Arc<String>,
     client: async_once_cell::Lazy<
         Client,
         std::pin::Pin<Box<dyn std::future::Future<Output = Client> + Send>>,
@@ -99,8 +103,8 @@ impl KeyValueAwsDynamo {
         });
 
         Ok(Self {
+            region,
             table: Arc::new(table),
-            region: Arc::new(region),
             client: async_once_cell::Lazy::from_future(client_fut),
         })
     }
@@ -108,9 +112,8 @@ impl KeyValueAwsDynamo {
 
 #[async_trait]
 impl StoreManager for KeyValueAwsDynamo {
-    async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
+    async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
         Ok(Arc::new(AwsDynamoStore {
-            _name: name.to_owned(),
             client: self.client.get_unpin().await.clone(),
             table: self.table.clone(),
         }))
@@ -122,14 +125,14 @@ impl StoreManager for KeyValueAwsDynamo {
 
     fn summary(&self, _store_name: &str) -> Option<String> {
         Some(format!(
-            "AWS DynamoDB region: {:?}, table: {}",
+            "AWS DynamoDB region: {}, table: {}",
             self.region, self.table
         ))
     }
 }
 
 struct AwsDynamoStore {
-    _name: String,
+    // Client wraps an Arc so should be low cost to clone
     client: Client,
     table: Arc<String>,
 }
@@ -139,20 +142,40 @@ struct CompareAndSwap {
     client: Client,
     table: Arc<String>,
     bucket_rep: u32,
-    version: Mutex<Option<String>>,
+    has_lock: Mutex<bool>,
 }
 
 /// Primary key in DynamoDB items used for querying items
 const PK: &str = "PK";
 /// Value key in DynamoDB items storing item value as binary
 const VAL: &str = "val";
-/// Version key in DynamoDB items used for optimistic locking
-const VER: &str = "ver";
+/// Lock key in DynamoDB items used for atomic operations
+const LOCK: &str = "lock";
 
 #[async_trait]
 impl Store for AwsDynamoStore {
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
-        let item = self.get_item(key).await?;
+        let response = self
+            .client
+            .get_item()
+            .table_name(self.table.as_str())
+            .key(
+                PK,
+                aws_sdk_dynamodb::types::AttributeValue::S(key.to_string()),
+            )
+            .projection_expression(VAL)
+            .send()
+            .await
+            .map_err(log_error)?;
+
+        let item = response.item.and_then(|mut item| {
+            if let Some(AttributeValue::B(val)) = item.remove(VAL) {
+                Some(val.into_inner())
+            } else {
+                None
+            }
+        });
+
         Ok(item)
     }
 
@@ -182,7 +205,20 @@ impl Store for AwsDynamoStore {
     }
 
     async fn exists(&self, key: &str) -> Result<bool, Error> {
-        Ok(self.get_item(key).await?.is_some())
+        let GetItemOutput { item, .. } = self
+            .client
+            .get_item()
+            .table_name(self.table.as_str())
+            .key(
+                PK,
+                aws_sdk_dynamodb::types::AttributeValue::S(key.to_string()),
+            )
+            .projection_expression(PK)
+            .send()
+            .await
+            .map_err(log_error)?;
+
+        Ok(item.map(|item| item.contains_key(PK)).unwrap_or(false))
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
@@ -192,7 +228,8 @@ impl Store for AwsDynamoStore {
     async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
         let mut results = Vec::with_capacity(keys.len());
 
-        let mut keys_and_attributes_builder = KeysAndAttributes::builder();
+        let mut keys_and_attributes_builder =
+            KeysAndAttributes::builder().projection_expression(format!("{PK},{VAL}"));
         for key in keys {
             keys_and_attributes_builder = keys_and_attributes_builder.keys(HashMap::from_iter([(
                 PK.to_owned(),
@@ -344,7 +381,7 @@ impl Store for AwsDynamoStore {
             key: key.to_string(),
             client: self.client.clone(),
             table: self.table.clone(),
-            version: Mutex::new(None),
+            has_lock: Mutex::new(false),
             bucket_rep,
         }))
     }
@@ -353,47 +390,28 @@ impl Store for AwsDynamoStore {
 #[async_trait]
 impl Cas for CompareAndSwap {
     async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
-        // TransactGetItems fails if concurrent writes are in progress on an item
-        let output = self
+        let UpdateItemOutput { attributes, .. } = self
             .client
-            .transact_get_items()
-            .transact_items(
-                TransactGetItem::builder()
-                    .get(
-                        Get::builder()
-                            .table_name(self.table.as_str())
-                            .key(
-                                PK,
-                                aws_sdk_dynamodb::types::AttributeValue::S(self.key.clone()),
-                            )
-                            .build()
-                            .map_err(log_error)?,
-                    )
-                    .build(),
-            )
+            .update_item()
+            .table_name(self.table.as_str())
+            .key(PK, AttributeValue::S(self.key.clone()))
+            .update_expression("SET #lock=:lock")
+            .expression_attribute_names("#lock", LOCK)
+            .expression_attribute_values(":lock", AttributeValue::Null(true))
+            .condition_expression("attribute_not_exists (#lock)")
+            .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
             .send()
             .await
             .map_err(log_error)?;
 
-        let item = output
-            .responses
-            .and_then(|responses| responses.into_iter().next())
-            .and_then(|response| response.item);
+        self.has_lock.lock().unwrap().clone_from(&true);
 
-        let Some(mut current_item) = item else {
-            return Ok(None);
-        };
-
-        if let Some(AttributeValue::B(val)) = current_item.remove(VAL) {
-            let version = match current_item.remove(VER) {
-                Some(AttributeValue::N(ver)) => Some(ver),
-                _ => None,
-            };
-
-            self.version.lock().unwrap().clone_from(&version);
-            Ok(Some(val.into_inner()))
-        } else {
-            Ok(None)
+        match attributes {
+            Some(mut item) => match item.remove(VAL) {
+                Some(AttributeValue::B(val)) => Ok(Some(val.into_inner())),
+                _ => Ok(None),
+            },
+            None => Ok(None),
         }
     }
 
@@ -403,30 +421,18 @@ impl Cas for CompareAndSwap {
         let mut update_item = Update::builder()
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(self.key.clone()))
+            .update_expression("SET #val=:val REMOVE #lock")
             .expression_attribute_names("#val", VAL)
             .expression_attribute_values(":val", AttributeValue::B(Blob::new(value)))
-            .expression_attribute_names("#ver", VER)
-            .expression_attribute_values(":increment", AttributeValue::N("1".to_owned()))
-            .return_values_on_condition_check_failure(
-                aws_sdk_dynamodb::types::ReturnValuesOnConditionCheckFailure::None,
-            );
+            .expression_attribute_names("#lock", LOCK);
 
-        let current_version = self.version.lock().unwrap().clone();
-        match current_version {
-            // Existing item with version, update under condition that version in DynamoDB matches cached version
-            Some(version) => {
-                update_item = update_item
-                    .update_expression("SET #val=:val ADD #ver :increment")
-                    .condition_expression("#ver = :ver")
-                    .expression_attribute_values(":ver", AttributeValue::N(version));
-            }
-            // New/unversioned item, upsert atomically but without optimistic locking guarantee
-            None => {
-                update_item = update_item.update_expression("SET #val=:val, #ver=:increment");
-            }
-        };
+        let has_lock = *self.has_lock.lock().unwrap();
+        // Ensure exclusive access between fetching the current value of the item and swapping
+        if has_lock {
+            update_item = update_item.condition_expression("attribute_exists (#lock)");
+        }
 
-        // TransactWriteItems fails if concurrent writes are in progress on an item.
+        // TransactWriteItems fails if concurrent writes are in progress on an item, so even without locking, we get atomicity in overwriting
         self.client
             .transact_write_items()
             .transact_items(
@@ -455,30 +461,6 @@ impl Cas for CompareAndSwap {
 }
 
 impl AwsDynamoStore {
-    async fn get_item(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
-        let response = self
-            .client
-            .get_item()
-            .table_name(self.table.as_str())
-            .key(
-                PK,
-                aws_sdk_dynamodb::types::AttributeValue::S(key.to_string()),
-            )
-            .send()
-            .await
-            .map_err(log_error)?;
-
-        let val = response.item.and_then(|mut item| {
-            if let Some(AttributeValue::B(val)) = item.remove(VAL) {
-                Some(val.into_inner())
-            } else {
-                None
-            }
-        });
-
-        Ok(val)
-    }
-
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         let mut primary_keys = Vec::new();
         let mut last_evaluated_key = None;

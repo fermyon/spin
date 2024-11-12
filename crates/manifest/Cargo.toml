@@ -14,7 +14,7 @@ terminal = { path = "../terminal" }
 thiserror = { workspace = true }
 toml = { version = "0.8.0", features = ["preserve_order"] }
 url = { workspace = true }
-wasm-pkg-common = "0.4.1"
+wasm-pkg-common = "0.5.1"
 
 [dev-dependencies]
 anyhow = { workspace = true }

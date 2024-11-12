@@ -24,7 +24,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
-wasm-pkg-loader = "0.4"
+wasm-pkg-client = "0.5.1"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

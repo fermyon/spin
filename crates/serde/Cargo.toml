@@ -9,4 +9,4 @@ anyhow = { workspace = true }
 base64 = "0.22.1"
 semver = { version = "1.0", features = ["serde"] }
 serde = { workspace = true }
-wasm-pkg-common = "0.4.1"
+wasm-pkg-common = { workspace = true }

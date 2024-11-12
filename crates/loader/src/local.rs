@@ -391,19 +391,20 @@ impl LocalLoader {
 
     async fn load_registry_source(
         &self,
-        registry: Option<&wasm_pkg_loader::Registry>,
-        package: &wasm_pkg_loader::PackageRef,
+        registry: Option<&wasm_pkg_client::Registry>,
+        package: &wasm_pkg_client::PackageRef,
         version: &semver::VersionReq,
     ) -> Result<ContentRef> {
-        let mut client_config = wasm_pkg_loader::Config::global_defaults()?;
+        let mut client_config = wasm_pkg_client::Config::global_defaults().await?;
 
         if let Some(registry) = registry.cloned() {
-            client_config.set_package_registry_override(package.clone(), registry);
+            let mapping = wasm_pkg_client::RegistryMapping::Registry(registry);
+            client_config.set_package_registry_override(package.clone(), mapping);
         }
-        let mut pkg_loader = wasm_pkg_loader::Client::new(client_config);
+        let pkg_loader = wasm_pkg_client::Client::new(client_config);
 
         let mut releases = pkg_loader.list_all_versions(package).await.map_err(|e| {
-            if matches!(e, wasm_pkg_loader::Error::NoRegistryForNamespace(_)) && registry.is_none() {
+            if matches!(e, wasm_pkg_client::Error::NoRegistryForNamespace(_)) && registry.is_none() {
                 anyhow!("No default registry specified for wasm-pkg-loader. Create a default config, or set `registry` for package {package:?}")
             } else {
                 e.into()
@@ -423,7 +424,7 @@ impl LocalLoader {
             .await?;
 
         let digest = match &release.content_digest {
-            wasm_pkg_loader::ContentDigest::Sha256 { hex } => format!("sha256:{hex}"),
+            wasm_pkg_client::ContentDigest::Sha256 { hex } => format!("sha256:{hex}"),
         };
 
         let path = if let Ok(cached_path) = self.cache.wasm_file(&digest) {

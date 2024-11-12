@@ -149,6 +149,8 @@ url = "2"
 wasi-common-preview1 = { version = "25.0.0", package = "wasi-common", features = [
   "tokio",
 ] }
+wasm-pkg-common = "0.8"
+wasm-pkg-client = "0.8"
 wasmtime = "25.0.3"
 wasmtime-wasi = "25.0.0"
 wasmtime-wasi-http = "25.0.0"

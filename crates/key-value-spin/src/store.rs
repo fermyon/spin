@@ -307,20 +307,35 @@ impl Cas for CompareAndSwap {
     async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
         task::block_in_place(|| {
             let old_value = self.value.lock().unwrap();
-            let rows_changed = self.connection
-                .lock()
-                .unwrap()
-                .prepare_cached(
-                    "UPDATE spin_key_value SET value=:new_value WHERE store=:name and key=:key and value=:old_value",
-                )
-                .map_err(log_cas_error)?
-                .execute(named_params! {
-                    ":name": &self.name,
-                    ":key": self.key,
-                    ":old_value": old_value.clone().unwrap(),
-                    ":new_value": value,
-                })
-                .map_err(log_cas_error)?;
+            let mut conn = self.connection.lock().unwrap();
+            let rows_changed = match old_value.clone() {
+                Some(old_val) => {
+                    conn
+                        .prepare_cached(
+                             "UPDATE spin_key_value SET value=:new_value WHERE store=:name and key=:key and value=:old_value")
+                        .map_err(log_cas_error)?
+                        .execute(named_params! {
+                            ":name": &self.name,
+                            ":key": self.key,
+                            ":old_value": old_val,
+                            ":new_value": value,
+                        })
+                        .map_err(log_cas_error)?
+                }
+                None => {
+                    let tx = conn.transaction().map_err(log_cas_error)?;
+                    let rows = tx
+                        .prepare_cached(
+                            "INSERT INTO spin_key_value (store, key, value) VALUES ($1, $2, $3)
+                     ON CONFLICT(store, key) DO UPDATE SET value=$3",
+                        )
+                        .map_err(log_cas_error)?
+                        .execute(rusqlite::params![&self.name, self.key, value])
+                        .map_err(log_cas_error)?;
+                    tx.commit().map_err(log_cas_error)?;
+                    rows
+                }
+            };
 
             // We expect only 1 row to be updated. If 0, we know that the underlying value has changed.
             if rows_changed == 1 {

@@ -260,10 +260,12 @@ impl Store for CachingStore {
             }
         }
 
-        let keys_and_values = self.inner.get_many(not_found).await?;
-        for (key, value) in keys_and_values {
-            found.push((key.clone(), value.clone()));
-            state.cache.put(key, value);
+        if !not_found.is_empty() {
+            let keys_and_values = self.inner.get_many(not_found).await?;
+            for (key, value) in keys_and_values {
+                found.push((key.clone(), value.clone()));
+                state.cache.put(key, value);
+            }
         }
 
         Ok(found)

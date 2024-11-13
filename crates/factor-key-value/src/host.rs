@@ -283,6 +283,9 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<Vec<(String, Option<Vec<u8>>)>, wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
+        if keys.is_empty() {
+            return Ok(vec![]);
+        }
         store.get_many(keys).await.map_err(to_wasi_err)
     }
 
@@ -293,6 +296,9 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         key_values: Vec<(String, Vec<u8>)>,
     ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
+        if key_values.is_empty() {
+            return Ok(());
+        }
         store.set_many(key_values).await.map_err(to_wasi_err)
     }
 
@@ -303,6 +309,9 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
+        if keys.is_empty() {
+            return Ok(());
+        }
         store.delete_many(keys).await.map_err(to_wasi_err)
     }
 }

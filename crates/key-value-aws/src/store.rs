@@ -10,22 +10,23 @@ use aws_sdk_dynamodb::{
     config::{ProvideCredentials, SharedCredentialsProvider},
     operation::{
         batch_get_item::BatchGetItemOutput, batch_write_item::BatchWriteItemOutput,
-        get_item::GetItemOutput, update_item::UpdateItemOutput,
+        get_item::GetItemOutput,
     },
     primitives::Blob,
-    types::{
-        AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, TransactWriteItem, Update,
-        WriteRequest,
-    },
+    types::{AttributeValue, DeleteRequest, KeysAndAttributes, PutRequest, WriteRequest},
     Client,
 };
 use spin_core::async_trait;
 use spin_factor_key_value::{log_error, Cas, Error, Store, StoreManager, SwapError};
 
 pub struct KeyValueAwsDynamo {
+    /// AWS region
     region: String,
-    // Needs to be cloned when getting a store
+    /// Whether to use strongly consistent reads
+    consistent_read: bool,
+    /// DynamoDB table, needs to be cloned when getting a store
     table: Arc<String>,
+    /// DynamoDB client
     client: async_once_cell::Lazy<
         Client,
         std::pin::Pin<Box<dyn std::future::Future<Output = Client> + Send>>,
@@ -84,6 +85,7 @@ pub enum KeyValueAwsDynamoAuthOptions {
 impl KeyValueAwsDynamo {
     pub fn new(
         region: String,
+        consistent_read: bool,
         table: String,
         auth_options: KeyValueAwsDynamoAuthOptions,
     ) -> Result<Self> {
@@ -104,6 +106,7 @@ impl KeyValueAwsDynamo {
 
         Ok(Self {
             region,
+            consistent_read,
             table: Arc::new(table),
             client: async_once_cell::Lazy::from_future(client_fut),
         })
@@ -116,6 +119,7 @@ impl StoreManager for KeyValueAwsDynamo {
         Ok(Arc::new(AwsDynamoStore {
             client: self.client.get_unpin().await.clone(),
             table: self.table.clone(),
+            consistent_read: self.consistent_read,
         }))
     }
 
@@ -135,6 +139,19 @@ struct AwsDynamoStore {
     // Client wraps an Arc so should be low cost to clone
     client: Client,
     table: Arc<String>,
+    consistent_read: bool,
+}
+
+#[derive(Debug, Clone)]
+enum CasState {
+    // Existing item with version
+    Versioned(String),
+    // Existing item without version
+    Unversioned(Blob),
+    // Item was null when fetched during `current`
+    Unset,
+    // Potentially new item -- `current` was never called to fetch version
+    Unknown,
 }
 
 struct CompareAndSwap {
@@ -142,15 +159,15 @@ struct CompareAndSwap {
     client: Client,
     table: Arc<String>,
     bucket_rep: u32,
-    has_lock: Mutex<bool>,
+    state: Mutex<CasState>,
 }
 
 /// Primary key in DynamoDB items used for querying items
 const PK: &str = "PK";
 /// Value key in DynamoDB items storing item value as binary
-const VAL: &str = "val";
-/// Lock key in DynamoDB items used for atomic operations
-const LOCK: &str = "lock";
+const VAL: &str = "VAL";
+/// Version key in DynamoDB items used for atomic operations
+const VER: &str = "VER";
 
 #[async_trait]
 impl Store for AwsDynamoStore {
@@ -158,6 +175,7 @@ impl Store for AwsDynamoStore {
         let response = self
             .client
             .get_item()
+            .consistent_read(self.consistent_read)
             .table_name(self.table.as_str())
             .key(
                 PK,
@@ -208,6 +226,7 @@ impl Store for AwsDynamoStore {
         let GetItemOutput { item, .. } = self
             .client
             .get_item()
+            .consistent_read(self.consistent_read)
             .table_name(self.table.as_str())
             .key(
                 PK,
@@ -228,8 +247,13 @@ impl Store for AwsDynamoStore {
     async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
         let mut results = Vec::with_capacity(keys.len());
 
-        let mut keys_and_attributes_builder =
-            KeysAndAttributes::builder().projection_expression(format!("{PK},{VAL}"));
+        if keys.is_empty() {
+            return Ok(results);
+        }
+
+        let mut keys_and_attributes_builder = KeysAndAttributes::builder()
+            .projection_expression(format!("{PK},{VAL}"))
+            .consistent_read(self.consistent_read);
         for key in keys {
             keys_and_attributes_builder = keys_and_attributes_builder.keys(HashMap::from_iter([(
                 PK.to_owned(),
@@ -243,7 +267,7 @@ impl Store for AwsDynamoStore {
 
         while request_items.is_some() {
             let BatchGetItemOutput {
-                responses: Some(mut responses),
+                responses,
                 unprocessed_keys,
                 ..
             } = self
@@ -252,25 +276,21 @@ impl Store for AwsDynamoStore {
                 .set_request_items(request_items)
                 .send()
                 .await
-                .map_err(log_error)?
-            else {
-                return Err(Error::Other("No results".into()));
-            };
+                .map_err(log_error)?;
 
-            if let Some(items) = responses.remove(self.table.as_str()) {
+            if let Some(items) =
+                responses.and_then(|mut responses| responses.remove(self.table.as_str()))
+            {
                 for mut item in items {
-                    let Some(AttributeValue::S(pk)) = item.remove(PK) else {
-                        return Err(Error::Other(
-                            "Could not find 'PK' key on DynamoDB item".into(),
-                        ));
-                    };
-                    let Some(AttributeValue::B(val)) = item.remove(VAL) else {
-                        return Err(Error::Other(
-                            "Could not find 'val' key on DynamoDB item".into(),
-                        ));
-                    };
-
-                    results.push((pk, Some(val.into_inner())));
+                    match (item.remove(PK), item.remove(VAL)) {
+                        (Some(AttributeValue::S(pk)), Some(AttributeValue::B(val))) => {
+                            results.push((pk, Some(val.into_inner())));
+                        }
+                        (Some(AttributeValue::S(pk)), None) => {
+                            results.push((pk, None));
+                        }
+                        _ => (),
+                    }
                 }
             }
 
@@ -355,8 +375,8 @@ impl Store for AwsDynamoStore {
             .update_item()
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(key))
-            .update_expression("ADD #val :delta")
-            .expression_attribute_names("#val", VAL)
+            .update_expression("ADD #VAL :delta")
+            .expression_attribute_names("#VAL", VAL)
             .expression_attribute_values(":delta", AttributeValue::N(delta.to_string()))
             .return_values(aws_sdk_dynamodb::types::ReturnValue::UpdatedNew)
             .send()
@@ -381,7 +401,7 @@ impl Store for AwsDynamoStore {
             key: key.to_string(),
             client: self.client.clone(),
             table: self.table.clone(),
-            has_lock: Mutex::new(false),
+            state: Mutex::new(CasState::Unknown),
             bucket_rep,
         }))
     }
@@ -390,60 +410,80 @@ impl Store for AwsDynamoStore {
 #[async_trait]
 impl Cas for CompareAndSwap {
     async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
-        let UpdateItemOutput { attributes, .. } = self
+        let GetItemOutput { item, .. } = self
             .client
-            .update_item()
+            .get_item()
+            .consistent_read(true)
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(self.key.clone()))
-            .update_expression("SET #lock=:lock")
-            .expression_attribute_names("#lock", LOCK)
-            .expression_attribute_values(":lock", AttributeValue::Null(true))
-            .condition_expression("attribute_not_exists (#lock)")
-            .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
+            .projection_expression(format!("{VAL},{VER}"))
             .send()
             .await
             .map_err(log_error)?;
 
-        self.has_lock.lock().unwrap().clone_from(&true);
+        match item {
+            Some(mut current_item) => match (current_item.remove(VAL), current_item.remove(VER)) {
+                (Some(AttributeValue::B(val)), Some(AttributeValue::N(ver))) => {
+                    self.state
+                        .lock()
+                        .unwrap()
+                        .clone_from(&CasState::Versioned(ver));
 
-        match attributes {
-            Some(mut item) => match item.remove(VAL) {
-                Some(AttributeValue::B(val)) => Ok(Some(val.into_inner())),
-                _ => Ok(None),
+                    Ok(Some(val.into_inner()))
+                }
+                (Some(AttributeValue::B(val)), _) => {
+                    self.state
+                        .lock()
+                        .unwrap()
+                        .clone_from(&CasState::Unversioned(val.clone()));
+
+                    Ok(Some(val.into_inner()))
+                }
+                (_, _) => {
+                    self.state.lock().unwrap().clone_from(&CasState::Unset);
+                    Ok(None)
+                }
             },
-            None => Ok(None),
+            None => {
+                self.state.lock().unwrap().clone_from(&CasState::Unset);
+                Ok(None)
+            }
         }
     }
 
-    /// `swap` updates the value for the key using the version saved in the `current` function for
-    /// optimistic concurrency.
+    /// `swap` updates the value for the key -- if possible, using the version saved in the `current` function for
+    /// optimistic concurrency or the previous item value
     async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
-        let mut update_item = Update::builder()
+        let mut update_item = self
+            .client
+            .update_item()
             .table_name(self.table.as_str())
             .key(PK, AttributeValue::S(self.key.clone()))
-            .update_expression("SET #val=:val REMOVE #lock")
-            .expression_attribute_names("#val", VAL)
+            .update_expression("SET #VAL = :val ADD #VER :increment")
+            .expression_attribute_names("#VAL", VAL)
+            .expression_attribute_names("#VER", VER)
             .expression_attribute_values(":val", AttributeValue::B(Blob::new(value)))
-            .expression_attribute_names("#lock", LOCK);
+            .expression_attribute_values(":increment", AttributeValue::N("1".to_owned()));
 
-        let has_lock = *self.has_lock.lock().unwrap();
-        // Ensure exclusive access between fetching the current value of the item and swapping
-        if has_lock {
-            update_item = update_item.condition_expression("attribute_exists (#lock)");
-        }
+        let state = self.state.lock().unwrap().clone();
+        match state {
+            CasState::Versioned(version) => {
+                update_item = update_item
+                    .condition_expression("#VER = :ver")
+                    .expression_attribute_values(":ver", AttributeValue::N(version));
+            }
+            CasState::Unversioned(old_val) => {
+                update_item = update_item
+                    .condition_expression("#VAL = :old_val")
+                    .expression_attribute_values(":old_val", AttributeValue::B(old_val));
+            }
+            CasState::Unset => {
+                update_item = update_item.condition_expression("attribute_not_exists (#VAL)");
+            }
+            CasState::Unknown => (),
+        };
 
-        // TransactWriteItems fails if concurrent writes are in progress on an item, so even without locking, we get atomicity in overwriting
-        self.client
-            .transact_write_items()
-            .transact_items(
-                TransactWriteItem::builder()
-                    .update(
-                        update_item
-                            .build()
-                            .map_err(|e| SwapError::Other(format!("{e:?}")))?,
-                    )
-                    .build(),
-            )
+        update_item
             .send()
             .await
             .map_err(|e| SwapError::CasFailed(format!("{e:?}")))?;
@@ -463,34 +503,23 @@ impl Cas for CompareAndSwap {
 impl AwsDynamoStore {
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         let mut primary_keys = Vec::new();
-        let mut last_evaluated_key = None;
 
-        loop {
-            let mut scan_builder = self
-                .client
-                .scan()
-                .table_name(self.table.as_str())
-                .projection_expression(PK);
+        let mut scan_paginator = self
+            .client
+            .scan()
+            .table_name(self.table.as_str())
+            .projection_expression(PK)
+            .into_paginator()
+            .send();
 
-            if let Some(keys) = last_evaluated_key {
-                for (key, val) in keys {
-                    scan_builder = scan_builder.exclusive_start_key(key, val);
-                }
-            }
-
-            let scan_output = scan_builder.send().await.map_err(log_error)?;
-
+        while let Some(output) = scan_paginator.next().await {
+            let scan_output = output.map_err(log_error)?;
             if let Some(items) = scan_output.items {
                 for mut item in items {
                     if let Some(AttributeValue::S(pk)) = item.remove(PK) {
                         primary_keys.push(pk);
                     }
                 }
-            }
-
-            last_evaluated_key = scan_output.last_evaluated_key;
-            if last_evaluated_key.is_none() {
-                break;
             }
         }
 

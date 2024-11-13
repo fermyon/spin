@@ -30,6 +30,9 @@ pub struct AwsDynamoKeyValueRuntimeConfig {
     token: Option<String>,
     /// The AWS region where the database is located
     region: String,
+    /// Boolean determining whether to use strongly consistent reads.
+    /// Defaults to `false` but can be set to `true` to improve atomicity
+    consistent_read: Option<bool>,
     /// The AWS Dynamo DB table.
     table: String,
 }
@@ -50,6 +53,7 @@ impl MakeKeyValueStore for AwsDynamoKeyValueStore {
             secret_key,
             token,
             region,
+            consistent_read,
             table,
         } = runtime_config;
         let auth_options = match (access_key, secret_key) {
@@ -60,6 +64,11 @@ impl MakeKeyValueStore for AwsDynamoKeyValueStore {
             }
             _ => KeyValueAwsDynamoAuthOptions::Environmental,
         };
-        KeyValueAwsDynamo::new(region, table, auth_options)
+        KeyValueAwsDynamo::new(
+            region,
+            consistent_read.unwrap_or(false),
+            table,
+            auth_options,
+        )
     }
 }

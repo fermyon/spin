@@ -251,6 +251,11 @@ impl Store for CachingStore {
         keys: Vec<String>,
     ) -> anyhow::Result<Vec<(String, Option<Vec<u8>>)>, Error> {
         let mut state = self.state.lock().await;
+
+        // Flush any outstanding writes first in case entries have been popped off the end of the LRU cache prior
+        // to their corresponding writes reaching the backing store.
+        state.flush().await?;
+
         let mut found: Vec<(String, Option<Vec<u8>>)> = Vec::new();
         let mut not_found: Vec<String> = Vec::new();
         for key in keys {

@@ -33,6 +33,7 @@ wasmtime::component::bindgen!({
         "spin:postgres/postgres/error" => spin::postgres::postgres::Error,
         "wasi:config/store@0.2.0-draft-2024-09-27/error" => wasi::config::store::Error,
         "wasi:keyvalue/store/error" => wasi::keyvalue::store::Error,
+        "wasi:keyvalue/atomics/cas-error" => wasi::keyvalue::atomics::CasError,
     },
     trappable_imports: true,
 });

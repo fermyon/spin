@@ -522,15 +522,10 @@ mod test {
         let res = kv.swap(Resource::new_own(cas.rep()), cas_final_value).await;
         match res {
             Ok(_) => panic!("expected a CAS failure"),
-            Err(err) => {
-                for cause in err.chain() {
-                    if let Some(cas_err) = cause.downcast_ref::<CasError>() {
-                        assert!(matches!(cas_err, CasError::CasFailed(_)));
-                        return Ok(());
-                    }
-                }
-                panic!("expected a CAS failure")
-            }
+            Err(err) => match err {
+                CasError::CasFailed(_) => Ok(()),
+                CasError::StoreError(_) => panic!("expected a CasFailed error"),
+            },
         }
     }
 

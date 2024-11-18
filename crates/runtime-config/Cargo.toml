@@ -23,6 +23,7 @@ spin-factor-sqlite = { path = "../factor-sqlite" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
+spin-key-value-aws = { path = "../key-value-aws" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-spin = { path = "../key-value-spin" }

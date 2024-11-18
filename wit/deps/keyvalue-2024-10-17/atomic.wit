@@ -13,22 +13,22 @@ interface atomics {
 
   /// The error returned by a CAS operation
   variant cas-error {
-	/// A store error occurred when performing the operation
-	store-error(error),
+    /// A store error occurred when performing the operation
+    store-error(error),
 	  /// The CAS operation failed because the value was too old. This returns a new CAS handle
 	  /// for easy retries. Implementors MUST return a CAS handle that has been updated to the
 	  /// latest version or transaction.
-	cas-failed(cas),
+	  cas-failed(cas),
   }
 
   /// A handle to a CAS (compare-and-swap) operation.
   resource cas {
-	/// Construct a new CAS operation. Implementors can map the underlying functionality
-	/// (transactions, versions, etc) as desired.
-	new: static func(bucket: borrow<bucket>, key: string) -> result<cas, error>;
-	/// Get the current value of the key (if it exists). This allows for avoiding reads if all
-	/// that is needed to ensure the atomicity of the operation
-	current: func() -> result<option<list<u8>>, error>;
+    /// Construct a new CAS operation. Implementors can map the underlying functionality
+    /// (transactions, versions, etc) as desired.
+    new: static func(bucket: borrow<bucket>, key: string) -> result<cas, error>;
+    /// Get the current value of the key (if it exists). This allows for avoiding reads if all
+    /// that is needed to ensure the atomicity of the operation
+    current: func() -> result<option<list<u8>>, error>;
   }
 
   /// Atomically increment the value associated with the key in the store by the given delta. It

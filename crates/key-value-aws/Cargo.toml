@@ -1,0 +1,22 @@
+[package]
+name = "spin-key-value-aws"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-once-cell = "0.5.4"
+aws-config = "1.1.7"
+aws-credential-types = "1.1.7"
+aws-sdk-dynamodb = "1.49.0"
+serde = { workspace = true }
+spin-core = { path = "../core" }
+spin-factor-key-value = { path = "../factor-key-value" }
+
+[lints]
+workspace = true

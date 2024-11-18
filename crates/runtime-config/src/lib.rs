@@ -400,6 +400,9 @@ pub fn key_value_config_resolver(
     key_value
         .register_store_type(spin_key_value_azure::AzureKeyValueStore::new())
         .unwrap();
+    key_value
+        .register_store_type(spin_key_value_aws::AwsDynamoKeyValueStore::new())
+        .unwrap();
 
     // Add handling of "default" store.
     let default_store_path = default_store_base_path.map(|p| p.join(DEFAULT_SPIN_STORE_FILENAME));

@@ -283,10 +283,10 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<Vec<(String, Option<Vec<u8>>)>, wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
-        store
-            .get_many(keys.iter().map(|k| k.to_string()).collect())
-            .await
-            .map_err(to_wasi_err)
+        if keys.is_empty() {
+            return Ok(vec![]);
+        }
+        store.get_many(keys).await.map_err(to_wasi_err)
     }
 
     #[instrument(name = "spin_key_value.set_many", skip(self, bucket, key_values), err(level = Level::INFO), fields(otel.kind = "client"))]
@@ -296,6 +296,9 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         key_values: Vec<(String, Vec<u8>)>,
     ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
+        if key_values.is_empty() {
+            return Ok(());
+        }
         store.set_many(key_values).await.map_err(to_wasi_err)
     }
 
@@ -306,10 +309,10 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         keys: Vec<String>,
     ) -> std::result::Result<(), wasi_keyvalue::store::Error> {
         let store = self.get_store_wasi(bucket)?;
-        store
-            .delete_many(keys.iter().map(|k| k.to_string()).collect())
-            .await
-            .map_err(to_wasi_err)
+        if keys.is_empty() {
+            return Ok(());
+        }
+        store.delete_many(keys).await.map_err(to_wasi_err)
     }
 }
 
@@ -355,6 +358,13 @@ impl wasi_keyvalue::atomics::HostCas for KeyValueDispatch {
 
 #[async_trait]
 impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
+    fn convert_cas_error(
+        &mut self,
+        error: spin_world::wasi::keyvalue::atomics::CasError,
+    ) -> std::result::Result<spin_world::wasi::keyvalue::atomics::CasError, anyhow::Error> {
+        Ok(error)
+    }
+
     #[instrument(name = "spin_key_value.increment", skip(self, bucket, key, delta), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn increment(
         &mut self,
@@ -371,27 +381,29 @@ impl wasi_keyvalue::atomics::Host for KeyValueDispatch {
         &mut self,
         cas_res: Resource<atomics::Cas>,
         value: Vec<u8>,
-    ) -> Result<std::result::Result<(), CasError>> {
+    ) -> Result<(), CasError> {
         let cas_rep = cas_res.rep();
         let cas = self
             .get_cas(Resource::<Bucket>::new_own(cas_rep))
             .map_err(|e| CasError::StoreError(atomics::Error::Other(e.to_string())))?;
 
         match cas.swap(value).await {
-            Ok(_) => Ok(Ok(())),
+            Ok(_) => Ok(()),
             Err(err) => match err {
                 SwapError::CasFailed(_) => {
                     let bucket = Resource::new_own(cas.bucket_rep().await);
-                    let new_cas = self.new(bucket, cas.key().await).await?;
+                    let new_cas = self
+                        .new(bucket, cas.key().await)
+                        .await
+                        .map_err(CasError::StoreError)?;
                     let new_cas_rep = new_cas.rep();
-                    self.current(Resource::new_own(new_cas_rep)).await?;
-                    Err(anyhow::Error::new(CasError::CasFailed(Resource::new_own(
-                        new_cas_rep,
-                    ))))
+                    self.current(Resource::new_own(new_cas_rep))
+                        .await
+                        .map_err(CasError::StoreError)?;
+                    let res = Resource::new_own(new_cas_rep);
+                    Err(CasError::CasFailed(res))
                 }
-                SwapError::Other(msg) => Err(anyhow::Error::new(CasError::StoreError(
-                    atomics::Error::Other(msg),
-                ))),
+                SwapError::Other(msg) => Err(CasError::StoreError(atomics::Error::Other(msg))),
             },
         }
     }

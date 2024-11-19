@@ -302,7 +302,7 @@ impl wasi_keyvalue::batch::Host for KeyValueDispatch {
         store.set_many(key_values).await.map_err(to_wasi_err)
     }
 
-    #[instrument(name = "spin_key_value.get_many", skip(self, bucket, keys), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value.delete_many", skip(self, bucket, keys), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete_many(
         &mut self,
         bucket: Resource<wasi_keyvalue::batch::Bucket>,

@@ -4,8 +4,6 @@ use env::otel_logs_enabled;
 use env::otel_metrics_enabled;
 use env::otel_tracing_enabled;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use tracing_subscriber::filter::filter_fn;
-use tracing_subscriber::fmt::Layer as OtelFmtLayer;
 use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
@@ -66,16 +64,6 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
                 .add_directive("[{app_log_non_utf8}]=off".parse()?),
         );
 
-    let opentelemetry_layer = OtelFmtLayer::new()
-        .with_writer(std::io::stderr)
-        .with_filter(filter_fn(|metadata| {
-            metadata.target().starts_with("opentelemetry")
-        }));
-
-    // let non_opentelemetry_filter = filter_fn(|metadata| !metadata.target().starts_with("opentelemetry"));
-    // let otel_bridge_layer = layer::OpenTelemetryTracingBridge::new(&cloned_provider)
-    //     .with_filter(non_opentelemetry_filter);
-
     let otel_tracing_layer = if otel_tracing_enabled() {
         Some(traces::otel_tracing_layer(spin_version.clone())?)
     } else {
@@ -93,8 +81,6 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
         .with(otel_tracing_layer)
         .with(otel_metrics_layer)
         .with(fmt_layer)
-        .with(opentelemetry_layer)
-        // .with(otel_bridge_layer)
         .init();
 
     // Used to propagate trace information in the standard W3C TraceContext format. Even if the otel
@@ -107,37 +93,6 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
 
     Ok(ShutdownGuard)
 }
-
-// fn otel_error_handler(err: opentelemetry::global::Error) {
-//     // Track the error count
-//     let signal = match err {
-//         opentelemetry::global::Error::Metric(_) => "metrics",
-//         opentelemetry::global::Error::Trace(_) => "traces",
-//         opentelemetry::global::Error::Log(_) => "logs",
-//         _ => "unknown",
-//     };
-//     metrics::monotonic_counter!(spin.otel_error_count = 1, signal = signal);
-
-//     // Only log the first error at ERROR level, subsequent errors will be logged at higher levels and rate limited
-//     static FIRST_OTEL_ERROR: std::sync::Once = std::sync::Once::new();
-//     FIRST_OTEL_ERROR.call_once(|| {
-//         tracing::error!(?err, "OpenTelemetry error");
-//         tracing::error!("There has been an error with the OpenTelemetry system. Traces, logs or metrics are likely failing to export.");
-//         tracing::error!("Further OpenTelemetry errors will be available at WARN level (rate limited) or at TRACE level.");
-//     });
-
-//     // Rate limit the logging of the OTel errors to not occur more frequently on each thread than OTEL_ERROR_INTERVAL
-//     const OTEL_ERROR_INTERVAL: Duration = Duration::from_millis(5000);
-//     thread_local! {
-//         static LAST_OTEL_ERROR: Cell<Instant> = Cell::new(Instant::now() - OTEL_ERROR_INTERVAL);
-//     }
-//     if LAST_OTEL_ERROR.get().elapsed() > OTEL_ERROR_INTERVAL {
-//         LAST_OTEL_ERROR.set(Instant::now());
-//         tracing::warn!(?err, "OpenTelemetry error");
-//     } else {
-//         tracing::trace!(?err, "OpenTelemetry error");
-//     }
-// }
 
 /// An RAII implementation for connection to open telemetry services.
 ///

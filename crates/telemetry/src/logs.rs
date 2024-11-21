@@ -2,7 +2,6 @@ use std::{ascii::escape_default, sync::OnceLock, time::Duration};
 
 use anyhow::bail;
 use opentelemetry::logs::{LogRecord, Logger, LoggerProvider};
-use opentelemetry_otlp::LogExporterBuilder;
 use opentelemetry_sdk::{
     logs::{BatchConfigBuilder, BatchLogProcessor, Logger as SdkLogger},
     resource::{EnvResourceDetector, TelemetryResourceDetector},
@@ -86,21 +85,22 @@ pub(crate) fn init_otel_logging_backend(spin_version: String) -> anyhow::Result<
     // currently default to using the HTTP exporter but in the future we could select off of the
     // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_LOGS_PROTOCOL to
     // determine whether we should use http/protobuf or grpc.
-    let exporter_builder: LogExporterBuilder = match OtlpProtocol::logs_protocol_from_env() {
-        OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
-        OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
+    let exporter = match OtlpProtocol::logs_protocol_from_env() {
+        OtlpProtocol::Grpc => opentelemetry_otlp::LogExporter::builder()
+            .with_tonic()
+            .build()?,
+        OtlpProtocol::HttpProtobuf => opentelemetry_otlp::LogExporter::builder()
+            .with_http()
+            .build()?,
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
 
     let provider = opentelemetry_sdk::logs::LoggerProvider::builder()
         .with_resource(resource)
         .with_log_processor(
-            BatchLogProcessor::builder(
-                exporter_builder.build_log_exporter()?,
-                opentelemetry_sdk::runtime::Tokio,
-            )
-            .with_batch_config(BatchConfigBuilder::default().build())
-            .build(),
+            BatchLogProcessor::builder(exporter, opentelemetry_sdk::runtime::Tokio)
+                .with_batch_config(BatchConfigBuilder::default().build())
+                .build(),
         )
         .build();
 

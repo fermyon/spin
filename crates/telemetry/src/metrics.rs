@@ -2,12 +2,8 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use opentelemetry::global;
-use opentelemetry_otlp::MetricsExporterBuilder;
 use opentelemetry_sdk::{
-    metrics::{
-        reader::{DefaultAggregationSelector, DefaultTemporalitySelector},
-        PeriodicReader, SdkMeterProvider,
-    },
+    metrics::{PeriodicReader, SdkMeterProvider},
     resource::{EnvResourceDetector, TelemetryResourceDetector},
     runtime, Resource,
 };
@@ -42,15 +38,15 @@ pub(crate) fn otel_metrics_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     // currently default to using the HTTP exporter but in the future we could select off of the
     // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
     // determine whether we should use http/protobuf or grpc.
-    let exporter_builder: MetricsExporterBuilder = match OtlpProtocol::metrics_protocol_from_env() {
-        OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
-        OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
+    let exporter = match OtlpProtocol::metrics_protocol_from_env() {
+        OtlpProtocol::Grpc => opentelemetry_otlp::MetricExporter::builder()
+            .with_tonic()
+            .build()?,
+        OtlpProtocol::HttpProtobuf => opentelemetry_otlp::MetricExporter::builder()
+            .with_http()
+            .build()?,
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
     };
-    let exporter = exporter_builder.build_metrics_exporter(
-        Box::new(DefaultTemporalitySelector::new()),
-        Box::new(DefaultAggregationSelector::new()),
-    )?;
 
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let meter_provider = SdkMeterProvider::builder()

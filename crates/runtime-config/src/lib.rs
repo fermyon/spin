@@ -129,27 +129,29 @@ where
         let runtime_config_dir = runtime_config_path
             .and_then(Path::parent)
             .map(ToOwned::to_owned);
+        let state_dir = toml_resolver.state_dir()?;
         let tls_resolver = runtime_config_dir.clone().map(SpinTlsRuntimeConfig::new);
-        let key_value_config_resolver =
-            key_value_config_resolver(runtime_config_dir, toml_resolver.state_dir()?);
-        let sqlite_config_resolver = sqlite_config_resolver(toml_resolver.state_dir()?)
+        let key_value_resolver = key_value_config_resolver(runtime_config_dir, state_dir.clone());
+        let sqlite_resolver = sqlite_config_resolver(state_dir.clone())
             .context("failed to resolve sqlite runtime config")?;
 
+        let toml = toml_resolver.toml();
+        let log_dir = toml_resolver.log_dir()?;
         let source = TomlRuntimeConfigSource::new(
-            toml_resolver.clone(),
-            &key_value_config_resolver,
+            toml_resolver,
+            &key_value_resolver,
             tls_resolver.as_ref(),
-            &sqlite_config_resolver,
+            &sqlite_resolver,
         );
         let runtime_config: T = source.try_into().map_err(Into::into)?;
 
         Ok(Self {
             runtime_config,
-            key_value_resolver: key_value_config_resolver,
-            sqlite_resolver: sqlite_config_resolver,
-            state_dir: toml_resolver.state_dir()?,
-            log_dir: toml_resolver.log_dir()?,
-            toml: toml_resolver.toml(),
+            key_value_resolver,
+            sqlite_resolver,
+            state_dir,
+            log_dir,
+            toml,
         })
     }
 

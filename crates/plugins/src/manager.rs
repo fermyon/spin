@@ -12,6 +12,7 @@ use reqwest::{header::HeaderMap, Client};
 use serde::Serialize;
 use spin_common::sha256;
 use std::{
+    cmp::Ordering,
     fs::{self, File},
     io::{copy, Cursor},
     path::{Path, PathBuf},
@@ -173,7 +174,9 @@ impl PluginManager {
                     name: plugin_manifest.name(),
                     version: installed.version,
                 });
-            } else if installed.version > plugin_manifest.version && !allow_downgrades {
+            } else if installed.compare_versions(plugin_manifest) == Some(Ordering::Greater)
+                && !allow_downgrades
+            {
                 bail!(
                     "Newer version {} of plugin '{}' is already installed. To downgrade to version {}, run `spin plugins upgrade` with the `--downgrade` flag.",
                     installed.version,

@@ -70,6 +70,16 @@ impl PluginManifest {
     pub fn try_version(&self) -> Result<semver::Version, semver::Error> {
         semver::Version::parse(&self.version)
     }
+
+    // Compares the versions. Returns None if either's version string is invalid semver.
+    pub fn compare_versions(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if let Ok(this_version) = self.try_version() {
+            if let Ok(other_version) = other.try_version() {
+                return Some(this_version.cmp_precedence(&other_version));
+            }
+        }
+        None
+    }
 }
 
 /// Describes compatibility and location of a plugin source.

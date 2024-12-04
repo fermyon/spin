@@ -143,6 +143,9 @@ where
             tls_resolver.as_ref(),
             &sqlite_resolver,
         );
+        // Note: all valid fields in the runtime config must have been referenced at
+        // this point or the finalizer will fail due to `validate_all_keys_used`
+        // not passing.
         let runtime_config: T = source.try_into().map_err(Into::into)?;
 
         Ok(Self {
@@ -460,12 +463,11 @@ mod tests {
             fn resolve_toml(
                 toml: toml::Table,
                 path: impl AsRef<std::path::Path>,
-            ) -> ResolvedRuntimeConfig<TestFactorsRuntimeConfig> {
+            ) -> anyhow::Result<ResolvedRuntimeConfig<TestFactorsRuntimeConfig>> {
                 ResolvedRuntimeConfig::<TestFactorsRuntimeConfig>::new(
                     toml_resolver(&toml),
                     Some(path.as_ref()),
                 )
-                .unwrap()
             }
         };
     }
@@ -501,13 +503,16 @@ mod tests {
             type = "spin"
         };
         assert_eq!(
-            resolve_toml(toml, ".").runtime_config.configured_labels(),
+            resolve_toml(toml, ".")
+                .unwrap()
+                .runtime_config
+                .configured_labels(),
             vec!["default", "foo"]
         );
 
         // Test that the default label is added with an empty toml config.
         let toml = toml::Table::new();
-        let runtime_config = resolve_toml(toml, "config.toml").runtime_config;
+        let runtime_config = resolve_toml(toml, "config.toml").unwrap().runtime_config;
         assert_eq!(runtime_config.configured_labels(), vec!["default"]);
     }
 
@@ -526,7 +531,7 @@ mod tests {
             [key_value_store.foo]
             type = "spin"
         };
-        let runtime_config = resolve_toml(toml, "config.toml").runtime_config;
+        let runtime_config = resolve_toml(toml, "config.toml").unwrap().runtime_config;
         assert!(["default", "foo"]
             .iter()
             .all(|label| runtime_config.has_store_manager(label)));
@@ -564,6 +569,7 @@ mod tests {
             })
             .runtime_config(
                 resolve_toml(runtime_config, tmp_dir.path().join("runtime-config.toml"))
+                    .unwrap()
                     .runtime_config,
             )?;
         let mut state = env.build_instance_state().await?;
@@ -588,5 +594,30 @@ mod tests {
             UserProvidedPath::Default,
             UserProvidedPath::Default,
         )
+    }
+
+    #[test]
+    fn dirs_are_resolved() {
+        define_test_factor!(sqlite: SqliteFactor);
+
+        let toml = toml::toml! {
+            state_dir = "/foo"
+            log_dir = "/bar"
+        };
+        resolve_toml(toml, "config.toml").unwrap();
+    }
+
+    #[test]
+    fn fails_to_resolve_with_unused_key() {
+        define_test_factor!(sqlite: SqliteFactor);
+
+        let toml = toml::toml! {
+            baz = "/baz"
+        };
+        // assert returns an error with value "unused runtime config key(s): local_app_dir"
+        let Err(e) = resolve_toml(toml, "config.toml") else {
+            panic!("Should not be able to resolve unknown key");
+        };
+        assert_eq!(e.to_string(), "unused runtime config key(s): baz");
     }
 }

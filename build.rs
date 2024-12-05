@@ -58,8 +58,8 @@ fn main() {
 
         println!(
             r#"
-error: the `wasm32-wasi` target is not installed
-    = help: consider downloading the target with `rustup{} target add wasm32-wasi`"#,
+error: the `wasm32-wasip1` target is not installed
+    = help: consider downloading the target with `rustup{} target add wasm32-wasip1`"#,
             toolchain_override
         );
         process::exit(1);
@@ -75,7 +75,7 @@ error: the `wasm32-wasi` target is not installed
 fn build_wasm_test_program(name: &'static str, root: &'static str) {
     build_target_dep(root, Path::new("target/test-programs").join(name))
         .release()
-        .target("wasm32-wasi")
+        .target("wasm32-wasip1")
         .build();
     println!("cargo:rerun-if-changed={root}/Cargo.toml");
     println!("cargo:rerun-if-changed={root}/Cargo.lock");
@@ -85,7 +85,7 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
 fn has_wasm32_wasi_target() -> bool {
     // Using rustc here for systems that don't have rustup
     let output = run(
-        vec!["rustc", "--print=target-libdir", "--target=wasm32-wasi"],
+        vec!["rustc", "--print=target-libdir", "--target=wasm32-wasip1"],
         None,
         None,
     );
@@ -110,7 +110,7 @@ fn cargo_build(dir: &str) {
             "cargo",
             "build",
             "--target",
-            "wasm32-wasi",
+            "wasm32-wasip1",
             "--release",
             // Ensure that even if `CARGO_TARGET_DIR` is set
             // that we're still building into the right dir.

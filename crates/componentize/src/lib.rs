@@ -413,7 +413,7 @@ mod tests {
         run_spin(
             &fs::read(concat!(
                 env!("OUT_DIR"),
-                "/wasm32-wasi/release/rust_case_02.wasm"
+                "/wasm32-wasip1/release/rust_case_02.wasm"
             ))
             .await?,
         )
@@ -426,7 +426,7 @@ mod tests {
         run_spin(
             &fs::read(concat!(
                 env!("OUT_DIR"),
-                "/wasm32-wasi/release/rust_case_08.wasm"
+                "/wasm32-wasip1/release/rust_case_08.wasm"
             ))
             .await?,
         )
@@ -458,7 +458,7 @@ mod tests {
         run_command(
             &fs::read(concat!(
                 env!("OUT_DIR"),
-                "/wasm32-wasi/release/rust-command.wasm"
+                "/wasm32-wasip1/release/rust-command.wasm"
             ))
             .await?,
         )
@@ -471,7 +471,7 @@ mod tests {
         cmd.arg("build")
             .current_dir(format!("tests/{name}"))
             .arg("--release")
-            .arg("--target=wasm32-wasi")
+            .arg("--target=wasm32-wasip1")
             .env("CARGO_TARGET_DIR", out_dir);
 
         let status = cmd.status().unwrap();

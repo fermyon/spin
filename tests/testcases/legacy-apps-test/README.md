@@ -35,7 +35,7 @@ cp main.wasm longevity-go.wasm
 spin new http-rust http-rust-test
 cd http-rust-test
 spin build
-cp target/wasm32-wasi/release/http_rust_test.wasm longevity-rust.wasm
+cp target/wasm32-wasip1/release/http_rust_test.wasm longevity-rust.wasm
 ```
 
 ```

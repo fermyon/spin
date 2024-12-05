@@ -39,7 +39,7 @@ fn main() {
         cargo
             .current_dir(crate_path)
             .arg("build")
-            .arg("--target=wasm32-wasi")
+            .arg("--target=wasm32-wasip1")
             .env("RUSTFLAGS", rustflags())
             .env("CARGO_TARGET_DIR", &out_dir);
         eprintln!("running: {cargo:?}");
@@ -49,7 +49,7 @@ fn main() {
         let package_name = manifest.package.expect("manifest has no package").name;
         let binary_name = package_name.replace(['-', '.'], "_");
         let mut wasm_path = out_dir
-            .join("wasm32-wasi")
+            .join("wasm32-wasip1")
             .join("debug")
             .join(format!("{binary_name}.wasm"));
 

@@ -2,4 +2,4 @@
 WASI_CC ?= /opt/wasi-sdk/bin/clang++
 
 build:
-	$(WASI_CC) --target=wasm32-wasi main.cpp -o main.wasm
+	$(WASI_CC) --target=wasm32-wasip1 main.cpp -o main.wasm

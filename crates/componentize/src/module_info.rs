@@ -2,6 +2,8 @@ use wasm_metadata::Producers;
 use wasmparser::{Encoding, ExternalKind, Parser, Payload};
 use wit_component::metadata::Bindgen;
 
+use crate::EXPORT_INTERFACES;
+
 // wit-bindgen has used both of these historically.
 const CANONICAL_ABI_REALLOC_EXPORTS: &[&str] = &["cabi_realloc", "canonical_abi_realloc"];
 
@@ -9,10 +11,16 @@ const CANONICAL_ABI_REALLOC_EXPORTS: &[&str] = &["cabi_realloc", "canonical_abi_
 /// componentization.
 #[derive(Default)]
 pub struct ModuleInfo {
+    /// Binding information parsed from a "component-type" custom section
     pub bindgen: Option<Bindgen>,
+    /// Clang version parsed from a "producers" custom section
     pub clang_version: Option<String>,
-    pub realloc_export: Option<String>,
+    /// True if the module exports a well-known canonical ABI realloc func
+    pub has_realloc_export: bool,
+    /// True if the module exports a '_start' func
     pub has_start_export: bool,
+    /// True if the module exports an "old" Spin export interface
+    pub has_old_spin_export_interface: bool,
 }
 
 impl ModuleInfo {
@@ -31,15 +39,16 @@ impl ModuleInfo {
                     for export in reader {
                         let export = export?;
                         if export.kind == ExternalKind::Func {
-                            if CANONICAL_ABI_REALLOC_EXPORTS.contains(&export.name) {
-                                tracing::debug!(
-                                    "Found canonical ABI realloc export {:?}",
-                                    export.name
-                                );
-                                info.realloc_export = Some(export.name.to_string());
+                            let name = export.name;
+                            if CANONICAL_ABI_REALLOC_EXPORTS.contains(&name) {
+                                tracing::debug!("Found canonical ABI realloc export {name:?}");
+                                info.has_realloc_export = true;
                             } else if export.name == "_start" {
                                 tracing::debug!("Found _start export");
                                 info.has_start_export = true;
+                            } else if EXPORT_INTERFACES.iter().any(|(export, _)| export == &name) {
+                                tracing::debug!("Found old Spin export interface {name:?}");
+                                info.has_old_spin_export_interface = true;
                             }
                         }
                     }
@@ -77,8 +86,8 @@ impl ModuleInfo {
     pub fn probably_uses_wit_bindgen(&self) -> bool {
         // Presence of bindgen metadata is a strong signal
         self.bindgen.is_some() ||
-            // A canonical ABI realloc export is a decent signal
-            self.realloc_export.is_some()
+            // A canonical ABI realloc export is a good-enough signal
+            self.has_realloc_export
     }
 
     /// Returns the wit-bindgen metadata producers processed-by field, if

@@ -56,7 +56,7 @@ pub fn componentize(module: &[u8]) -> Result<Vec<u8>> {
     let module_info = ModuleInfo::from_module(module)?;
     match WitBindgenVersion::detect(&module_info)? {
         WitBindgenVersion::V0_2OrNone => componentize_old_module(module, &module_info),
-        WitBindgenVersion::GreaterThanV0_4 => componentize_new_bindgen(module),
+        WitBindgenVersion::GreaterThanV0_4 => componentize_new_bindgen(module, &module_info),
         WitBindgenVersion::Other(other) => Err(anyhow::anyhow!(
             "cannot adapt modules created with wit-bindgen version {other}"
         )),
@@ -102,19 +102,27 @@ impl WitBindgenVersion {
 }
 
 /// Modules produced with wit-bindgen 0.5 and newer only need wasi preview 1 to preview 2 adapter
-pub fn componentize_new_bindgen(module: &[u8]) -> Result<Vec<u8>> {
+pub fn componentize_new_bindgen(module: &[u8], module_info: &ModuleInfo) -> Result<Vec<u8>> {
+    let adapter = if module_info.has_start_export {
+        COMMAND_ADAPTER
+    } else {
+        PREVIEW1_ADAPTER
+    };
     ComponentEncoder::default()
         .validate(true)
         .module(module)?
-        .adapter("wasi_snapshot_preview1", PREVIEW1_ADAPTER)?
+        .adapter("wasi_snapshot_preview1", adapter)?
         .encode()
 }
 
 /// Modules *not* produced with wit-bindgen >= 0.5 could be old wit-bindgen or no wit-bindgen
 pub fn componentize_old_module(module: &[u8], module_info: &ModuleInfo) -> Result<Vec<u8>> {
-    // If the module has a _start export and doesn't obviously use wit-bindgen
-    // it is likely an old p1 command module.
-    if module_info.has_start_export && !module_info.probably_uses_wit_bindgen() {
+    // If the module has a _start export AND doesn't have an old spin export AND
+    // doesn't obviously use wit-bindgen it is likely an old p1 command module.
+    if module_info.has_start_export
+        && !module_info.has_old_spin_export_interface
+        && !module_info.probably_uses_wit_bindgen()
+    {
         bugs::WasiLibc377Bug::check(module_info)?;
         componentize_command(module)
     } else {

@@ -16,7 +16,7 @@
         };
         rustTarget = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" ];
-          targets = [ "wasm32-wasi" "wasm32-unknown-unknown" ];
+          targets = [ "wasm32-wasip1" "wasm32-unknown-unknown" ];
         };
       in
       with pkgs;

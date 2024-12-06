@@ -2,4 +2,4 @@
 rustup update stable && rustup default stable && rustup component add clippy rustfmt
 
 # Installs wasm32 compiler targets
-rustup target add wasm32-wasi wasm32-unknown-unknown
+rustup target add wasm32-wasip1 wasm32-unknown-unknown

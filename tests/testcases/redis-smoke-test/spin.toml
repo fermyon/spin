@@ -11,4 +11,4 @@ source = "%{source=redis-smoke-test}"
 [component.trigger]
 channel = "my-channel"
 [component.build]
-command = "cargo build --target wasm32-wasi --release"
+command = "cargo build --target wasm32-wasip1 --release"

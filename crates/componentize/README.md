@@ -12,7 +12,7 @@ the original module exported.
 This crate requires a [Rust](https://rustup.rs/) installation v1.68 or later and a couple of Wasm targets:
 
 ```shell
-rustup target add wasm32-wasi
+rustup target add wasm32-wasip1
 rustup target add wasm32-unknown-unknown
 ```
 

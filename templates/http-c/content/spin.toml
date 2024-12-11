@@ -15,5 +15,5 @@ executor = { type = "wagi" }
 source = "main.wasm"
 allowed_outbound_hosts = []
 [component.{{project-name | kebab_case}}.build]
-command = "zig build-exe -O ReleaseSmall -target wasm32-wasip1 main.c -lc"
+command = "zig build-exe -O ReleaseSmall -target wasm32-wasi main.c -lc"
 watch = ["**/*.c"]

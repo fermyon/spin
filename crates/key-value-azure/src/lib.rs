@@ -8,12 +8,15 @@ use store::{
 
 /// A key-value store that uses Azure Cosmos as the backend.
 pub struct AzureKeyValueStore {
-    app_id: String,
+    app_id: Option<String>,
 }
 
 impl AzureKeyValueStore {
     /// Creates a new `AzureKeyValueStore`.
-    pub fn new(app_id: String) -> Self {
+    ///
+    /// When `app_id` is provided, the store will a partition key of `$app_id/$store_name`,
+    /// otherwise the partition key will be `id`.
+    pub fn new(app_id: Option<String>) -> Self {
         Self { app_id }
     }
 }

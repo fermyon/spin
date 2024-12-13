@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct KeyValueAzureCosmos {
     client: CollectionClient,
-    app_id: String,
+    app_id: Option<String>,
 }
 
 /// Azure Cosmos Key / Value runtime config literal options for authentication
@@ -72,7 +72,7 @@ impl KeyValueAzureCosmos {
         database: String,
         container: String,
         auth_options: KeyValueAzureCosmosAuthOptions,
-        app_id: String,
+        app_id: Option<String>,
     ) -> Result<Self> {
         let token = match auth_options {
             KeyValueAzureCosmosAuthOptions::RuntimeConfigValues(config) => {
@@ -97,7 +97,7 @@ impl StoreManager for KeyValueAzureCosmos {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         Ok(Arc::new(AzureCosmosStore {
             client: self.client.clone(),
-            partition_key: format!("{}/{}", self.app_id, name),
+            partition_key: self.app_id.as_ref().map(|i| format!("{i}/{name}")),
         }))
     }
 
@@ -117,7 +117,10 @@ impl StoreManager for KeyValueAzureCosmos {
 #[derive(Clone)]
 struct AzureCosmosStore {
     client: CollectionClient,
-    partition_key: String,
+    /// An optional partition key to use for all operations.
+    ///
+    /// If the partition key is not set, the store will use `/id` as the partition key.
+    partition_key: Option<String>,
 }
 
 #[async_trait]
@@ -161,15 +164,7 @@ impl Store for AzureCosmosStore {
     }
 
     async fn get_many(&self, keys: Vec<String>) -> Result<Vec<(String, Option<Vec<u8>>)>, Error> {
-        let in_clause: String = keys
-            .into_iter()
-            .map(|k| format!("'{}'", k))
-            .collect::<Vec<String>>()
-            .join(", ");
-        let stmt = Query::new(format!(
-            "SELECT * FROM c WHERE c.id IN ({}) AND partition_key='{}'",
-            in_clause, self.partition_key
-        ));
+        let stmt = Query::new(self.get_in_query(keys));
         let query = self
             .client
             .query_documents(stmt)
@@ -243,7 +238,19 @@ struct CompareAndSwap {
     client: CollectionClient,
     bucket_rep: u32,
     etag: Mutex<Option<String>>,
-    partition_key: String,
+    partition_key: Option<String>,
+}
+
+impl CompareAndSwap {
+    fn get_query(&self) -> String {
+        let mut query = format!("SELECT * FROM c WHERE c.id='{}'", self.key);
+        self.append_partition_key(&mut query);
+        query
+    }
+
+    fn append_partition_key(&self, query: &mut String) {
+        append_partition_key_condition(query, self.partition_key.as_deref());
+    }
 }
 
 #[async_trait]
@@ -253,10 +260,7 @@ impl Cas for CompareAndSwap {
     async fn current(&self) -> Result<Option<Vec<u8>>, Error> {
         let mut stream = self
             .client
-            .query_documents(Query::new(format!(
-                "SELECT * FROM c WHERE c.id='{}' and c.partition_key='{}'",
-                self.key, self.partition_key
-            )))
+            .query_documents(Query::new(self.get_query()))
             .query_cross_partition(true)
             .max_item_count(1)
             .into_stream::<Pair>();
@@ -287,7 +291,11 @@ impl Cas for CompareAndSwap {
     /// `swap` updates the value for the key using the etag saved in the `current` function for
     /// optimistic concurrency.
     async fn swap(&self, value: Vec<u8>) -> Result<(), SwapError> {
-        let pk = PartitionKey::from(&self.partition_key);
+        let pk = PartitionKey::from(
+            self.partition_key
+                .as_deref()
+                .unwrap_or_else(|| self.key.as_str()),
+        );
         let pair = Pair {
             id: self.key.clone(),
             value,
@@ -334,10 +342,7 @@ impl AzureCosmosStore {
     async fn get_pair(&self, key: &str) -> Result<Option<Pair>, Error> {
         let query = self
             .client
-            .query_documents(Query::new(format!(
-                "SELECT * FROM c WHERE c.id='{}' AND c.partition_key='{}'",
-                key, self.partition_key
-            )))
+            .query_documents(Query::new(self.get_query(key)))
             .query_cross_partition(true)
             .max_item_count(1);
 
@@ -356,7 +361,7 @@ impl AzureCosmosStore {
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         let query = self
             .client
-            .query_documents(Query::new("SELECT * FROM c".to_string()))
+            .query_documents(Query::new(self.get_keys_query()))
             .query_cross_partition(true);
         let mut res = Vec::new();
 
@@ -368,19 +373,59 @@ impl AzureCosmosStore {
 
         Ok(res)
     }
+
+    fn get_query(&self, key: &str) -> String {
+        let mut query = format!("SELECT * FROM c WHERE c.id='{}'", key);
+        self.append_partition_key(&mut query);
+        query
+    }
+
+    fn get_keys_query(&self) -> String {
+        let mut query = "SELECT * FROM c".to_owned();
+        self.append_partition_key(&mut query);
+        query
+    }
+
+    fn get_in_query(&self, keys: Vec<String>) -> String {
+        let in_clause: String = keys
+            .into_iter()
+            .map(|k| format!("'{}'", k))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let mut query = format!("SELECT * FROM c WHERE c.id IN ({})", in_clause);
+        self.append_partition_key(&mut query);
+        query
+    }
+
+    fn append_partition_key(&self, query: &mut String) {
+        append_partition_key_condition(query, self.partition_key.as_deref());
+    }
+}
+
+/// Appends an option partition key condition to the query.
+fn append_partition_key_condition(query: &mut String, partition_key: Option<&str>) {
+    if let Some(pk) = partition_key {
+        query.push_str(" AND c.partition_key='");
+        query.push_str(pk);
+        query.push('\'')
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Pair {
     pub id: String,
     pub value: Vec<u8>,
-    pub partition_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partition_key: Option<String>,
 }
 
 impl CosmosEntity for Pair {
     type Entity = String;
 
     fn partition_key(&self) -> Self::Entity {
-        self.partition_key.clone()
+        self.partition_key
+            .clone()
+            .unwrap_or_else(|| self.id.clone())
     }
 }

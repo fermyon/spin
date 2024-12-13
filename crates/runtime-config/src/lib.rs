@@ -403,9 +403,7 @@ pub fn key_value_config_resolver(
         .register_store_type(spin_key_value_redis::RedisKeyValueStore::new())
         .unwrap();
     key_value
-        .register_store_type(spin_key_value_azure::AzureKeyValueStore::new(
-            "MY_APP".to_owned(),
-        ))
+        .register_store_type(spin_key_value_azure::AzureKeyValueStore::new(None))
         .unwrap();
     key_value
         .register_store_type(spin_key_value_aws::AwsDynamoKeyValueStore::new())

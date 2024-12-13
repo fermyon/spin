@@ -7,15 +7,14 @@ use store::{
 };
 
 /// A key-value store that uses Azure Cosmos as the backend.
-#[derive(Default)]
 pub struct AzureKeyValueStore {
-    _priv: (),
+    app_id: String,
 }
 
 impl AzureKeyValueStore {
     /// Creates a new `AzureKeyValueStore`.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(app_id: String) -> Self {
+        Self { app_id }
     }
 }
 
@@ -55,6 +54,7 @@ impl MakeKeyValueStore for AzureKeyValueStore {
             runtime_config.database,
             runtime_config.container,
             auth_options,
+            self.app_id.clone(),
         )
     }
 }

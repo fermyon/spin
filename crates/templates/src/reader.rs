@@ -118,6 +118,7 @@ pub(crate) fn parse_manifest_toml(text: impl AsRef<str>) -> anyhow::Result<RawTe
 pub(crate) enum RawInstalledFrom {
     Git { git: String },
     File { dir: String },
+    RemoteTar { url: String },
 }
 
 pub(crate) fn parse_installed_from(text: impl AsRef<str>) -> Option<RawInstalledFrom> {

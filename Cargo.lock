@@ -8355,7 +8355,9 @@ name = "spin-templates"
 version = "3.1.0-pre0"
 dependencies = [
  "anyhow",
+ "bytes",
  "dialoguer",
+ "flate2",
  "fs_extra",
  "heck 0.5.0",
  "indexmap 2.6.0",
@@ -8367,10 +8369,12 @@ dependencies = [
  "path-absolutize",
  "pathdiff",
  "regex",
+ "reqwest 0.12.9",
  "semver",
  "serde",
  "spin-common",
  "spin-manifest",
+ "tar",
  "tempfile",
  "tokio",
  "toml",

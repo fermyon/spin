@@ -2,7 +2,7 @@
 #![allow(clippy::almost_swapped)]
 
 use anyhow::{anyhow, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use semver::Version;
 use spin_plugins::{
     error::Error,
@@ -616,6 +616,16 @@ pub struct List {
     /// Filter the list to plugins containing this string.
     #[clap(long = "filter")]
     pub filter: Option<String>,
+
+    /// The format in which to list the templates.
+    #[clap(value_enum, long = "format", default_value = "plain")]
+    pub format: ListFormat,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum ListFormat {
+    Plain,
+    Json,
 }
 
 impl List {
@@ -636,11 +646,13 @@ impl List {
             plugins.retain(|p| p.name.contains(filter));
         }
 
-        Self::print(&plugins);
-        Ok(())
+        match self.format {
+            ListFormat::Plain => Self::print_plain(&plugins),
+            ListFormat::Json => Self::print_json(&plugins),
+        }
     }
 
-    fn print(plugins: &[PluginDescriptor]) {
+    fn print_plain(plugins: &[PluginDescriptor]) -> anyhow::Result<()> {
         if plugins.is_empty() {
             println!("No plugins found");
         } else {
@@ -662,6 +674,16 @@ impl List {
                 println!("{} {}{}{}", p.name, p.version, installed, compat);
             }
         }
+
+        Ok(())
+    }
+
+    fn print_json(plugins: &[PluginDescriptor]) -> anyhow::Result<()> {
+        let json_vals: Vec<_> = plugins.iter().map(json_list_format).collect();
+
+        let json_text = serde_json::to_string_pretty(&json_vals)?;
+        println!("{}", json_text);
+        Ok(())
     }
 }
 
@@ -670,6 +692,10 @@ impl List {
 pub struct Search {
     /// The text to search for. If omitted, all plugins are returned.
     pub filter: Option<String>,
+
+    /// The format in which to list the plugins.
+    #[clap(value_enum, long = "format", default_value = "plain")]
+    pub format: ListFormat,
 }
 
 impl Search {
@@ -679,6 +705,7 @@ impl Search {
             all: true,
             summary: false,
             filter: self.filter.clone(),
+            format: self.format.clone(),
         };
 
         list_cmd.run().await
@@ -728,6 +755,36 @@ impl PluginDescriptor {
         };
 
         self.name.cmp(&other.name).then(version_cmp)
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginJsonFormat {
+    name: String,
+    installed: bool,
+    version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installed_version: Option<String>,
+}
+
+fn json_list_format(plugin: &PluginDescriptor) -> PluginJsonFormat {
+    let installed_version = if plugin.installed {
+        Some(
+            plugin
+                .installed_version
+                .clone()
+                .unwrap_or_else(|| plugin.version.clone()),
+        )
+    } else {
+        None
+    };
+
+    PluginJsonFormat {
+        name: plugin.name.clone(),
+        installed: plugin.installed,
+        version: plugin.version.clone(),
+        installed_version,
     }
 }
 

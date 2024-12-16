@@ -204,6 +204,7 @@ pub fn http_smoke_test_template_with_route(
 
 /// Run a smoke test for a `spin new` redis template
 #[cfg(feature = "extern-dependencies-tests")]
+#[allow(dependency_on_unit_never_type_fallback)]
 pub fn redis_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,

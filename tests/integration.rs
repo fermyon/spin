@@ -98,6 +98,7 @@ mod integration_tests {
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
+    #[allow(dependency_on_unit_never_type_fallback)]
     /// Test that basic redis trigger support works
     fn redis_smoke_test() -> anyhow::Result<()> {
         use anyhow::Context;

@@ -37,6 +37,7 @@ pub struct Template {
 enum InstalledFrom {
     Git(String),
     Directory(String),
+    RemoteTar(String),
     Unknown,
 }
 
@@ -254,6 +255,7 @@ impl Template {
         match &self.installed_from {
             InstalledFrom::Git(repo) => repo,
             InstalledFrom::Directory(path) => path,
+            InstalledFrom::RemoteTar(url) => url,
             InstalledFrom::Unknown => "",
         }
     }
@@ -625,6 +627,7 @@ fn read_install_record(layout: &TemplateLayout) -> InstalledFrom {
     match installed_from_text.and_then(parse_installed_from) {
         Some(RawInstalledFrom::Git { git }) => InstalledFrom::Git(git),
         Some(RawInstalledFrom::File { dir }) => InstalledFrom::Directory(dir),
+        Some(RawInstalledFrom::RemoteTar { url }) => InstalledFrom::RemoteTar(url),
         None => InstalledFrom::Unknown,
     }
 }

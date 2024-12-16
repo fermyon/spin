@@ -25,6 +25,12 @@ pub enum TemplateSource {
     /// Templates much be in a `/templates` directory under the specified
     /// root.
     File(PathBuf),
+    /// Install from a remote tarball.
+    ///
+    /// Templates should be in a `/templates` directory under the root of the tarball.
+    /// The implementation also allows for there to be a single root directory containing
+    /// the `templates` directory - this makes it compatible with GitHub release tarballs.
+    RemoteTar(Url),
 }
 
 /// Settings for installing templates from a Git repository.
@@ -72,6 +78,9 @@ impl TemplateSource {
                     None
                 }
             }
+            Self::RemoteTar(url) => Some(crate::reader::RawInstalledFrom::RemoteTar {
+                url: url.to_string(),
+            }),
         }
     }
 
@@ -96,6 +105,7 @@ impl TemplateSource {
         match self {
             Self::Git(git_source) => clone_local(git_source).await,
             Self::File(path) => check_local(path).await,
+            Self::RemoteTar(url) => download_untar_local(url).await,
         }
     }
 
@@ -103,6 +113,7 @@ impl TemplateSource {
         match self {
             Self::Git { .. } => true,
             Self::File(_) => false,
+            Self::RemoteTar(_) => true,
         }
     }
 }
@@ -190,6 +201,84 @@ async fn check_local(path: &Path) -> anyhow::Result<LocalTemplateSource> {
     } else {
         Err(anyhow!("Path not found: {}", path.display()))
     }
+}
+
+/// Download a tarball to a temorary directory
+async fn download_untar_local(url: &Url) -> anyhow::Result<LocalTemplateSource> {
+    use bytes::buf::Buf;
+
+    let temp_dir = tempdir()?;
+    let path = temp_dir.path().to_owned();
+
+    let resp = reqwest::get(url.clone())
+        .await
+        .with_context(|| format!("Failed to download from {url}"))?;
+    let tar_content = resp
+        .bytes()
+        .await
+        .with_context(|| format!("Failed to download from {url}"))?;
+
+    let reader = flate2::read::GzDecoder::new(tar_content.reader());
+    let mut archive = tar::Archive::new(reader);
+    archive
+        .unpack(&path)
+        .context("Failed to unpack tar archive")?;
+
+    let templates_root = bypass_gh_added_root(path);
+
+    Ok(LocalTemplateSource {
+        root: templates_root,
+        _temp_dir: Some(temp_dir),
+    })
+}
+
+/// GitHub adds a prefix directory to release tarballs (e.g. spin-v3.0.0/...).
+/// We try to locate the repo root within the unpacked tarball.
+fn bypass_gh_added_root(unpack_dir: PathBuf) -> PathBuf {
+    // If the unpack dir directly contains a `templates` dir then we are done.
+    if has_templates_dir(&unpack_dir) {
+        return unpack_dir;
+    }
+
+    let Ok(dirs) = unpack_dir.read_dir() else {
+        // If we can't traverse the unpack directory then return it and
+        // let the top level try to make sense of it.
+        return unpack_dir;
+    };
+
+    // Is there a single directory at the root?  If not, we can't be in the GitHub situation:
+    // return the root of the unpacking. (The take(2) here is because we don't need to traverse
+    // the full list - we only care whether there is more than one.)
+    let dirs = dirs.filter_map(|de| de.ok()).take(2).collect::<Vec<_>>();
+    if dirs.len() != 1 {
+        return unpack_dir;
+    }
+
+    // If we get here, there is a single directory (dirs has a single element). Look in it to see if it's a plausible repo root.
+    let candidate_repo_root = dirs[0].path();
+    let Ok(mut candidate_repo_dirs) = candidate_repo_root.read_dir() else {
+        // Again, if it all goes awry, propose the base unpack directory.
+        return unpack_dir;
+    };
+    let has_templates_dir = candidate_repo_dirs.any(is_templates_dir);
+
+    if has_templates_dir {
+        candidate_repo_root
+    } else {
+        unpack_dir
+    }
+}
+
+fn has_templates_dir(path: &Path) -> bool {
+    let Ok(mut dirs) = path.read_dir() else {
+        return false;
+    };
+
+    dirs.any(is_templates_dir)
+}
+
+fn is_templates_dir(dir_entry: Result<std::fs::DirEntry, std::io::Error>) -> bool {
+    dir_entry.is_ok_and(|d| d.file_name() == TEMPLATE_SOURCE_DIR)
 }
 
 #[cfg(test)]

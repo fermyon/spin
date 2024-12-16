@@ -15,6 +15,7 @@ use crate::build_info::*;
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
+const INSTALL_FROM_TAR_OPT: &str = "FROM_TAR";
 const UPGRADE_ONLY: &str = "GIT_URL";
 
 const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
@@ -64,6 +65,7 @@ pub struct Install {
         long = "git",
         alias = "repo",
         conflicts_with = INSTALL_FROM_DIR_OPT,
+        conflicts_with = INSTALL_FROM_TAR_OPT,
     )]
     pub git: Option<String>,
 
@@ -76,8 +78,18 @@ pub struct Install {
         name = INSTALL_FROM_DIR_OPT,
         long = "dir",
         conflicts_with = INSTALL_FROM_GIT_OPT,
+        conflicts_with = INSTALL_FROM_TAR_OPT,
     )]
     pub dir: Option<PathBuf>,
+
+    /// URL to a tarball in .tar.gz format containing the template(s) to install.
+    #[clap(
+        name = INSTALL_FROM_TAR_OPT,
+        long = "tar",
+        conflicts_with = INSTALL_FROM_GIT_OPT,
+        conflicts_with = INSTALL_FROM_DIR_OPT,
+    )]
+    pub tar_url: Option<String>,
 
     /// If present, updates existing templates instead of skipping.
     #[clap(long = "upgrade", alias = "update")]
@@ -119,16 +131,20 @@ impl Install {
     pub async fn run(self) -> Result<()> {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
-        let source = match (&self.git, &self.dir) {
-            (Some(git), None) => {
+        let source = match (&self.git, &self.dir, &self.tar_url) {
+            (Some(git), None, None) => {
                 let git_url = infer_github(git);
                 TemplateSource::try_from_git(git_url, &self.branch, SPIN_VERSION)?
             }
-            (None, Some(dir)) => {
+            (None, Some(dir), None) => {
                 let abs_dir = dir.absolutize().map(|d| d.to_path_buf());
                 TemplateSource::File(abs_dir.unwrap_or_else(|_| dir.clone()))
             }
-            _ => anyhow::bail!("Exactly one of `git` and `dir` sources must be specified"),
+            (None, None, Some(tar_url)) => {
+                let url = url::Url::parse(tar_url).context("Invalid URL for remote tar")?;
+                TemplateSource::RemoteTar(url)
+            }
+            _ => anyhow::bail!("Exactly one of `git`, `dir`, or `tar` must be specified"),
         };
 
         let reporter = ConsoleProgressReporter;
@@ -204,6 +220,7 @@ impl Upgrade {
                 git: self.git.clone(),
                 branch: self.branch.clone(),
                 dir: None,
+                tar_url: None,
                 update: true,
             };
 
@@ -620,6 +637,7 @@ async fn install_default_templates() -> anyhow::Result<()> {
         git: Some(DEFAULT_TEMPLATE_REPO.to_owned()),
         branch: None,
         dir: None,
+        tar_url: None,
         update: false,
     };
     install_cmd

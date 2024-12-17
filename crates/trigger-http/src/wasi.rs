@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
-use hyper::{Request, Response};
+use hyper::{ext::InformationalSender, Request, Response};
 use spin_factor_outbound_http::wasi_2023_10_18::exports::wasi::http::incoming_handler as incoming_handler2023_10_18;
 use spin_factor_outbound_http::wasi_2023_11_10::exports::wasi::http::incoming_handler as incoming_handler2023_11_10;
 use spin_factors::RuntimeFactors;
@@ -54,6 +54,9 @@ impl HttpExecutor for WasiHttpExecutor {
             store.data_mut().factors_instance_state_mut(),
         )
         .context("missing OutboundHttpFactor")?;
+
+        *wasi_http.0.informational_sender() =
+            req.extensions().get::<InformationalSender>().cloned();
 
         let (parts, body) = req.into_parts();
         let body = wasmtime_wasi_http::body::HostIncomingBody::new(

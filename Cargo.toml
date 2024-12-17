@@ -164,3 +164,7 @@ blocks_in_conditions = "allow"
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"
+
+[patch.crates-io]
+# Temporarily point to a fork of `hyper` which supports HTTP 1xx informational responses:
+hyper = { git = "https://github.com/fermyon/hyper", branch = "informational-draft", features = ["full"] }

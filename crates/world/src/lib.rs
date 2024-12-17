@@ -9,12 +9,15 @@ wasmtime::component::bindgen!({
     world host {
         include fermyon:spin/host;
         include fermyon:spin/platform@2.0.0;
-        include fermyon:spin/platform@3.0.0;
+        include fermyon:spin/platform@3.1.0;
         include wasi:keyvalue/imports@0.2.0-draft2;
     }
     "#,
     path: "../../wit",
     async: true,
+    with: {
+        "wasi:http/types": wasmtime_wasi_http::bindings::http::types,
+    },
     // The following is a roundabout way of saying "the host implementations for these interfaces don't trap"
     trappable_error_type: {
         "fermyon:spin/config/error" => v1::config::Error,

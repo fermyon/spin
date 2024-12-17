@@ -3752,7 +3752,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -3761,9 +3761,8 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbff0a806a4728c99295b254c8838933b5b082d75e3cb70c8dab21fdfbcfa9a"
+version = "1.5.2"
+source = "git+https://github.com/fermyon/hyper?branch=informational-draft#51252fca48692ff47a5997e4f85831e0ddc01502"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3822,7 +3821,7 @@ checksum = "08afdbb5c31130e3034af566421053ab03787c640246a446327f550d11bcb333"
 dependencies = [
  "futures-util",
  "http 1.1.0",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-util",
  "rustls 0.23.18",
  "rustls-pki-types",
@@ -3838,7 +3837,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b90d566bffbce6a75bd8b09a05aa8c2cb1fabb6cb348f8840c9e4c90a0d83b0"
 dependencies = [
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-util",
  "pin-project-lite",
  "tokio",
@@ -3866,7 +3865,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -3885,7 +3884,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.1",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "pin-project-lite",
  "socket2 0.5.7",
  "tokio",
@@ -4464,7 +4463,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -6657,7 +6656,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-rustls 0.27.3",
  "hyper-tls 0.6.0",
  "hyper-util",
@@ -7595,7 +7594,7 @@ dependencies = [
  "hex",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-util",
  "indicatif",
  "itertools 0.13.0",
@@ -7798,9 +7797,10 @@ name = "spin-factor-outbound-http"
 version = "3.2.0-pre0"
 dependencies = [
  "anyhow",
+ "futures",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "ip_network",
  "reqwest 0.12.9",
  "rustls 0.23.18",
@@ -8014,7 +8014,7 @@ dependencies = [
  "anyhow",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "indexmap 2.6.0",
  "percent-encoding",
  "routefinder",
@@ -8420,7 +8420,7 @@ dependencies = [
  "futures",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-util",
  "rustls 0.23.18",
  "rustls-pemfile 2.2.0",
@@ -8486,6 +8486,7 @@ version = "3.2.0-pre0"
 dependencies = [
  "async-trait",
  "wasmtime",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]
@@ -9222,7 +9223,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "hyper-timeout",
  "hyper-util",
  "percent-encoding",
@@ -10444,7 +10445,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.2",
  "rustls 0.22.4",
  "tokio",
  "tokio-rustls 0.25.0",

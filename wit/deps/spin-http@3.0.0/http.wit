@@ -1,0 +1,12 @@
+package spin:http@3.0.0;
+
+interface http {
+  use wasi:http/types@0.2.0.{response-outparam, headers, status-code};
+
+  /// Send an HTTP 1xx response.
+  ///
+  /// Unlike `response-outparam.set`, this does not consume the `response-outparam`, allowing the
+  /// guest to send an arbitrary number of informational responses before sending the final response
+  /// using `response-outparam.set`.
+  send-informational: func(out: borrow<response-outparam>, status: status-code, headers: headers);
+}

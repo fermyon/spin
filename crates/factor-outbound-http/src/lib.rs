@@ -11,6 +11,7 @@ use http::{
     uri::{Authority, Parts, PathAndQuery, Scheme},
     HeaderValue, Uri,
 };
+use hyper::ext::InformationalSender;
 use intercept::OutboundHttpInterceptor;
 use spin_factor_outbound_networking::{
     ComponentTlsConfigs, OutboundAllowedHosts, OutboundNetworkingFactor,
@@ -83,6 +84,7 @@ impl Factor for OutboundHttpFactor {
             self_request_origin: None,
             request_interceptor: None,
             spin_http_client: None,
+            informational_sender: None,
         })
     }
 }
@@ -96,6 +98,7 @@ pub struct InstanceState {
     request_interceptor: Option<Arc<dyn OutboundHttpInterceptor>>,
     // Connection-pooling client for 'fermyon:spin/http' interface
     spin_http_client: Option<reqwest::Client>,
+    informational_sender: Option<InformationalSender>,
 }
 
 impl InstanceState {

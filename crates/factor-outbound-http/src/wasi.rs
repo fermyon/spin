@@ -1,16 +1,23 @@
 use std::{error::Error, net::IpAddr, sync::Arc};
 
-use anyhow::Context;
-use http::{header::HOST, Request};
+use anyhow::{anyhow, Context};
+use futures::sink::SinkExt;
+use http::{header::HOST, Request, Response};
 use http_body_util::BodyExt;
+use hyper::ext::InformationalSender;
 use ip_network::IpNetwork;
 use rustls::ClientConfig;
 use spin_factor_outbound_networking::{ComponentTlsConfigs, OutboundAllowedHosts};
 use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
+use spin_world::{
+    async_trait,
+    spin::http::http::{Headers, ResponseOutparam},
+};
 use tokio::{net::TcpStream, time::timeout};
 use tracing::{field::Empty, instrument, Instrument};
+use wasmtime::component::Resource;
 use wasmtime_wasi_http::{
-    bindings::http::types::ErrorCode,
+    bindings::http::types::{ErrorCode, Fields},
     body::HyperOutgoingBody,
     io::TokioIo,
     types::{HostFutureIncomingResponse, IncomingResponse},
@@ -39,6 +46,19 @@ pub(crate) fn add_to_linker<T: Send + 'static>(
     let linker = ctx.linker();
     wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker_get_host(linker, closure)?;
     wasmtime_wasi_http::bindings::http::types::add_to_linker_get_host(linker, closure)?;
+    fn type_annotate_inner<T, F>(f: F) -> F
+    where
+        F: Fn(&mut T) -> WasiHttpImplInner,
+    {
+        f
+    }
+    spin_world::spin::http::http::add_to_linker_get_host(
+        linker,
+        type_annotate_inner(move |data| {
+            let (state, table) = get_data_with_table(data);
+            WasiHttpImplInner { state, table }
+        }),
+    )?;
 
     wasi_2023_10_18::add_to_linker(linker, closure)?;
     wasi_2023_11_10::add_to_linker(linker, closure)?;
@@ -49,15 +69,21 @@ pub(crate) fn add_to_linker<T: Send + 'static>(
 impl OutboundHttpFactor {
     pub fn get_wasi_http_impl(
         runtime_instance_state: &mut impl RuntimeFactorsInstanceState,
-    ) -> Option<WasiHttpImpl<impl WasiHttpView + '_>> {
+    ) -> Option<WasiHttpImpl<WasiHttpImplInner>> {
         let (state, table) = runtime_instance_state.get_with_table::<OutboundHttpFactor>()?;
         Some(WasiHttpImpl(WasiHttpImplInner { state, table }))
     }
 }
 
-pub(crate) struct WasiHttpImplInner<'a> {
+pub struct WasiHttpImplInner<'a> {
     state: &'a mut InstanceState,
     table: &'a mut ResourceTable,
+}
+
+impl<'a> WasiHttpImplInner<'a> {
+    pub fn informational_sender(&mut self) -> &mut Option<InformationalSender> {
+        &mut self.state.informational_sender
+    }
 }
 
 impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
@@ -101,6 +127,32 @@ impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
                 .in_current_span(),
             ),
         ))
+    }
+}
+
+#[async_trait]
+impl<'a> spin_world::spin::http::http::Host for WasiHttpImplInner<'a> {
+    async fn send_informational(
+        &mut self,
+        _out: Resource<ResponseOutparam>,
+        status: u16,
+        headers: Resource<Headers>,
+    ) -> Result<(), wasmtime::Error> {
+        let mut response = Response::builder().status(status).body(())?;
+        *response.headers_mut() = match self.table().delete(headers)? {
+            Fields::Ref { parent, get_fields } => {
+                get_fields(self.table().get_any_mut(parent)?).clone()
+            }
+            Fields::Owned { fields } => fields,
+        };
+        self.informational_sender()
+            .as_mut()
+            .ok_or_else(|| anyhow!("informational sender not set"))?
+            .0
+            .send(response)
+            .await?;
+
+        Ok(())
     }
 }
 

@@ -141,7 +141,7 @@ impl App {
     pub fn triggers_with_type<'a>(
         &'a self,
         trigger_type: &'a str,
-    ) -> impl Iterator<Item = AppTrigger> {
+    ) -> impl Iterator<Item = AppTrigger<'a>> {
         self.triggers()
             .filter(move |trigger| trigger.locked.trigger_type == trigger_type)
     }

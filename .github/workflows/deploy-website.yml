@@ -100,6 +100,7 @@ jobs:
           oauth-client-id: ${{ secrets.TS_CI_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_CI_OAUTH_SECRET }}
           tags: tag:ci
+          version: 1.78.1
 
       - name: Deploy
         shell: bash

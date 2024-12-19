@@ -1,8 +1,11 @@
-use crate::bindings::exports::wasi::{
-    cli0_2_0 as cli,
-    filesystem0_2_0 as filesystem,
-    http0_2_0 as http,
-    sockets0_2_0 as sockets,
+use crate::bindings::{
+    exports::wasi::{
+        cli0_2_0 as cli,
+        filesystem0_2_0 as filesystem,
+        http0_2_0 as http,
+        sockets0_2_0 as sockets,
+    },
+    wasi::sockets0_2_0::network,
 };
 use crate::format_deny_error;
 
@@ -226,6 +229,22 @@ impl sockets::tcp::GuestTcpSocket for TcpSocket {
 
 impl sockets::tcp::Guest for crate::Component {
     type TcpSocket = TcpSocket;
+}
+
+impl sockets::tcp_create_socket::Guest for crate::Component {
+    fn create_tcp_socket(
+        address_family: network::IpAddressFamily,
+    ) -> Result<sockets::tcp::TcpSocket, network::ErrorCode> {
+        Err(network::ErrorCode::AccessDenied)
+    }
+}
+
+impl sockets::udp_create_socket::Guest for crate::Component {
+    fn create_udp_socket(
+        address_family: network::IpAddressFamily,
+    ) -> Result<sockets::udp::UdpSocket, network::ErrorCode> {
+        Err(network::ErrorCode::AccessDenied)
+    }
 }
 
 pub struct UdpSocket;

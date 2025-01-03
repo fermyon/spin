@@ -2,7 +2,8 @@ mod store;
 
 use serde::Deserialize;
 use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
-use store::{
+
+pub use store::{
     KeyValueAzureCosmos, KeyValueAzureCosmosAuthOptions, KeyValueAzureCosmosRuntimeConfigOptions,
 };
 

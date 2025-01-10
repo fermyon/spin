@@ -27,6 +27,9 @@ pub trait StoreManager: Sync + Send {
 
 #[async_trait]
 pub trait Store: Sync + Send {
+    async fn after_open(&self) -> Result<(), Error> {
+        Ok(())
+    }
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error>;
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
     async fn delete(&self, key: &str) -> Result<(), Error>;
@@ -109,11 +112,13 @@ impl key_value::HostStore for KeyValueDispatch {
     async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {
         Ok(async {
             if self.allowed_stores.contains(&name) {
-                let store = self
+                let store = self.manager.get(&name).await?;
+                store.after_open().await?;
+                let store_idx = self
                     .stores
-                    .push(self.manager.get(&name).await?)
+                    .push(store)
                     .map_err(|()| Error::StoreTableFull)?;
-                Ok(Resource::new_own(store))
+                Ok(Resource::new_own(store_idx))
             } else {
                 Err(Error::AccessDenied)
             }
@@ -193,11 +198,13 @@ impl wasi_keyvalue::store::Host for KeyValueDispatch {
         identifier: String,
     ) -> Result<Resource<wasi_keyvalue::store::Bucket>, wasi_keyvalue::store::Error> {
         if self.allowed_stores.contains(&identifier) {
-            let store = self
+            let store = self.manager.get(&identifier).await.map_err(to_wasi_err)?;
+            store.after_open().await.map_err(to_wasi_err)?;
+            let store_idx = self
                 .stores
-                .push(self.manager.get(&identifier).await.map_err(to_wasi_err)?)
+                .push(store)
                 .map_err(|()| wasi_keyvalue::store::Error::Other("store table full".to_string()))?;
-            Ok(Resource::new_own(store))
+            Ok(Resource::new_own(store_idx))
         } else {
             Err(wasi_keyvalue::store::Error::AccessDenied)
         }

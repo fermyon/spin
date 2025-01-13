@@ -46,7 +46,7 @@ inputs:
     type: bool
   golang-version:
     description: 'golang version to setup'
-    default: '1.20'
+    default: '1.22'
     required: false
     type: string
 

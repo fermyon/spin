@@ -9,12 +9,12 @@ FROM mcr.microsoft.com/vscode/devcontainers/rust:0-${VARIANT}
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
 # Go installation, see https://go.dev/doc/install
-ARG GO_URL="https://go.dev/dl/go1.20.1.linux-amd64.tar.gz"
+ARG GO_URL="https://go.dev/dl/go1.22.0.linux-amd64.tar.gz"
 RUN curl -sL "$GO_URL" | tar -xzf - -C /usr/local
 ENV PATH "$PATH:/usr/local/go/bin"
 
 # TinyGo installation, see https://tinygo.org/getting-started/install/linux/ for instructions
-ARG TINYGO_URL="https://github.com/tinygo-org/tinygo/releases/download/v0.27.0/tinygo_0.27.0_amd64.deb"
+ARG TINYGO_URL="https://github.com/tinygo-org/tinygo/releases/download/v0.35.0/tinygo_0.35.0_amd64.deb"
 RUN curl -sL "$TINYGO_URL" -o tinygo_amd64.deb && dpkg -i tinygo_amd64.deb && rm tinygo_amd64.deb
 
 # Install the gopls Go Language Server, see https://github.com/golang/tools/tree/master/gopls

@@ -13,5 +13,3 @@ func init() {
 		fmt.Fprintln(w, "Hello Fermyon!")
 	})
 }
-
-func main() {}

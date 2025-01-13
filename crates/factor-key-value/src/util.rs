@@ -156,6 +156,10 @@ struct CachingStore {
 
 #[async_trait]
 impl Store for CachingStore {
+    async fn after_open(&self) -> Result<(), Error> {
+        self.inner.after_open().await
+    }
+
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         // Retrieve the specified value from the cache, lazily populating the cache as necessary.
 

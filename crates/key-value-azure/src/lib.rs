@@ -2,20 +2,23 @@ mod store;
 
 use serde::Deserialize;
 use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
-use store::{
+
+pub use store::{
     KeyValueAzureCosmos, KeyValueAzureCosmosAuthOptions, KeyValueAzureCosmosRuntimeConfigOptions,
 };
 
 /// A key-value store that uses Azure Cosmos as the backend.
-#[derive(Default)]
 pub struct AzureKeyValueStore {
-    _priv: (),
+    app_id: Option<String>,
 }
 
 impl AzureKeyValueStore {
     /// Creates a new `AzureKeyValueStore`.
-    pub fn new() -> Self {
-        Self::default()
+    ///
+    /// When `app_id` is provided, the store will a partition key of `$app_id/$store_name`,
+    /// otherwise the partition key will be `id`.
+    pub fn new(app_id: Option<String>) -> Self {
+        Self { app_id }
     }
 }
 
@@ -55,6 +58,7 @@ impl MakeKeyValueStore for AzureKeyValueStore {
             runtime_config.database,
             runtime_config.container,
             auth_options,
+            self.app_id.clone(),
         )
     }
 }

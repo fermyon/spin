@@ -4355,6 +4355,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwt"
+version = "0.16.0"
+source = "git+https://github.com/vdice/rust-jwt?rev=c5b596d28a39dd428350b445d5c5829ba6352f02#c5b596d28a39dd428350b445d5c5829ba6352f02"
+dependencies = [
+ "base64 0.13.1",
+ "crypto-common",
+ "digest",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "keyed_priority_queue"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5322,7 +5336,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-auth",
- "jwt",
+ "jwt 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.5.0",
  "oci-spec",
  "olpc-cjson",
@@ -5340,14 +5354,14 @@ dependencies = [
 [[package]]
 name = "oci-distribution"
 version = "0.11.0"
-source = "git+https://github.com/fermyon/oci-distribution?rev=7e4ce9be9bcd22e78a28f06204931f10c44402ba#7e4ce9be9bcd22e78a28f06204931f10c44402ba"
+source = "git+https://github.com/fermyon/oci-distribution?rev=7b291a39f74d1a3c9499d934a56cae6580fc8e37#7b291a39f74d1a3c9499d934a56cae6580fc8e37"
 dependencies = [
  "bytes",
  "chrono",
  "futures-util",
  "http 1.1.0",
  "http-auth",
- "jwt",
+ "jwt 0.16.0 (git+https://github.com/vdice/rust-jwt?rev=c5b596d28a39dd428350b445d5c5829ba6352f02)",
  "lazy_static 1.5.0",
  "olpc-cjson",
  "regex",

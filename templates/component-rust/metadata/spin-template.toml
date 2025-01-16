@@ -1,12 +1,13 @@
 manifest_version = "1"
 id = "component-rust"
-description = "Pure Rust component to be used as a dependency for other component"
+description = "Library (dependency) component using Rust"
 tags = ["rust"]
 
-[add_component]
-skip_files = ["spin.toml"]
+[new_application]
+supported = false
+
 [add_component.snippets]
 component = "component.txt"
 
 [parameters]
-project-description = { type = "string",  prompt = "Description", default = "" }
+component-description = { type = "string",  prompt = "Description", default = "" }

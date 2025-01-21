@@ -319,6 +319,7 @@ async fn prompt_template(
 
     let opts = templates
         .iter()
+        .filter(|t| t.supports_variant(variant))
         .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))
         .collect::<Vec<_>>();
     let noun = variant.prompt_noun();

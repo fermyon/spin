@@ -440,8 +440,9 @@ mod tests {
         let mut cmd = process::Command::new("tinygo");
         cmd.arg("build")
             .current_dir("tests/go-case")
-            .arg("-target=wasi")
+            .arg("-target=wasip1")
             .arg("-gc=leaking")
+            .arg("-buildmode=c-shared")
             .arg("-no-debug")
             .arg("-o")
             .arg(out_dir.join("go_case.wasm"))

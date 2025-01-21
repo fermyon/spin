@@ -1,16 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
 	"errors"
-	"strings"
+	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"strings"
 
-	spinredis "github.com/fermyon/spin/sdk/go/redis"
-	spinhttp "github.com/fermyon/spin/sdk/go/http"
 	spinconfig "github.com/fermyon/spin/sdk/go/config"
+	spinhttp "github.com/fermyon/spin/sdk/go/http"
+	spinredis "github.com/fermyon/spin/sdk/go/redis"
 )
 
 func init() {
@@ -65,5 +65,3 @@ func execute(v []string) error {
 
 	return nil
 }
-
-func main() {}

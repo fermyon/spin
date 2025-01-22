@@ -141,6 +141,14 @@ impl Router {
             .map(|(_spec, handler)| (&handler.parsed_based_route, &handler.component_id))
     }
 
+    /// true if one or more routes is under the reserved `/.well-known/spin/*`
+    /// prefix; otherwise false.
+    pub fn contains_reserved_route(&self) -> bool {
+        self.router
+            .iter()
+            .any(|(_spec, handker)| handker.based_route.starts_with(crate::WELL_KNOWN_PREFIX))
+    }
+
     /// This returns the component ID that should handle the given path, or an error
     /// if no component matches.
     ///
@@ -592,5 +600,31 @@ mod route_tests {
         let (routes, _dups) = Router::build("/", vec![("comp", &"/1/:two/...".into())]).unwrap();
         let m = routes.route("/1/2/3").expect("/1/2/3 should have matched");
         assert_eq!("2", m.named_wildcards()["two"]);
+    }
+
+    #[test]
+    fn reserved_routes_are_reserved() {
+        let (routes, _dups) =
+            Router::build("/", vec![("comp", &"/.well-known/spin/...".into())]).unwrap();
+        assert!(routes.contains_reserved_route());
+
+        let (routes, _dups) =
+            Router::build("/", vec![("comp", &"/.well-known/spin/fie".into())]).unwrap();
+        assert!(routes.contains_reserved_route());
+    }
+
+    #[test]
+    fn unreserved_routes_are_unreserved() {
+        let (routes, _dups) =
+            Router::build("/", vec![("comp", &"/.well-known/spindle/...".into())]).unwrap();
+        assert!(!routes.contains_reserved_route());
+
+        let (routes, _dups) =
+            Router::build("/", vec![("comp", &"/.well-known/spi/...".into())]).unwrap();
+        assert!(!routes.contains_reserved_route());
+
+        let (routes, _dups) =
+            Router::build("/", vec![("comp", &"/.well-known/spin".into())]).unwrap();
+        assert!(!routes.contains_reserved_route());
     }
 }

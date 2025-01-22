@@ -90,6 +90,12 @@ impl<F: RuntimeFactors> HttpServer<F> {
                 );
             }
         }
+        if router.contains_reserved_route() {
+            tracing::error!(
+                "Routes under {} are handled by the Spin runtime and will never be reached",
+                spin_http::WELL_KNOWN_PREFIX
+            );
+        }
         tracing::trace!(
             "Constructed router: {:?}",
             router.routes().collect::<Vec<_>>()

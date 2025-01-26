@@ -115,7 +115,7 @@ impl WatchCommand {
             clear_screen: self.clear,
             has_ever_built: false,
             watched_changes: source_code_rx,
-            uppificator_pauser: pause_tx,
+            uppificator_pauser: pause_tx.clone(),
         };
 
         let mut uppificator = Uppificator {
@@ -205,7 +205,9 @@ impl WatchCommand {
         // break out its run loop. This will cause the `uppificator_handle` future to
         // complete, which will cause the select to return.
         _ = ctrlc::set_handler(move || {
-            _ = stop_tx.send(Uuid::new_v4());
+            let _ = stop_tx.send(Uuid::new_v4());
+            // Make sure the loop that processes the stop signal sees it
+            let _ = futures::executor::block_on(pause_tx.send(Pause::Unpause));
         });
 
         // As noted above, the most likely future to complete is the uppificator on a Ctrl+C.

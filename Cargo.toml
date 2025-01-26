@@ -35,6 +35,7 @@ path-absolutize = "3"
 regex = { workspace = true }
 reqwest = { workspace = true }
 rpassword = "7"
+schemars = { version = "0.8.21", features = ["indexmap2", "semver"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { workspace = true }

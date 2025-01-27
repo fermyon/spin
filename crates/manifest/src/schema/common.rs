@@ -94,7 +94,7 @@ pub struct ComponentBuildConfig {
 
 impl ComponentBuildConfig {
     /// The commands to execute for the build
-    pub fn commands(&self) -> impl Iterator<Item = &String> {
+    pub fn commands(&self) -> impl ExactSizeIterator<Item = &String> {
         let as_vec = match &self.command {
             Commands::Single(cmd) => vec![cmd],
             Commands::Multiple(cmds) => cmds.iter().collect(),

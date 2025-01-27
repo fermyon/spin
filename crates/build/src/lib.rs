@@ -81,8 +81,31 @@ fn build_components(
 fn build_component(build_info: ComponentBuildInfo, app_dir: &Path) -> Result<()> {
     match build_info.build {
         Some(b) => {
-            for command in b.commands() {
-                terminal::step!("Building", "component {} with `{}`", build_info.id, command);
+            let command_count = b.commands().len();
+
+            if command_count > 1 {
+                terminal::step!(
+                    "Building",
+                    "component {} ({} commands)",
+                    build_info.id,
+                    command_count
+                );
+            }
+
+            for (index, command) in b.commands().enumerate() {
+                if command_count > 1 {
+                    terminal::step!(
+                        "Running build step",
+                        "{}/{} for component {} with '{}'",
+                        index + 1,
+                        command_count,
+                        build_info.id,
+                        command
+                    );
+                } else {
+                    terminal::step!("Building", "component {} with `{}`", build_info.id, command);
+                }
+
                 let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
                 if b.workdir.is_some() {
                     println!("Working directory: {}", quoted_path(&workdir));

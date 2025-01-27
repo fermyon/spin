@@ -155,6 +155,12 @@ wasmtime = "25.0.3"
 wasmtime-wasi = "25.0.0"
 wasmtime-wasi-http = "25.0.0"
 
+wasm-encoder = "0.217"
+wasm-metadata = "0.217"
+wasmparser = "0.217"
+wit-component = "0.217"
+wit-parser = "0.217"
+
 spin-componentize = { path = "crates/componentize" }
 
 [workspace.lints.clippy]

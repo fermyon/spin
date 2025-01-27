@@ -18,7 +18,7 @@ pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key
 pub use host::{log_cas_error, log_error, Error, KeyValueDispatch, Store, StoreManager};
 pub use runtime_config::RuntimeConfig;
 use spin_core::async_trait;
-pub use util::{CachingStoreManager, DelegatingStoreManager};
+pub use util::DelegatingStoreManager;
 
 /// A factor that provides key-value storage.
 #[derive(Default)]
@@ -54,8 +54,7 @@ impl Factor for KeyValueFactor {
         let store_managers = ctx.take_runtime_config().unwrap_or_default();
 
         let delegating_manager = DelegatingStoreManager::new(store_managers);
-        let caching_manager = CachingStoreManager::new(delegating_manager);
-        let store_manager = Arc::new(caching_manager);
+        let store_manager = Arc::new(delegating_manager);
 
         // Build component -> allowed stores map
         let mut component_allowed_stores = HashMap::new();
@@ -100,7 +99,7 @@ impl Factor for KeyValueFactor {
     }
 }
 
-type AppStoreManager = CachingStoreManager<DelegatingStoreManager>;
+type AppStoreManager = DelegatingStoreManager;
 
 pub struct AppState {
     /// The store manager for the app.

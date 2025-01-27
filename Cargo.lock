@@ -7804,7 +7804,6 @@ name = "spin-factor-key-value"
 version = "3.2.0-pre0"
 dependencies = [
  "anyhow",
- "lru",
  "serde",
  "spin-core",
  "spin-factors",

@@ -60,7 +60,7 @@ pub(crate) struct WasiHttpImplInner<'a> {
     table: &'a mut ResourceTable,
 }
 
-impl<'a> WasiHttpView for WasiHttpImplInner<'a> {
+impl WasiHttpView for WasiHttpImplInner<'_> {
     fn ctx(&mut self) -> &mut WasiHttpCtx {
         &mut self.state.wasi_http_ctx
     }

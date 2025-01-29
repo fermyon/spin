@@ -326,7 +326,7 @@ pub enum PluginManagerUpdateGuard<'lock> {
     Failed, // See comment on PluginManagerUpdateLock
 }
 
-impl<'lock> PluginManagerUpdateGuard<'lock> {
+impl PluginManagerUpdateGuard<'_> {
     pub fn denied(&self) -> bool {
         matches!(self, Self::Denied)
     }

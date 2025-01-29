@@ -84,6 +84,7 @@ impl std::fmt::Display for AppSource {
 /// This represents a "partially loaded" source which has enough information to
 /// dispatch to the correct trigger executor but hasn't (necessarily) gone
 /// through full validation / loading yet.
+#[allow(clippy::large_enum_variant)] // allow because the large variant is the common one
 pub enum ResolvedAppSource {
     File {
         manifest_path: PathBuf,

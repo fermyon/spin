@@ -13,7 +13,7 @@ pub mod manifest;
 /// Diagnose for Rust-specific problems.
 pub mod rustlang;
 /// Test helpers.
-pub mod test;
+pub(crate) mod test;
 /// Diagnoses for Wasm source problems.
 pub mod wasm;
 

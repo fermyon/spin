@@ -32,6 +32,7 @@ pub enum PluginCommands {
     Search(Search),
 
     /// Remove a plugin from your installation.
+    #[clap(alias = "rm")]
     Uninstall(Uninstall),
 
     /// Upgrade one or all plugins.

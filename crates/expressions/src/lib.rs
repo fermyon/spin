@@ -277,7 +277,7 @@ impl<'a> TryFrom<&'a str> for Key<'a> {
     }
 }
 
-impl<'a> AsRef<str> for Key<'a> {
+impl AsRef<str> for Key<'_> {
     fn as_ref(&self) -> &str {
         self.0
     }

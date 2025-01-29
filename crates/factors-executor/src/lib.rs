@@ -191,7 +191,7 @@ pub struct FactorsInstanceBuilder<'a, F: RuntimeFactors, U> {
     factors: &'a F,
 }
 
-impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
+impl<T: RuntimeFactors, U> FactorsInstanceBuilder<'_, T, U> {
     /// Returns the app component for the instance.
     pub fn app_component(&self) -> &AppComponent {
         &self.app_component
@@ -223,7 +223,7 @@ impl<'a, T: RuntimeFactors, U> FactorsInstanceBuilder<'a, T, U> {
     }
 }
 
-impl<'a, T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'a, T, U> {
+impl<T: RuntimeFactors, U: Send> FactorsInstanceBuilder<'_, T, U> {
     /// Instantiates the instance with the given executor instance state
     pub async fn instantiate(
         self,

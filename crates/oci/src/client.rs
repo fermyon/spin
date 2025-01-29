@@ -884,6 +884,7 @@ mod test {
 
     // Convenience wrapper for deserializing from literal JSON
     #[macro_export]
+    #[allow(missing_docs)] // it's test-only, but rust-analyzer gets mad
     macro_rules! from_json {
         ($($json:tt)+) => {
             serde_json::from_value(serde_json::json!($($json)+)).expect("valid json")

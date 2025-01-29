@@ -155,7 +155,7 @@ pub struct MountFilesContext<'a> {
     ctx: &'a mut WasiCtxBuilder,
 }
 
-impl<'a> MountFilesContext<'a> {
+impl MountFilesContext<'_> {
     pub fn preopened_dir(
         &mut self,
         host_path: impl AsRef<Path>,
@@ -284,7 +284,7 @@ struct WasiImplInner<'a> {
     table: &'a mut ResourceTable,
 }
 
-impl<'a> WasiView for WasiImplInner<'a> {
+impl WasiView for WasiImplInner<'_> {
     fn ctx(&mut self) -> &mut WasiCtx {
         self.ctx
     }

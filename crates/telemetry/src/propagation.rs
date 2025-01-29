@@ -27,7 +27,7 @@ pub enum HeaderInjector<'a> {
     Http1(&'a mut http1::HeaderMap),
 }
 
-impl<'a> Injector for HeaderInjector<'a> {
+impl Injector for HeaderInjector<'_> {
     fn set(&mut self, key: &str, value: String) {
         match self {
             HeaderInjector::Http0(headers) => {
@@ -77,7 +77,7 @@ pub enum HeaderExtractor<'a> {
     Http1(&'a http1::HeaderMap),
 }
 
-impl<'a> Extractor for HeaderExtractor<'a> {
+impl Extractor for HeaderExtractor<'_> {
     fn get(&self, key: &str) -> Option<&str> {
         match self {
             HeaderExtractor::Http0(headers) => {

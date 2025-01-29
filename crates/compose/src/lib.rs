@@ -26,8 +26,8 @@ use wac_graph::{CompositionGraph, NodeId};
 /// dependent component. Finally, the composer will export all exports from the
 /// dependent component to its dependents. The composer will then encode the
 /// composition graph into a byte array and return it.
-pub async fn compose<'a, L: ComponentSourceLoader>(
-    loader: &'a L,
+pub async fn compose<L: ComponentSourceLoader>(
+    loader: &L,
     component: &LockedComponent,
 ) -> Result<Vec<u8>, ComposeError> {
     Composer::new(loader).compose(component).await

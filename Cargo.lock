@@ -7128,6 +7128,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09c024468a378b7e36765cd36702b7a90cc3cba11654f6685c8f233408e89e92"
+dependencies = [
+ "dyn-clone",
+ "indexmap 2.6.0",
+ "schemars_derive",
+ "semver",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1eee588578aff73f856ab961cd2f79e36bc45d7ded33a7562adba4667aecc0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 2.0.87",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7248,6 +7274,17 @@ name = "serde_derive"
 version = "1.0.215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7657,6 +7694,7 @@ dependencies = [
  "reqwest 0.12.9",
  "rpassword",
  "runtime-tests",
+ "schemars",
  "semver",
  "serde",
  "serde_json",
@@ -8206,6 +8244,7 @@ dependencies = [
  "anyhow",
  "glob",
  "indexmap 2.6.0",
+ "schemars",
  "semver",
  "serde",
  "serde_json",
@@ -8339,6 +8378,7 @@ version = "3.2.0-pre0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "schemars",
  "semver",
  "serde",
  "wasm-pkg-common",

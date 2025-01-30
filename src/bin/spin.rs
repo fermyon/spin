@@ -136,6 +136,8 @@ enum SpinApp {
     #[clap(alias = "w")]
     Watch(WatchCommand),
     Doctor(DoctorCommand),
+    #[clap(hide = true)]
+    Schema(SchemaCommand),
 }
 
 #[derive(Subcommand)]
@@ -165,6 +167,7 @@ impl SpinApp {
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
+            Self::Schema(cmd) => cmd.run().await,
         }
     }
 }
@@ -222,4 +225,15 @@ fn installed_plugin_help_entries() -> Vec<PluginHelpEntry> {
 
 fn hide_plugin_in_help(plugin: &spin_plugins::manifest::PluginManifest) -> bool {
     plugin.name().starts_with("trigger-")
+}
+
+#[derive(Parser, Debug)]
+struct SchemaCommand;
+
+impl SchemaCommand {
+    async fn run(&self) -> anyhow::Result<()> {
+        let schema = schemars::schema_for!(spin_manifest::schema::v2::AppManifest);
+        println!("{}", serde_json::to_string_pretty(&schema)?);
+        Ok(())
+    }
 }

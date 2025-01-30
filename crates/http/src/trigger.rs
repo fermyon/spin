@@ -68,7 +68,9 @@ impl HandlerType {
                 `{WASI_HTTP_EXPORT_2023_10_18}`, \
                 `{WASI_HTTP_EXPORT_2023_11_10}`, \
                 `{WASI_HTTP_EXPORT_0_2_PREFIX}.*`, \
-                 or `{SPIN_HTTP_EXPORT}` but it exported none of those"
+                 or `{SPIN_HTTP_EXPORT}` but it exported none of those. \
+                 This may mean the component handles a different trigger, or that its `wasi:http` export is newer then those supported by Spin. \
+                 If you're sure this is an HTTP module, check if a Spin upgrade is available: this may handle the newer version."
             )
         })
     }

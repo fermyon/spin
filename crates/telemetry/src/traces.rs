@@ -57,6 +57,8 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
 
     global::set_tracer_provider(tracer_provider.clone());
 
+    global::set_tracer_provider(tracer_provider.clone());
+
     let env_filter = match EnvFilter::try_from_env("SPIN_OTEL_TRACING_LEVEL") {
         Ok(filter) => filter,
         // If it isn't set or it fails to parse default to info

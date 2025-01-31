@@ -494,3 +494,179 @@ mod llm {
         }
     }
 }
+
+mod observe {
+    use super::*;
+    use opentelemetry::StringValue;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use wasi::observe::tracer;
+
+    impl From<tracer::Value> for opentelemetry::Value {
+        fn from(value: tracer::Value) -> Self {
+            match value {
+                tracer::Value::String(v) => v.into(),
+                tracer::Value::Bool(v) => v.into(),
+                tracer::Value::Float64(v) => v.into(),
+                tracer::Value::S64(v) => v.into(),
+                tracer::Value::StringArray(v) => opentelemetry::Value::Array(
+                    v.into_iter()
+                        .map(StringValue::from)
+                        .collect::<Vec<_>>()
+                        .into(),
+                ),
+                tracer::Value::BoolArray(v) => opentelemetry::Value::Array(v.into()),
+                tracer::Value::Float64Array(v) => opentelemetry::Value::Array(v.into()),
+                tracer::Value::S64Array(v) => opentelemetry::Value::Array(v.into()),
+            }
+        }
+    }
+
+    impl From<tracer::KeyValue> for opentelemetry::KeyValue {
+        fn from(kv: tracer::KeyValue) -> Self {
+            opentelemetry::KeyValue::new(kv.key, kv.value)
+        }
+    }
+
+    impl From<tracer::TraceFlags> for opentelemetry::trace::TraceFlags {
+        fn from(flags: tracer::TraceFlags) -> Self {
+            Self::new(flags.as_array()[0] as u8)
+        }
+    }
+
+    impl From<opentelemetry::trace::TraceFlags> for tracer::TraceFlags {
+        fn from(flags: opentelemetry::trace::TraceFlags) -> Self {
+            if flags.is_sampled() {
+                tracer::TraceFlags::SAMPLED
+            } else {
+                tracer::TraceFlags::empty()
+            }
+        }
+    }
+
+    impl From<tracer::SpanContext> for opentelemetry::trace::SpanContext {
+        fn from(sc: tracer::SpanContext) -> Self {
+            // TODO(Reviewer): Should this be try_from instead an propagate this error out of the WIT?
+            let trace_id = opentelemetry::trace::TraceId::from_hex(&sc.trace_id)
+                .unwrap_or(opentelemetry::trace::TraceId::INVALID);
+            let span_id = opentelemetry::trace::SpanId::from_hex(&sc.span_id)
+                .unwrap_or(opentelemetry::trace::SpanId::INVALID);
+            let trace_state = opentelemetry::trace::TraceState::from_key_value(sc.trace_state)
+                .unwrap_or_else(|_| opentelemetry::trace::TraceState::default());
+            Self::new(
+                trace_id,
+                span_id,
+                sc.trace_flags.into(),
+                sc.is_remote,
+                trace_state,
+            )
+        }
+    }
+
+    impl From<opentelemetry::trace::SpanContext> for tracer::SpanContext {
+        fn from(sc: opentelemetry::trace::SpanContext) -> Self {
+            Self {
+                trace_id: format!("{:x}", sc.trace_id()),
+                span_id: format!("{:x}", sc.span_id()),
+                trace_flags: sc.trace_flags().into(),
+                is_remote: sc.is_remote(),
+                trace_state: sc
+                    .trace_state()
+                    .header()
+                    .split(',')
+                    // TODO(Reviewer): Should this be try_from instead an propagate this error out of the WIT?
+                    .filter_map(|s| {
+                        if let Some((key, value)) = s.split_once('=') {
+                            Some((key.to_string(), value.to_string()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    impl From<tracer::Status> for opentelemetry::trace::Status {
+        fn from(status: tracer::Status) -> Self {
+            match status {
+                tracer::Status::Unset => Self::Unset,
+                tracer::Status::Ok => Self::Ok,
+                tracer::Status::Error(s) => Self::Error {
+                    description: s.into(),
+                },
+            }
+        }
+    }
+
+    impl From<tracer::SpanKind> for opentelemetry::trace::SpanKind {
+        fn from(kind: tracer::SpanKind) -> Self {
+            match kind {
+                tracer::SpanKind::Client => opentelemetry::trace::SpanKind::Client,
+                tracer::SpanKind::Server => opentelemetry::trace::SpanKind::Server,
+                tracer::SpanKind::Producer => opentelemetry::trace::SpanKind::Producer,
+                tracer::SpanKind::Consumer => opentelemetry::trace::SpanKind::Consumer,
+                tracer::SpanKind::Internal => opentelemetry::trace::SpanKind::Internal,
+            }
+        }
+    }
+
+    impl From<tracer::Link> for opentelemetry::trace::Link {
+        fn from(link: tracer::Link) -> Self {
+            Self::new(
+                link.span_context.into(),
+                link.attributes.into_iter().map(Into::into).collect(),
+                0,
+            )
+        }
+    }
+
+    impl From<tracer::Datetime> for SystemTime {
+        fn from(timestamp: tracer::Datetime) -> Self {
+            UNIX_EPOCH
+                + Duration::from_secs(timestamp.seconds)
+                + Duration::from_nanos(timestamp.nanoseconds as u64)
+        }
+    }
+
+    #[allow(clippy::derivable_impls)]
+    impl Default for tracer::StartOptions {
+        fn default() -> Self {
+            Self {
+                new_root: false,
+                span_kind: None,
+                attributes: None,
+                links: None,
+                timestamp: None,
+            }
+        }
+    }
+
+    mod test {
+        #[test]
+        fn trace_flags() {
+            let flags = opentelemetry::trace::TraceFlags::SAMPLED;
+            let flags2 = crate::wasi::observe::tracer::TraceFlags::from(flags);
+            let flags3 = opentelemetry::trace::TraceFlags::from(flags2);
+            assert_eq!(flags, flags3);
+        }
+
+        #[test]
+        fn span_context() {
+            let sc = opentelemetry::trace::SpanContext::new(
+                opentelemetry::trace::TraceId::from_hex("4fb34cb4484029f7881399b149e41e98")
+                    .unwrap(),
+                opentelemetry::trace::SpanId::from_hex("9ffd58d3cd4dd90b").unwrap(),
+                opentelemetry::trace::TraceFlags::SAMPLED,
+                false,
+                opentelemetry::trace::TraceState::from_key_value(vec![
+                    ("foo", "bar"),
+                    ("baz", "qux"),
+                ])
+                .unwrap(),
+            );
+            let sc2 = crate::wasi::observe::tracer::SpanContext::from(sc.clone());
+            let sc3 = opentelemetry::trace::SpanContext::from(sc2);
+            assert_eq!(sc, sc3);
+        }
+    }
+}

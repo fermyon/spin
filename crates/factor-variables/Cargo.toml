@@ -6,6 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 spin-expressions = { path = "../expressions" }
+spin-factor-observe = { path = "../factor-observe" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }

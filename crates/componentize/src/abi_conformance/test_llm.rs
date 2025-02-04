@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::{ensure, Result};
-use async_trait::async_trait;
 use serde::Serialize;
 
 use super::llm;
@@ -18,7 +17,6 @@ pub struct Llm {
     embeddings: HashMap<(String, Vec<String>), Vec<Vec<f32>>>,
 }
 
-#[async_trait]
 impl llm::Host for Llm {
     async fn infer(
         &mut self,

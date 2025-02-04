@@ -63,7 +63,6 @@ impl v2::Host for InstanceState {
     }
 }
 
-#[async_trait]
 impl v2::HostConnection for InstanceState {
     #[instrument(name = "spin_outbound_mqtt.open_connection", skip(self, password), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn open(

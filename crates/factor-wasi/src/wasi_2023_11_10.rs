@@ -1,5 +1,4 @@
 use super::wasi_2023_10_18::{convert, convert_result};
-use async_trait::async_trait;
 use spin_factors::anyhow::{self, Result};
 use wasmtime::component::{Linker, Resource};
 use wasmtime_wasi::{WasiImpl, WasiView};
@@ -13,12 +12,7 @@ mod bindings {
 
     wasmtime::component::bindgen!({
         path: "../../wit",
-        interfaces: r#"
-            // NB: this is handling the historical behavior where Spin supported
-            // more than "just" this snapshot of the proxy world but additionally
-            // other CLI-related interfaces.
-            include wasi:cli/reactor@0.2.0-rc-2023-11-10;
-        "#,
+        world: "wasi:cli/reactor@0.2.0-rc-2023-11-10",
         async: {
             only_imports: [
                 "[drop]input-stream",
@@ -198,7 +192,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::filesystem::types::HostDescriptor for WasiImpl<T>
 where
     T: WasiView,
@@ -526,7 +519,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::filesystem::types::HostDirectoryEntryStream for WasiImpl<T>
 where
     T: WasiView,
@@ -556,7 +548,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::io::poll::Host for WasiImpl<T>
 where
     T: WasiView,
@@ -566,7 +557,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::io::poll::HostPollable for WasiImpl<T>
 where
     T: WasiView,
@@ -619,7 +609,6 @@ where
 
 impl<T> wasi::io::streams::Host for WasiImpl<T> where T: WasiView {}
 
-#[async_trait]
 impl<T> wasi::io::streams::HostInputStream for WasiImpl<T>
 where
     T: WasiView,
@@ -669,7 +658,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::io::streams::HostOutputStream for WasiImpl<T>
 where
     T: WasiView,
@@ -908,7 +896,6 @@ where
 
 impl<T> wasi::sockets::tcp::Host for WasiImpl<T> where T: WasiView {}
 
-#[async_trait]
 impl<T> wasi::sockets::tcp::HostTcpSocket for WasiImpl<T>
 where
     T: WasiView,
@@ -1220,7 +1207,6 @@ where
 
 impl<T> wasi::sockets::udp::Host for WasiImpl<T> where T: WasiView {}
 
-#[async_trait]
 impl<T> wasi::sockets::udp::HostUdpSocket for WasiImpl<T>
 where
     T: WasiView,
@@ -1377,7 +1363,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> wasi::sockets::udp::HostOutgoingDatagramStream for WasiImpl<T>
 where
     T: WasiView,

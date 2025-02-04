@@ -7,7 +7,7 @@ use wasmtime::ResourceLimiterAsync;
 #[derive(Default)]
 pub struct StoreLimitsAsync {
     max_memory_size: Option<usize>,
-    max_table_elements: Option<u32>,
+    max_table_elements: Option<usize>,
     memory_consumed: u64,
 }
 
@@ -33,9 +33,9 @@ impl ResourceLimiterAsync for StoreLimitsAsync {
 
     async fn table_growing(
         &mut self,
-        _current: u32,
-        desired: u32,
-        _maximum: Option<u32>,
+        _current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
     ) -> Result<bool> {
         let can_grow = if let Some(limit) = self.max_table_elements {
             desired <= limit
@@ -47,7 +47,7 @@ impl ResourceLimiterAsync for StoreLimitsAsync {
 }
 
 impl StoreLimitsAsync {
-    pub fn new(max_memory_size: Option<usize>, max_table_elements: Option<u32>) -> Self {
+    pub fn new(max_memory_size: Option<usize>, max_table_elements: Option<usize>) -> Self {
         Self {
             max_memory_size,
             max_table_elements,

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use redis::{aio::MultiplexedConnection, AsyncCommands, FromRedisValue, Value};
-use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_core::wasmtime::component::Resource;
 use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_world::v1::{redis as v1, redis_types};
 use spin_world::v2::redis::{
@@ -52,7 +52,6 @@ impl v2::Host for crate::InstanceState {
     }
 }
 
-#[async_trait]
 impl v2::HostConnection for crate::InstanceState {
     #[instrument(name = "spin_outbound_redis.open_connection", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", db.address = Empty, server.port = Empty, db.namespace = Empty))]
     async fn open(&mut self, address: String) -> Result<Resource<RedisConnection>, Error> {
@@ -224,7 +223,6 @@ macro_rules! delegate {
     }};
 }
 
-#[async_trait]
 impl v1::Host for crate::InstanceState {
     async fn publish(
         &mut self,

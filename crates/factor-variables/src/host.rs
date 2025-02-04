@@ -1,10 +1,9 @@
 use spin_factors::anyhow;
-use spin_world::{async_trait, v1, v2::variables, wasi::config as wasi_config};
+use spin_world::{v1, v2::variables, wasi::config as wasi_config};
 use tracing::{instrument, Level};
 
 use crate::InstanceState;
 
-#[async_trait]
 impl variables::Host for InstanceState {
     #[instrument(name = "spin_variables.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&mut self, key: String) -> Result<String, variables::Error> {
@@ -20,7 +19,6 @@ impl variables::Host for InstanceState {
     }
 }
 
-#[async_trait]
 impl v1::config::Host for InstanceState {
     async fn get_config(&mut self, key: String) -> Result<String, v1::config::Error> {
         <Self as variables::Host>::get(self, key)
@@ -37,7 +35,6 @@ impl v1::config::Host for InstanceState {
     }
 }
 
-#[async_trait]
 impl wasi_config::store::Host for InstanceState {
     async fn get(&mut self, key: String) -> Result<Option<String>, wasi_config::store::Error> {
         match <Self as variables::Host>::get(self, key).await {

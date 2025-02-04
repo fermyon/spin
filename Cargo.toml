@@ -151,9 +151,9 @@ wasi-common-preview1 = { version = "25.0.0", package = "wasi-common", features =
 ] }
 wasm-pkg-common = "0.8"
 wasm-pkg-client = "0.8"
-wasmtime = "25.0.3"
-wasmtime-wasi = "25.0.0"
-wasmtime-wasi-http = "25.0.0"
+wasmtime = "29.0.1"
+wasmtime-wasi = "29.0.1"
+wasmtime-wasi-http = "29.0.1"
 
 spin-componentize = { path = "crates/componentize" }
 

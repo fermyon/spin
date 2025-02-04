@@ -11,9 +11,7 @@ mod bindings {
 
     wasmtime::component::bindgen!({
         path: "../../wit",
-        interfaces: r#"
-            include wasi:http/proxy@0.2.0-rc-2023-11-10;
-        "#,
+        world: "wasi:http/proxy@0.2.0-rc-2023-11-10",
         async: {
             // Only need async exports
             only_imports: [],

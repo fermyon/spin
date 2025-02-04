@@ -108,7 +108,7 @@ impl Default for Config {
                 )
                 .max_core_instances_per_component(env("SPIN_WASMTIME_CORE_INSTANCE_COUNT", 200))
                 .max_tables_per_component(env("SPIN_WASMTIME_INSTANCE_TABLES", 20))
-                .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 100_000))
+                .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 100_000) as usize)
                 // The number of memories an instance can have effectively limits the number of inner components
                 // a composed component can have (since each inner component has its own memory). We default to 32 for now, and
                 // we'll see how often this limit gets reached.
@@ -175,7 +175,7 @@ fn use_pooling_allocator_by_default() -> bool {
         // If the env var isn't set then perform the dynamic runtime probe
         let mut config = wasmtime::Config::new();
         config.wasm_memory64(true);
-        config.static_memory_maximum_size(1 << BITS_TO_TEST);
+        config.memory_reservation(1 << BITS_TO_TEST);
 
         match wasmtime::Engine::new(&config) {
             Ok(engine) => {

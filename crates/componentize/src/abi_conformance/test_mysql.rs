@@ -4,7 +4,6 @@ use super::{
     Context, TestConfig,
 };
 use anyhow::{ensure, Result};
-use async_trait::async_trait;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -40,7 +39,6 @@ pub(crate) struct Mysql {
     query_map: HashMap<(String, String, String), RowSet>,
 }
 
-#[async_trait]
 impl mysql::Host for Mysql {
     async fn execute(
         &mut self,

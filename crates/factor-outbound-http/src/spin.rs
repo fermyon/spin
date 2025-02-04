@@ -1,16 +1,12 @@
 use http_body_util::BodyExt;
-use spin_world::{
-    async_trait,
-    v1::{
-        http as spin_http,
-        http_types::{self, HttpError, Method, Request, Response},
-    },
+use spin_world::v1::{
+    http as spin_http,
+    http_types::{self, HttpError, Method, Request, Response},
 };
 use tracing::{field::Empty, instrument, Level, Span};
 
 use crate::intercept::InterceptOutcome;
 
-#[async_trait]
 impl spin_http::Host for crate::InstanceState {
     #[instrument(name = "spin_outbound_http.send_request", skip_all, err(level = Level::INFO),
         fields(otel.kind = "client", url.full = Empty, http.request.method = Empty,

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use spin_core::async_trait;
 use spin_core::wasmtime::component::Resource;
 use spin_world::v1::mysql as v1;
 use spin_world::v2::mysql::{self as v2, Connection};
@@ -34,10 +33,8 @@ impl<C: Client> InstanceState<C> {
     }
 }
 
-#[async_trait]
 impl<C: Client> v2::Host for InstanceState<C> {}
 
-#[async_trait]
 impl<C: Client> v2::HostConnection for InstanceState<C> {
     #[instrument(name = "spin_outbound_mysql.open", skip(self, address), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", db.address = Empty, server.port = Empty, db.namespace = Empty))]
     async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
@@ -62,11 +59,10 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<(), v2::Error> {
-        Ok(self
-            .get_client(connection)
+        self.get_client(connection)
             .await?
             .execute(statement, params)
-            .await?)
+            .await
     }
 
     #[instrument(name = "spin_outbound_mysql.query", skip(self, connection, params), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
@@ -76,11 +72,10 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<v2_types::RowSet, v2::Error> {
-        Ok(self
-            .get_client(connection)
+        self.get_client(connection)
             .await?
             .query(statement, params)
-            .await?)
+            .await
     }
 
     async fn drop(&mut self, connection: Resource<Connection>) -> Result<()> {
@@ -113,7 +108,6 @@ macro_rules! delegate {
     }};
 }
 
-#[async_trait]
 impl<C: Client> v1::Host for InstanceState<C> {
     async fn execute(
         &mut self,

@@ -42,7 +42,7 @@ interface sqlite {
   /// A single column's result from a database query
   variant value {
     integer(s64),
-    real(float64),
+    real(f64),
     text(string),
     blob(list<u8>),
     null

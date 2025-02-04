@@ -1,6 +1,5 @@
+use helper::http_trigger_bindings::fermyon::spin2_0_0::llm;
 use helper::{ensure, ensure_eq, ensure_ok};
-
-use bindings::fermyon::spin2_0_0::llm;
 
 helper::define_component!(Component);
 

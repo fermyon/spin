@@ -1,8 +1,8 @@
 use helper::{ensure_matches, ensure_ok};
 
-use bindings::wasi::keyvalue::store::{open, Error, KeyResponse};
-use bindings::wasi::keyvalue::batch as wasi_batch;
-use bindings::wasi::keyvalue::atomics as wasi_atomics;
+use helper::http_trigger_bindings::wasi::keyvalue::atomics as wasi_atomics;
+use helper::http_trigger_bindings::wasi::keyvalue::batch as wasi_batch;
+use helper::http_trigger_bindings::wasi::keyvalue::store::{open, Error, KeyResponse};
 
 helper::define_component!(Component);
 
@@ -43,9 +43,21 @@ impl Component {
         ensure_matches!(store.get("qux"), Ok(None));
         ensure_matches!(keys(&store.list_keys(None)), Ok(&[]));
 
-        ensure_ok!(wasi_batch::set_many(&store, &[("bar".to_string(), b"bin".to_vec()), ("baz".to_string(), b"buzz".to_vec())]));
-        ensure_ok!(wasi_batch::get_many(&store, &["bar".to_string(), "baz".to_string()]));
-        ensure_ok!(wasi_batch::delete_many(&store, &["bar".to_string(), "baz".to_string()]));
+        ensure_ok!(wasi_batch::set_many(
+            &store,
+            &[
+                ("bar".to_string(), b"bin".to_vec()),
+                ("baz".to_string(), b"buzz".to_vec())
+            ]
+        ));
+        ensure_ok!(wasi_batch::get_many(
+            &store,
+            &["bar".to_string(), "baz".to_string()]
+        ));
+        ensure_ok!(wasi_batch::delete_many(
+            &store,
+            &["bar".to_string(), "baz".to_string()]
+        ));
         ensure_matches!(wasi_atomics::increment(&store, "counter", 10), Ok(v) if v == 10);
         ensure_matches!(wasi_atomics::increment(&store, "counter", 5), Ok(v) if v == 15);
 

@@ -1,6 +1,5 @@
 use helper::ensure_matches;
-
-use bindings::fermyon::spin2_0_0::variables::{get, Error};
+use helper::http_trigger_bindings::fermyon::spin2_0_0::variables::{get, Error};
 
 helper::define_component!(Component);
 

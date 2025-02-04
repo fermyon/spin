@@ -1,4 +1,4 @@
-use bindings::wasi::{
+use helper::http_trigger_bindings::wasi::{
     io0_2_0::poll,
     sockets0_2_0::{
         instance_network,
@@ -43,7 +43,9 @@ impl Component {
 
         let (rx, tx) = loop {
             match client.finish_connect() {
-                Err(ErrorCode::WouldBlock) => { poll::poll(&[&client.subscribe()]); },
+                Err(ErrorCode::WouldBlock) => {
+                    poll::poll(&[&client.subscribe()]);
+                }
                 result => break ensure_ok!(result),
             }
         };

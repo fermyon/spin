@@ -1,6 +1,7 @@
 wit_bindgen::generate!({
     path: "wit",
     world: "wasi:http/handler@0.2.0-rc-2023-11-10",
+    generate_all,
 });
 
 use helper::{ensure_eq, ensure_ok};

@@ -8,5 +8,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 url = "2.4.0"
-wit-bindgen = "0.16.0"
+wit-bindgen = { workspace = true }
 helper = { path = "../../helper" }

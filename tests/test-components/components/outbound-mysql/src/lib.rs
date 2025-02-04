@@ -1,6 +1,5 @@
+use helper::http_trigger_bindings::fermyon::spin2_0_0::{mysql, rdbms_types};
 use helper::{ensure, ensure_matches, ensure_ok};
-
-use bindings::fermyon::spin2_0_0::{mysql, rdbms_types};
 
 helper::define_component!(Component);
 const DB_URL_ENV: &str = "DB_URL";

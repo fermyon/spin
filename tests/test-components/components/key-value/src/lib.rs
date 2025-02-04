@@ -1,6 +1,6 @@
 use helper::{ensure_matches, ensure_ok};
 
-use bindings::fermyon::spin2_0_0::key_value::{Error, Store};
+use helper::http_trigger_bindings::fermyon::spin2_0_0::key_value::{Error, Store};
 
 helper::define_component!(Component);
 

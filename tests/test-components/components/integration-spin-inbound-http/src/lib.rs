@@ -1,9 +1,6 @@
 wit_bindgen::generate!({
     world: "http-trigger",
     path: "../../../../wit/deps/spin@unversioned",
-    exports: {
-        "fermyon:spin/inbound-http": SpinHttp,
-    }
 });
 
 use std::collections::HashMap;
@@ -12,6 +9,8 @@ use exports::fermyon::spin::inbound_http::{self, Request, Response};
 use miniserde::json;
 
 struct SpinHttp;
+
+export!(SpinHttp);
 
 impl inbound_http::Guest for SpinHttp {
     fn handle_request(req: Request) -> Response {

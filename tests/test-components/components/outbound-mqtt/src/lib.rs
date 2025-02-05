@@ -1,12 +1,11 @@
 use helper::ensure_ok;
+use helper::http_trigger_bindings::fermyon::spin2_0_0::mqtt::{self, Qos};
 use std::env;
 
 const MQTT_ADDRESS_ENV: &str = "MQTT_ADDRESS";
 const MQTT_USERNAME_ENV: &str = "MQTT_USERNAME";
 const MQTT_PASSWORD_ENV: &str = "MQTT_PASSWORD";
 const MQTT_KEEP_ALIVE_INTERVAL_ENV: &str = "MQTT_KEEP_ALIVE_INTERVAL";
-
-use bindings::fermyon::spin2_0_0::mqtt::{self, Qos};
 
 helper::define_component!(Component);
 

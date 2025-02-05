@@ -1,6 +1,5 @@
+use helper::http_trigger_bindings::fermyon::spin2_0_0::sqlite::{Connection, Error, Value};
 use helper::{ensure_eq, ensure_matches, ensure_ok, ensure_some};
-
-use bindings::fermyon::spin2_0_0::sqlite::{Connection, Error, Value};
 
 helper::define_component!(Component);
 

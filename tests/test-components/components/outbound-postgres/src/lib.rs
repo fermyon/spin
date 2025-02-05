@@ -1,6 +1,5 @@
+use helper::http_trigger_bindings::spin::postgres::postgres;
 use helper::{ensure, ensure_eq, ensure_matches, ensure_ok};
-
-use bindings::spin::postgres::postgres;
 
 helper::define_component!(Component);
 const DB_URL_ENV: &str = "DB_URL";
@@ -153,7 +152,7 @@ fn date_time_types(conn: &postgres::Connection) -> Result<postgres::RowSet, post
     // We will use this to test that we correctly encode Spin ParameterValue
     // objects. (In conjunction with knowing that our decode logic is good,
     // this validates our encode logic.)
-    let insert_sql_spin_parameters  = r#"
+    let insert_sql_spin_parameters = r#"
         INSERT INTO test_date_time_types
             (index, rdate, rtime, rtimestamp)
         VALUES
@@ -176,7 +175,6 @@ fn date_time_types(conn: &postgres::Connection) -> Result<postgres::RowSet, post
     "#;
 
     conn.query(sql, &[])
-
 }
 
 fn nullable(conn: &postgres::Connection) -> Result<postgres::RowSet, postgres::Error> {

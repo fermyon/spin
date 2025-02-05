@@ -1,9 +1,7 @@
 wit_bindgen::generate!({
     path: "../../../../wit",
     world: "wasi:http/proxy@0.2.0",
-    exports: {
-        "wasi:http/incoming-handler@0.2.0": Component
-    }
+    generate_all,
 });
 
 use {
@@ -22,6 +20,8 @@ use {
 };
 
 struct Component;
+
+export!(Component);
 
 impl incoming_handler::Guest for Component {
     fn handle(request: IncomingRequest, outparam: ResponseOutparam) {

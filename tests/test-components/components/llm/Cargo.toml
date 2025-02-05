@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 helper = { path = "../../helper" }
-wit-bindgen = "0.16.0"
+wit-bindgen = { workspace = true }

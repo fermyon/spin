@@ -3,7 +3,7 @@ pub mod bindings {
     wit_bindgen::generate!({
         world: "fermyon:spin/platform@3.0.0",
         path: "../../../wit",
-        runtime_path: "::wit_bindgen::rt"
+        generate_all,
     });
 }
 
@@ -15,34 +15,36 @@ use bindings::wasi::http0_2_0::types::{
 use bindings::wasi::io0_2_0::streams::OutputStream;
 
 #[cfg(feature = "define-component")]
+pub mod http_trigger_bindings {
+    wit_bindgen::generate!({
+        world: "fermyon:spin/http-trigger@3.0.0",
+        path: "../../../wit",
+        generate_all,
+        pub_export_macro: true,
+        default_bindings_module: "helper::http_trigger_bindings",
+    });
+
+    impl From<wasi::http0_2_0::types::ResponseOutparam> for super::ResponseOutparam {
+        fn from(value: wasi::http0_2_0::types::ResponseOutparam) -> Self {
+            unsafe { Self::from_handle(value.take_handle()) }
+        }
+    }
+}
+
+#[cfg(feature = "define-component")]
 #[macro_export]
 macro_rules! define_component {
     ($name:ident) => {
-        // Unfortunately wit-bindgen currently requires us to generate bindings
-        // in the same crate as the component which implements the export.
-        // For now, this assumes the crate using this macro has `wit-bindgen` as a dependency
-        mod bindings {
-            $crate::wit_bindgen::generate!({
-                world: "fermyon:spin/http-trigger@3.0.0",
-                path: "../../../../wit",
-                exports: {
-                    "wasi:http/incoming-handler@0.2.0": super::Component
-                },
-            });
-        }
-
-        use bindings::exports::wasi::http0_2_0::incoming_handler::{Guest, IncomingRequest, ResponseOutparam};
+        use $crate::http_trigger_bindings::exports::wasi::http0_2_0::incoming_handler::{
+            Guest, IncomingRequest, ResponseOutparam,
+        };
         struct $name;
+
+        helper::http_trigger_bindings::export!($name);
 
         impl Guest for $name {
             fn handle(_request: IncomingRequest, response_out: ResponseOutparam) {
                 $crate::handle(response_out.into(), $name::main())
-            }
-        }
-
-        impl From<ResponseOutparam> for $crate::bindings::wasi::http0_2_0::types::ResponseOutparam {
-            fn from(value: ResponseOutparam) -> Self {
-                unsafe { Self::from_handle(value.into_handle()) }
             }
         }
     };
@@ -52,7 +54,8 @@ macro_rules! define_component {
 pub fn handle(response_out: ResponseOutparam, result: Result<(), String>) {
     let response = |status| {
         let resp = OutgoingResponse::new(Fields::new());
-        resp.set_status_code(status).expect("should have set status code");
+        resp.set_status_code(status)
+            .expect("should have set status code");
         resp
     };
     match result {
@@ -105,7 +108,9 @@ pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), ErrorCod
                         Ok(()) => {
                             offset += count;
                         }
-                        Err(e) => return Err(ErrorCode::InternalError(Some(format!("I/O error: {e}")))),
+                        Err(e) => {
+                            return Err(ErrorCode::InternalError(Some(format!("I/O error: {e}"))))
+                        }
                     }
                 }
             }

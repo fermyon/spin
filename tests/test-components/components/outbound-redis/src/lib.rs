@@ -2,7 +2,7 @@ use helper::{ensure_eq, ensure_matches, ensure_ok, ensure_some};
 
 const REDIS_ADDRESS_ENV: &str = "REDIS_ADDRESS";
 
-use bindings::fermyon::spin2_0_0::redis;
+use helper::http_trigger_bindings::fermyon::spin2_0_0::redis;
 
 helper::define_component!(Component);
 

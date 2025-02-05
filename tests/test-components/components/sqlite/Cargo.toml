@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 helper = { path = "../../helper" }
-wit-bindgen = "0.16.0"
+wit-bindgen = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]

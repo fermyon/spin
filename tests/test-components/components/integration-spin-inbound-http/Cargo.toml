@@ -8,4 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 miniserde = "0.1.36"
-wit-bindgen = "0.13"
+wit-bindgen = { workspace = true }

@@ -76,7 +76,7 @@ impl Factor for WasiFactor {
         bindings::random::random::add_to_linker_get_host(linker, closure)?;
         bindings::random::insecure::add_to_linker_get_host(linker, closure)?;
         bindings::random::insecure_seed::add_to_linker_get_host(linker, closure)?;
-        bindings::cli::exit::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::exit::add_to_linker_get_host(linker, &Default::default(), closure)?;
         bindings::cli::environment::add_to_linker_get_host(linker, closure)?;
         bindings::cli::stdin::add_to_linker_get_host(linker, closure)?;
         bindings::cli::stdout::add_to_linker_get_host(linker, closure)?;
@@ -91,7 +91,7 @@ impl Factor for WasiFactor {
         bindings::sockets::udp::add_to_linker_get_host(linker, closure)?;
         bindings::sockets::udp_create_socket::add_to_linker_get_host(linker, closure)?;
         bindings::sockets::instance_network::add_to_linker_get_host(linker, closure)?;
-        bindings::sockets::network::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::network::add_to_linker_get_host(linker, &Default::default(), closure)?;
         bindings::sockets::ip_name_lookup::add_to_linker_get_host(linker, closure)?;
 
         wasi_2023_10_18::add_to_linker(linker, closure)?;

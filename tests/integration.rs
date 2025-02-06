@@ -929,7 +929,7 @@ route = "/..."
 
         /// Make sure that the plugin is uninstalled after the test
         struct Uninstaller<'a>(&'a test_environment::TestEnvironment<()>);
-        impl<'a> Drop for Uninstaller<'a> {
+        impl Drop for Uninstaller<'_> {
             fn drop(&mut self) {
                 let mut uninstall = std::process::Command::new(spin_binary());
                 uninstall.args(["plugins", "uninstall", "example"]);

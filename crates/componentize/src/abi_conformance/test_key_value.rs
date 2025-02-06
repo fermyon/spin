@@ -3,7 +3,6 @@ use super::{
     Context, TestConfig,
 };
 use anyhow::{anyhow, ensure, Result};
-use async_trait::async_trait;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -34,7 +33,6 @@ pub(crate) struct KeyValue {
     close_set: HashSet<KvStore>,
 }
 
-#[async_trait]
 impl key_value::Host for KeyValue {
     async fn open(&mut self, name: String) -> Result<Result<KvStore, Error>> {
         Ok(self.open_map.remove(&name).ok_or_else(|| {

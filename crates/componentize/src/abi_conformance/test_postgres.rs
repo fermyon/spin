@@ -4,7 +4,6 @@ use super::{
     Context, TestConfig,
 };
 use anyhow::{ensure, Result};
-use async_trait::async_trait;
 use serde::Serialize;
 use std::{collections::HashMap, iter};
 use wasmtime::{component::InstancePre, Engine};
@@ -37,7 +36,6 @@ pub(crate) struct Postgres {
     query_map: HashMap<(String, String, String), RowSet>,
 }
 
-#[async_trait]
 impl postgres::Host for Postgres {
     async fn execute(
         &mut self,

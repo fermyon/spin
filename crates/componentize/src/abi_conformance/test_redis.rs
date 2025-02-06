@@ -3,7 +3,6 @@ use super::{
     Context, TestConfig,
 };
 use anyhow::{ensure, Result};
-use async_trait::async_trait;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use wasmtime::{component::InstancePre, Engine};
@@ -103,7 +102,6 @@ pub(crate) struct Redis {
     execute_map: HashMap<(String, String, Vec<Vec<u8>>), Vec<RedisResult>>,
 }
 
-#[async_trait]
 impl redis::Host for Redis {
     async fn publish(
         &mut self,

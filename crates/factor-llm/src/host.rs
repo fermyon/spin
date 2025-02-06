@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2};
 use tracing::field::Empty;
@@ -6,7 +5,6 @@ use tracing::{instrument, Level};
 
 use crate::InstanceState;
 
-#[async_trait]
 impl v2::Host for InstanceState {
     #[instrument(name = "spin_llm.infer", skip(self, prompt), err(level = Level::INFO), fields(otel.kind = "client", llm.backend = Empty))]
     async fn infer(
@@ -55,7 +53,6 @@ impl v2::Host for InstanceState {
     }
 }
 
-#[async_trait]
 impl v1::Host for InstanceState {
     async fn infer(
         &mut self,

@@ -1,8 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
 use spin_factors::wasmtime::component::Resource;
 use spin_factors::{anyhow, SelfInstanceBuilder};
 use spin_world::v1::sqlite as v1;
@@ -60,7 +58,6 @@ impl v2::Host for InstanceState {
     }
 }
 
-#[async_trait]
 impl v2::HostConnection for InstanceState {
     #[instrument(name = "spin_sqlite.open", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "sqlite", sqlite.backend = Empty))]
     async fn open(&mut self, database: String) -> Result<Resource<v2::Connection>, v2::Error> {
@@ -107,7 +104,6 @@ impl v2::HostConnection for InstanceState {
     }
 }
 
-#[async_trait]
 impl v1::Host for InstanceState {
     async fn open(&mut self, database: String) -> Result<u32, v1::Error> {
         let result = <Self as v2::HostConnection>::open(self, database).await;

@@ -1,17 +1,13 @@
 use super::{config, Context, TestConfig};
 use anyhow::{ensure, Result};
 use std::collections::HashMap;
-use wasmtime::{
-    component::{InstancePre, __internal::async_trait},
-    Engine,
-};
+use wasmtime::{component::InstancePre, Engine};
 
 #[derive(Default)]
 pub(super) struct Config {
     map: HashMap<String, String>,
 }
 
-#[async_trait]
 impl config::Host for Config {
     async fn get_config(&mut self, key: String) -> Result<Result<String, config::Error>> {
         Ok(self

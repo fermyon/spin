@@ -98,7 +98,7 @@ pub fn assert_spin_request<B: Into<reqwest::Body>>(
 
 struct TruncatedSlice<'a, T>(&'a [T]);
 
-impl<'a, T: std::fmt::Display> std::fmt::Display for TruncatedSlice<'a, T> {
+impl<T: std::fmt::Display> std::fmt::Display for TruncatedSlice<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("[")?;
         for item in self.0.iter().take(10) {

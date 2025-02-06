@@ -4,7 +4,6 @@ use super::{
     Context, TestConfig,
 };
 use anyhow::{ensure, Result};
-use async_trait::async_trait;
 use std::collections::HashMap;
 use wasmtime::{component::InstancePre, Engine};
 
@@ -13,7 +12,6 @@ pub(crate) struct Http {
     map: HashMap<String, String>,
 }
 
-#[async_trait]
 impl http::Host for Http {
     async fn send_request(&mut self, req: Request) -> Result<Result<Response, HttpError>> {
         Ok(self

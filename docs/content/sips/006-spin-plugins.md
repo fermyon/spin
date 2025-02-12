@@ -159,7 +159,7 @@ A Spin plugin is defined by a Spin Plugin Manifest which is a JSON file that con
                         "type": "string",
                         "enum": [
                             "linux",
-                            "osx",
+                            "macos",
                             "windows"
                         ]
                     },

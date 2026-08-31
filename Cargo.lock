@@ -8969,6 +8969,7 @@ version = "4.3.0-pre0"
 dependencies = [
  "anyhow",
  "serde",
+ "serde_json",
  "spin-common",
  "spin-dependency-wit",
  "spin-environments",
@@ -9822,6 +9823,7 @@ dependencies = [
  "tracing",
  "walkdir",
  "wasm-encoder 0.262.0",
+ "wasm-pkg-client",
  "wasmparser 0.262.0",
  "wat",
  "wit-component 0.262.0",

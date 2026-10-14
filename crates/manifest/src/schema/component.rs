@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use spin_serde::FixedVersion;
 
-use super::common::{Commands, ComponentBuildConfig, ComponentSource, WasiFilesMount};
+use super::common::{Commands, ComponentBuildConfig, ComponentSource};
 
 /// A standalone component manifest (`component.toml`).
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -145,9 +145,9 @@ pub struct ComponentRequires {
     /// The files the component is allowed to read. Each entry is either a glob
     /// pattern or a source-to-destination directory mapping.
     ///
-    /// Example: `files = ["assets/**/*", { source = "local/path", destination = "/mounted/path" }]`
+    /// Example: `files = ["/mounted/path"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub files: Vec<WasiFilesMount>,
+    pub files: Vec<String>,
 }
 
 impl ComponentRequires {

@@ -254,6 +254,34 @@ more _cough_ fully-featured build systems instead. If `spin build` embeds the
 3. Provide a command (or command option) to inject the custom section into an
    existing Wasm file built by another source. E.g. `spin build self-describe foo.wasm -f component.toml`
 
+## Upward search
+
+If you execute `spin build`, and the current directory doesn't contain a `spin.toml`,
+Spin searches up through parent directories until it finds a `spin.toml` (or
+terminates the search for reasons which do not concern us here). It's natural
+to extend this idea to allow `spin build` to stop on either a `spin.toml` or
+a `component.toml`.
+
+But suppose we do `spin.toml` modularisation, so a `spin.toml` can have `component.toml`
+files in subdirectories. (But see discussion of challenges below.) If I execute
+`spin build` from a component subdirectory, it will hit `component.toml` first, and
+build only that component.
+
+I propose that the upward search rule be:
+
+* If no file is specified to `spin build`, search upward for `spin.toml`.
+* If you find it, build it (as an app).
+* If not, search upward again, this time for `component.toml`.
+* If you find it, build it (as a standalone component).
+* Otherwise, fail.
+
+This ensures that e.g. `spin up --build` and `spin build` always pick the same thing
+to build, as the former _must_ find the `spin.toml` and build the application.
+
+(We need to evaluate that this provides a convenient experience in a "I am building a
+standalone component but have to run it in an app to test it" situation, but I
+think it will be okay.)
+
 # Local experience
 
 Again, `spin up` cannot be used with component manifests: it continues to require

@@ -6,41 +6,41 @@ use spin_manifest::{ManifestVersion, schema::v2};
 
 #[allow(clippy::large_enum_variant)] // only ever constructed once
 pub enum ManifestBuildInfo {
-    Loadable {
+    Application {
         components: Vec<ComponentBuildInfo>,
         deployment_targets: Vec<spin_manifest::schema::v2::TargetEnvironmentRef>,
         manifest: spin_manifest::schema::v2::AppManifest,
     },
+    /// A standalone component manifest (`component.toml`) describing a single
+    /// buildable component rather than a full application.
+    Component(ComponentBuildInfo),
     Unloadable {
         components: Vec<ComponentBuildInfo>,
         has_deployment_targets: bool,
         load_error: spin_manifest::Error,
     },
-    /// A standalone component manifest (`component.toml`) describing a single
-    /// buildable component rather than a full application.
-    Component { components: Vec<ComponentBuildInfo> },
 }
 
 impl ManifestBuildInfo {
     pub fn components(&self) -> Vec<ComponentBuildInfo> {
         match self {
-            Self::Loadable { components, .. } => components.clone(),
+            Self::Application { components, .. } => components.clone(),
             Self::Unloadable { components, .. } => components.clone(),
-            Self::Component { components, .. } => components.clone(),
+            Self::Component(component) => vec![component.clone()],
         }
     }
 
     pub fn load_error(&self) -> Option<&spin_manifest::Error> {
         match self {
-            Self::Loadable { .. } => None,
+            Self::Application { .. } => None,
             Self::Unloadable { load_error, .. } => Some(load_error),
-            Self::Component { .. } => None,
+            Self::Component(_) => None,
         }
     }
 
     pub fn deployment_targets<'a>(&'a self) -> spin_environments::Targets<'a> {
         match self {
-            Self::Loadable {
+            Self::Application {
                 deployment_targets,
                 components,
                 ..
@@ -55,28 +55,28 @@ impl ManifestBuildInfo {
                 }
             }
             Self::Unloadable { .. } => Default::default(),
-            Self::Component { .. } => Default::default(),
+            Self::Component(_) => Default::default(),
         }
     }
 
     pub fn has_deployment_targets(&self) -> bool {
         match self {
-            Self::Loadable {
+            Self::Application {
                 deployment_targets, ..
             } => !deployment_targets.is_empty(),
             Self::Unloadable {
                 has_deployment_targets,
                 ..
             } => *has_deployment_targets,
-            Self::Component { .. } => false,
+            Self::Component(_) => false,
         }
     }
 
     pub fn manifest(&self) -> Option<&spin_manifest::schema::v2::AppManifest> {
         match self {
-            Self::Loadable { manifest, .. } => Some(manifest),
+            Self::Application { manifest, .. } => Some(manifest),
             Self::Unloadable { .. } => None,
-            Self::Component { .. } => None,
+            Self::Component(_) => None,
         }
     }
 }
@@ -94,8 +94,8 @@ pub async fn component_build_configs(
     let manifest_text = tokio::fs::read_to_string(&manifest_file).await?;
     if spin_manifest::is_component_manifest(&manifest_text) {
         let component_manifest = spin_manifest::component_manifest_from_str(&manifest_text)?;
-        let components = vec![component_build_info(&component_manifest)];
-        return Ok(ManifestBuildInfo::Component { components });
+        let component = component_build_info(&component_manifest);
+        return Ok(ManifestBuildInfo::Component(component));
     }
 
     let manifest = spin_manifest::manifest_from_file(&manifest_file);
@@ -106,7 +106,7 @@ pub async fn component_build_configs(
             spin_manifest::normalize::normalize_manifest(&mut manifest, profile)?;
             let components = build_configs_from_manifest(&manifest);
             let deployment_targets = deployment_targets_from_manifest(&manifest);
-            Ok(ManifestBuildInfo::Loadable {
+            Ok(ManifestBuildInfo::Application {
                 components,
                 deployment_targets,
                 manifest,

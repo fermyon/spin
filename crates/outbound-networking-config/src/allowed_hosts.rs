@@ -607,27 +607,7 @@ impl OutboundUrl {
     ///
     /// If parsing `url` fails, `{scheme}://` is prepended to `url` and parsing is tried again.
     pub fn parse(url: impl Into<String>, scheme: &str) -> anyhow::Result<Self> {
-        let mut url = url.into();
-        let original = url.clone();
-
-        // Ensure that the authority is url encoded. Since the authority is ignored after this,
-        // we can always url encode the authority even if it is already encoded.
-        if let Some(at) = url.find('@') {
-            let scheme_end = url.find("://").map(|e| e + 3).unwrap_or(0);
-            let path_start = url[scheme_end..]
-                .find('/') // This can calculate the wrong index if the username or password contains a '/'
-                .map(|e| e + scheme_end)
-                .unwrap_or(usize::MAX);
-
-            if at < path_start {
-                let userinfo = &url[scheme_end..at];
-
-                let encoded = urlencoding::encode(userinfo);
-                let prefix = &url[..scheme_end];
-                let suffix = &url[scheme_end + userinfo.len()..];
-                url = format!("{prefix}{encoded}{suffix}");
-            }
-        }
+        let url = url.into();
 
         let parsed = match url::Url::parse(&url) {
             Ok(url) if url.has_host() => Ok(url),
@@ -645,13 +625,13 @@ impl OutboundUrl {
         }?;
 
         Ok(Self {
-            scheme: parsed.scheme().to_owned(),
+            scheme: parsed.scheme().to_string(),
             host: parsed
-                .host_str()
+                .host()
                 .with_context(|| format!("{url:?} does not have a host component"))?
-                .to_owned(),
+                .to_string(),
             port: parsed.port(),
-            original,
+            original: url,
         })
     }
 
@@ -778,13 +758,32 @@ mod test {
         let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
         assert_eq!("example.com", url.host);
 
-        let url = "https://user:pass#word@example.com/file@0.1.0.json";
+        let url = "https://user:pass%23word@example.com/file@0.1.0.json";
         let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
         assert_eq!("example.com", url.host);
 
         let url = "https://user:password@example.com";
         let url = OutboundUrl::parse(url, "https").expect("should have parsed url");
         assert_eq!("example.com", url.host);
+    }
+
+    #[test]
+    fn parse_url_handles_disguised_authority() {
+        let disguised = "https://evil.com#@allowed.com";
+        let url = OutboundUrl::parse(disguised, "https").expect("should have parsed disguised URL");
+        assert_eq!("evil.com", url.host);
+
+        let disguised = "https://evil.com?@allowed.com";
+        let url = OutboundUrl::parse(disguised, "https").expect("should have parsed disguised URL");
+        assert_eq!("evil.com", url.host);
+
+        let disguised = "https://evil.com#not@allowed.com";
+        let url = OutboundUrl::parse(disguised, "https").expect("should have parsed disguised URL");
+        assert_eq!("evil.com", url.host);
+
+        let disguised = "https://evil.com?not@allowed.com";
+        let url = OutboundUrl::parse(disguised, "https").expect("should have parsed disguised URL");
+        assert_eq!("evil.com", url.host);
     }
 
     #[test]
@@ -1090,12 +1089,9 @@ mod test {
     }
 
     #[test]
-    fn test_hash_char_in_db_password() {
+    fn test_encoded_chars_in_db_password() {
         let allowed =
             AllowedHostsConfig::parse(&["mysql://xyz.com"], &dummy_resolver(), &[]).unwrap();
-        assert!(
-            allowed.allows(&OutboundUrl::parse("mysql://user:pass#word@xyz.com", "mysql").unwrap())
-        );
         assert!(
             allowed.allows(
                 &OutboundUrl::parse("mysql://user%3Apass%23word@xyz.com", "mysql").unwrap()

@@ -115,6 +115,12 @@ impl OciLoader {
         component: &mut LockedComponent,
         cache: &Cache,
     ) -> Result<()> {
+        ensure!(
+            is_safe_to_join(&component.id),
+            "invalid component id {}",
+            component.id
+        );
+
         // Update wasm content path
         let wasm_digest = content_digest(&component.source.content)?;
         let wasm_path = cache.wasm_file(wasm_digest)?;
@@ -206,4 +212,95 @@ fn is_safe_to_join(path: impl AsRef<Path>) -> bool {
     path.as_ref()
         .components()
         .all(|c| matches!(c, std::path::Component::Normal(_)))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    async fn mount_test_component_assets(
+        component_id: &str,
+        working_dir: &Path,
+        cache_dir: &Path,
+    ) -> anyhow::Result<()> {
+        let loader = OciLoader::new(working_dir);
+        let cache = Cache::new(Some(cache_dir.into())).await?;
+
+        let fake_wasm = vec![1, 2, 3, 4];
+        let fake_wasm_digest = spin_common::sha256::hex_digest_from_bytes(&fake_wasm);
+        cache.write_wasm(&fake_wasm, &fake_wasm_digest).await?;
+
+        let fake_file = "some content".into();
+        let fake_file_digest = spin_common::sha256::hex_digest_from_bytes(&fake_file);
+        cache.write_data(&fake_file, &fake_file_digest).await?;
+
+        let mut component = LockedComponent {
+            id: component_id.into(),
+            metadata: Default::default(),
+            source: spin_locked_app::locked::LockedComponentSource {
+                content_type: "application/wasm".into(),
+                content: ContentRef {
+                    source: None,
+                    inline: Some(fake_wasm),
+                    digest: Some(fake_wasm_digest),
+                },
+            },
+            env: Default::default(),
+            files: vec![ContentPath {
+                content: ContentRef {
+                    source: None,
+                    inline: Some(fake_file),
+                    digest: Some(fake_file_digest),
+                },
+                path: "file.txt".into(),
+            }],
+            config: Default::default(),
+            dependencies: Default::default(),
+            trigger_dependencies: Default::default(),
+            host_requirements: Default::default(),
+        };
+
+        loader
+            .resolve_component_content_refs(&mut component, &cache)
+            .await
+    }
+
+    #[tokio::test]
+    async fn component_id_cannot_be_used_to_escape_asset_directory() -> anyhow::Result<()> {
+        let component_id = "../../crimeburger";
+
+        let base_dir = tempfile::tempdir()?;
+        let cache_dir = tempfile::tempdir()?;
+        let working_dir = base_dir.path().join("good");
+
+        let res = mount_test_component_assets(component_id, &working_dir, cache_dir.path()).await;
+
+        // Validate that the file was not written - checking the error is insufficient
+        // because it could write and then fail.
+        assert!(
+            !base_dir.path().join("crimeburger/file.txt").exists(),
+            "crimeburger file exists when it shouldn't"
+        );
+        res.expect_err("illegal component id should have caused error");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn legal_component_id_is_accepted() -> anyhow::Result<()> {
+        let component_id = "legal";
+
+        let base_dir = tempfile::tempdir()?;
+        let cache_dir = tempfile::tempdir()?;
+        let working_dir = base_dir.path().join("good");
+
+        mount_test_component_assets(component_id, &working_dir, cache_dir.path()).await?;
+
+        assert!(
+            working_dir.join("assets/legal/file.txt").exists(),
+            "file was not written when it should be"
+        );
+
+        Ok(())
+    }
 }

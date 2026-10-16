@@ -26,6 +26,7 @@ oci-client = { git = "https://github.com/oras-project/rust-oci-client", rev = "4
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 spin-common = { path = "../common" }
 spin-compose = { path = "../compose" }
 spin-loader = { path = "../loader" }

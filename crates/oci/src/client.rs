@@ -554,6 +554,20 @@ impl Client {
 
     /// Pull a Spin application from an OCI registry.
     pub async fn pull(&mut self, reference: &str) -> Result<OciImageManifest> {
+        let (manifest, _digest) = self.pull_with_digest(reference).await?;
+        Ok(manifest)
+    }
+
+    /// Pull a Spin application from an OCI registry, returning the manifest
+    /// and the manifest digest the reference resolved to.
+    ///
+    /// The manifest and locked application are cached under that digest (see
+    /// [`Client::lockfile_path`]), so pulls of different artifacts from the
+    /// same repository never overwrite each other's cached locked application.
+    pub async fn pull_with_digest(
+        &mut self,
+        reference: &str,
+    ) -> Result<(OciImageManifest, String)> {
         let reference: Reference = reference.parse().context("cannot parse reference")?;
         let auth = Self::auth(&reference).await?;
 
@@ -563,24 +577,39 @@ impl Client {
         let manifest_json = serde_json::to_string(&manifest)?;
         tracing::debug!("Pulled manifest: {}", manifest_json);
 
-        // Write the manifest in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/manifest.json`
-        let m = self.manifest_path(&reference.to_string()).await?;
-        fs::write(&m, &manifest_json).await?;
+        // The manifest and locked app are cached under the resolved digest. A
+        // reference without a digest is also cached under its tag (or `latest`)
+        // for callers that look it up by that reference.
+        let pinned = Reference::with_digest(
+            reference.registry().to_owned(),
+            reference.repository().to_owned(),
+            digest.clone(),
+        );
+        let mut cache_refs = vec![pinned.whole()];
+        if reference.digest().is_none() {
+            cache_refs.push(reference.whole());
+        }
 
         // Older published Spin apps feature the locked app config *as* the OCI manifest config layer,
         // while newer versions publish the locked app config as a generic layer alongside others.
-        // Assume that these bytes may represent the locked app config and write it as such.
-        let mut cfg_bytes = Vec::new();
+        let locked_app_descriptor = locked_app_descriptor(&manifest)?;
+        let mut locked_app_bytes = Vec::new();
         self.oci
-            .pull_blob(&reference, &manifest.config, &mut cfg_bytes)
+            .pull_blob(&reference, locked_app_descriptor, &mut locked_app_bytes)
             .await?;
-        self.write_locked_app_config(&reference.to_string(), &cfg_bytes)
-            .await
-            .context("unable to write locked app config to cache")?;
+
+        for cache_ref in &cache_refs {
+            let m = self.manifest_path(cache_ref).await?;
+            write_atomically(&m, manifest_json.as_bytes()).await?;
+            self.write_locked_app_config(cache_ref, &locked_app_bytes)
+                .await
+                .context("unable to write locked app config to cache")?;
+        }
 
         // If a layer is a Wasm module, write it in the Wasm directory.
         // Otherwise, write it in the data directory (after unpacking if archive layer)
         stream::iter(&manifest.layers)
+            .filter(|layer| future::ready(layer.media_type != SPIN_APPLICATION_MEDIA_TYPE))
             .map(|layer| {
                 let this = &self;
                 let reference = reference.clone();
@@ -597,11 +626,6 @@ impl Client {
                     let mut bytes = Vec::with_capacity(layer.size.try_into()?);
                     this.oci.pull_blob(&reference, layer, &mut bytes).await?;
                     match layer.media_type.as_str() {
-                        SPIN_APPLICATION_MEDIA_TYPE => {
-                            this.write_locked_app_config(&reference.to_string(), &bytes)
-                                .await
-                                .with_context(|| "unable to write locked app config to cache")?;
-                        }
                         WASM_LAYER_MEDIA_TYPE | WASM_LAYER_MEDIA_TYPE_WKG => {
                             this.cache.write_wasm(&bytes, &layer.digest).await?;
                         }
@@ -620,55 +644,64 @@ impl Client {
             .await?;
         tracing::info!("Pulled {}@{}", reference, digest);
 
-        Ok(manifest)
+        Ok((manifest, digest))
+    }
+
+    /// Get the cache directory for the manifest and locked app of a reference:
+    /// `<cache_root>/registry/oci/manifests/<registry>/<repository>/<segment>`, where
+    /// the segment is derived from the reference's digest if it has one, and
+    /// otherwise is its tag (or `latest`).
+    /// If the directory does not exist, this will create it.
+    async fn reference_cache_dir(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
+        let reference: Reference = reference
+            .as_ref()
+            .parse()
+            .context("cannot parse OCI reference")?;
+        let segment = match reference.digest() {
+            Some(digest) => digest_cache_segment(digest)?,
+            None => reference.tag().unwrap_or(LATEST_TAG).to_owned(),
+        };
+        let p = self
+            .cache
+            .manifests_dir()
+            .join(fs_safe_segment(reference.registry()))
+            .join(reference.repository())
+            .join(segment);
+
+        if !p.is_dir() {
+            fs::create_dir_all(&p).await.with_context(|| {
+                format!(
+                    "cannot create cache directory {} for OCI reference",
+                    p.display()
+                )
+            })?;
+        }
+
+        Ok(p)
     }
 
     /// Get the file path to an OCI manifest given a reference.
     /// If the directory for the manifest does not exist, this will create it.
     async fn manifest_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
-        let reference: Reference = reference
-            .as_ref()
-            .parse()
-            .context("cannot parse OCI reference")?;
-        let p = self
-            .cache
-            .manifests_dir()
-            .join(fs_safe_segment(reference.registry()))
-            .join(reference.repository())
-            .join(reference.tag().unwrap_or(LATEST_TAG));
-
-        if !p.is_dir() {
-            fs::create_dir_all(&p).await.with_context(|| {
-                format!("cannot create directory {} for OCI manifest", p.display())
-            })?;
-        }
-
-        Ok(p.join(MANIFEST_FILE))
+        Ok(self
+            .reference_cache_dir(reference)
+            .await?
+            .join(MANIFEST_FILE))
     }
 
-    /// Get the file path to the OCI configuration object given a reference.
+    /// Get the file path to the cached locked app configuration given a reference.
+    ///
+    /// A reference that includes a digest maps to a location keyed by that
+    /// digest. A reference without one maps to a location keyed by its tag (or
+    /// `latest`), which a later pull of the same tag overwrites even if the tag
+    /// then names a different artifact. To read the locked app of a specific
+    /// pull, pass a reference pinned to the digest returned by
+    /// [`Client::pull_with_digest`].
     pub async fn lockfile_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
-        let reference: Reference = reference
-            .as_ref()
-            .parse()
-            .context("cannot parse reference")?;
-        let p = self
-            .cache
-            .manifests_dir()
-            .join(fs_safe_segment(reference.registry()))
-            .join(reference.repository())
-            .join(reference.tag().unwrap_or(LATEST_TAG));
-
-        if !p.is_dir() {
-            fs::create_dir_all(&p)
-                .await
-                .context("cannot find configuration object for reference")?;
-        }
-
-        Ok(p.join(CONFIG_FILE))
+        Ok(self.reference_cache_dir(reference).await?.join(CONFIG_FILE))
     }
 
-    /// Write the config object in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/config.json`
+    /// Write the locked app config in the cache location of the given reference (see [`Client::lockfile_path`]).
     async fn write_locked_app_config(
         &self,
         reference: impl AsRef<str>,
@@ -678,7 +711,7 @@ impl Client {
         tracing::debug!("Pulled config: {}", cfg);
 
         let c = self.lockfile_path(reference).await?;
-        fs::write(&c, &cfg).await.map_err(anyhow::Error::from)
+        write_atomically(&c, cfg.as_bytes()).await
     }
 
     /// Create a new wasm layer based on a file.
@@ -1031,6 +1064,86 @@ fn portable_path(rel_path: &Path) -> PathBuf {
 #[cfg(not(target_os = "windows"))]
 fn portable_path(rel_path: &Path) -> PathBuf {
     rel_path.into()
+}
+
+/// Returns the descriptor of the blob holding the locked app config: the
+/// locked app layer if the manifest has one, otherwise the manifest config
+/// (older published Spin apps, and Wasm packages).
+pub(crate) fn locked_app_descriptor(
+    manifest: &OciImageManifest,
+) -> Result<&oci_client::manifest::OciDescriptor> {
+    let mut app_layers = manifest
+        .layers
+        .iter()
+        .filter(|layer| layer.media_type == SPIN_APPLICATION_MEDIA_TYPE);
+    match (app_layers.next(), app_layers.next()) {
+        (None, _) => Ok(&manifest.config),
+        (Some(layer), None) => Ok(layer),
+        (Some(_), Some(_)) => bail!("OCI manifest contains more than one locked app layer"),
+    }
+}
+
+/// Checks that `content` matches `digest` (`<algorithm>:<hex>`).
+pub(crate) fn verify_digest(content: &[u8], digest: &str) -> Result<()> {
+    use sha2::Digest;
+
+    let Some((algorithm, expected)) = digest.split_once(':') else {
+        bail!("invalid digest {digest:?}");
+    };
+    let actual = match algorithm {
+        "sha256" => format!("{:x}", sha2::Sha256::digest(content)),
+        "sha384" => format!("{:x}", sha2::Sha384::digest(content)),
+        "sha512" => format!("{:x}", sha2::Sha512::digest(content)),
+        _ => bail!("unsupported digest algorithm in {digest:?}"),
+    };
+    if actual != expected {
+        bail!("content does not match digest {digest} (found {algorithm}:{actual})");
+    }
+    Ok(())
+}
+
+/// Returns the cache path segment for a manifest digest. The segment starts
+/// with `@`, which a tag cannot contain, so a digest location never coincides
+/// with the location of a tag in the same repository.
+fn digest_cache_segment(digest: &str) -> Result<String> {
+    let valid = digest.split_once(':').is_some_and(|(algorithm, encoded)| {
+        !algorithm.is_empty()
+            && !encoded.is_empty()
+            && algorithm
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"+._-".contains(&b))
+            && encoded
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"=_-".contains(&b))
+    });
+    if !valid {
+        bail!("invalid manifest digest {digest:?}");
+    }
+    Ok(format!("@{}", digest.replace(':', "_")))
+}
+
+/// Writes `bytes` to `path` through a temporary file in the same directory
+/// that is then renamed over `path`, so a concurrent reader sees either the
+/// previous content or the new content, never a partial file.
+async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
+    let dir = path
+        .parent()
+        .with_context(|| format!("{} has no parent directory", quoted_path(path)))?;
+    // Create the file with mode 0666 less the umask, as `fs::write` would,
+    // rather than tempfile's default of 0600.
+    let mut builder = tempfile::Builder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o666));
+    }
+    let tmp = builder
+        .tempfile_in(dir)
+        .with_context(|| format!("cannot create temporary file in {}", quoted_path(dir)))?;
+    fs::write(tmp.path(), bytes).await?;
+    tmp.persist(path)
+        .with_context(|| format!("cannot write {}", quoted_path(path)))?;
+    Ok(())
 }
 
 /// Takes a string intended for use as part of a path and makes it
@@ -1726,5 +1839,121 @@ mod test {
                 .expect("should have authors annotation"),
             "explicit authors should have taken precedence"
         );
+    }
+
+    const DIGEST_A: &str =
+        "sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f";
+    const DIGEST_B: &str =
+        "sha256:1b867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f";
+
+    fn descriptor(media_type: &str, digest: &str) -> oci_client::manifest::OciDescriptor {
+        oci_client::manifest::OciDescriptor {
+            media_type: media_type.to_owned(),
+            digest: digest.to_owned(),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn lockfile_path_is_keyed_by_digest() -> anyhow::Result<()> {
+        let cache_dir = tempfile::tempdir()?;
+        let client = Client::new(false, Some(cache_dir.path().to_owned())).await?;
+        let repo = "example.com/org/app";
+
+        let a = client.lockfile_path(format!("{repo}@{DIGEST_A}")).await?;
+        let b = client.lockfile_path(format!("{repo}@{DIGEST_B}")).await?;
+        let latest = client.lockfile_path(repo).await?;
+        let tagged = client.lockfile_path(format!("{repo}:v1")).await?;
+        let tagged_and_pinned = client
+            .lockfile_path(format!("{repo}:v1@{DIGEST_A}"))
+            .await?;
+
+        // Different artifacts from one repository never share a location, and a
+        // digest location is distinct from the tag and `latest` locations.
+        assert_ne!(a, b);
+        assert_ne!(a, latest);
+        assert_ne!(a, tagged);
+        assert_ne!(b, latest);
+        // A reference with both a tag and a digest is located by its digest.
+        assert_eq!(a, tagged_and_pinned);
+        assert!(a.ends_with(format!("@{}/{CONFIG_FILE}", DIGEST_A.replace(':', "_"))));
+        Ok(())
+    }
+
+    #[test]
+    fn digest_cache_segment_rejects_unsafe_digests() {
+        assert_eq!(
+            digest_cache_segment(DIGEST_A).unwrap(),
+            format!("@{}", DIGEST_A.replace(':', "_"))
+        );
+        for digest in [
+            "",
+            "sha256",
+            "sha256:",
+            ":abc",
+            "sha256:../../etc",
+            "sha256:abc/def",
+            "sha256:abc\\def",
+            "../sha256:abc",
+            "SHA256:abc",
+        ] {
+            assert!(
+                digest_cache_segment(digest).is_err(),
+                "digest {digest:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn locked_app_descriptor_prefers_locked_app_layer() {
+        let mut manifest = OciImageManifest {
+            config: descriptor("application/vnd.oci.image.config.v1+json", DIGEST_A),
+            layers: vec![descriptor(WASM_LAYER_MEDIA_TYPE, DIGEST_A)],
+            ..Default::default()
+        };
+        // Older apps and Wasm packages: the config blob holds the locked app.
+        assert_eq!(locked_app_descriptor(&manifest).unwrap().digest, DIGEST_A);
+
+        manifest
+            .layers
+            .push(descriptor(SPIN_APPLICATION_MEDIA_TYPE, DIGEST_B));
+        assert_eq!(locked_app_descriptor(&manifest).unwrap().digest, DIGEST_B);
+
+        manifest
+            .layers
+            .push(descriptor(SPIN_APPLICATION_MEDIA_TYPE, DIGEST_A));
+        locked_app_descriptor(&manifest).expect_err("two locked app layers are ambiguous");
+    }
+
+    #[test]
+    fn verify_digest_checks_content() {
+        let content = b"locked app";
+        let sha256 = format!("sha256:{}", sha256::hex_digest_from_bytes(content));
+        verify_digest(content, &sha256).unwrap();
+        verify_digest(b"other app", &sha256).expect_err("content differs");
+        verify_digest(content, DIGEST_A).expect_err("content differs");
+        verify_digest(content, "md5:0123").expect_err("unsupported algorithm");
+        verify_digest(content, "0123").expect_err("missing algorithm");
+    }
+
+    #[tokio::test]
+    async fn write_atomically_replaces_content() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join(CONFIG_FILE);
+        write_atomically(&path, b"first").await?;
+        write_atomically(&path, b"second").await?;
+        assert_eq!(std::fs::read(&path)?, b"second");
+        // No temporary file is left behind.
+        assert_eq!(std::fs::read_dir(dir.path())?.count(), 1);
+        // The file gets the mode `fs::write` would give it, not 0600.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let reference = dir.path().join("reference");
+            std::fs::write(&reference, b"")?;
+            let expected = std::fs::metadata(&reference)?.permissions().mode();
+            assert_eq!(std::fs::metadata(&path)?.permissions().mode(), expected);
+        }
+        Ok(())
     }
 }

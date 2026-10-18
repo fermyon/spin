@@ -7,7 +7,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use crate::fs::{create_dir_all, write_file};
+use crate::fs::{create_dir_all, write_file_atomically};
 
 const CONFIG_DIR: &str = "spin";
 const REGISTRY_CACHE_DIR: &str = "registry";
@@ -89,14 +89,14 @@ impl Cache {
     /// Write the contents in the cache's wasm directory.
     pub async fn write_wasm(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
         self.ensure_dirs().await?;
-        write_file(&self.wasm_path(digest), bytes.as_ref()).await?;
+        write_file_atomically(&self.wasm_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
     /// Write the contents in the cache's data directory.
     pub async fn write_data(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
         self.ensure_dirs().await?;
-        write_file(&self.data_path(digest), bytes.as_ref()).await?;
+        write_file_atomically(&self.data_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
@@ -187,6 +187,35 @@ mod test {
         let digest = format!("sha256:{}", hex_digest_from_bytes(data));
         cache.write_data(data, &digest).await?;
         assert_eq!(data, std::fs::read(cache.data_path(&digest))?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn writes_leave_no_temporary_files() -> anyhow::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let cache = Cache::new(Some(temp_dir.path().to_owned())).await?;
+
+        let wasm = "Wasm".as_bytes();
+        let digest = format!("sha256:{}", hex_digest_from_bytes(wasm));
+        // Writing the same content again replaces it in place.
+        cache.write_wasm(wasm, &digest).await?;
+        cache.write_wasm(wasm, &digest).await?;
+        assert_eq!(wasm, std::fs::read(cache.wasm_file(&digest)?)?);
+        assert_eq!(std::fs::read_dir(cache.wasm_dir())?.count(), 1);
+
+        // The file gets the mode `std::fs::write` would give it, not 0600.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let reference = temp_dir.path().join("reference");
+            std::fs::write(&reference, b"")?;
+            let expected = std::fs::metadata(&reference)?.permissions().mode();
+            let actual = std::fs::metadata(cache.wasm_path(&digest))?
+                .permissions()
+                .mode();
+            assert_eq!(actual, expected);
+        }
 
         Ok(())
     }

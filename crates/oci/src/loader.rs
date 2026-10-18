@@ -7,6 +7,7 @@ use spin_common::ui::quoted_path;
 use spin_loader::cache::Cache;
 use spin_locked_app::locked::{ContentPath, ContentRef, LockedApp, LockedComponent};
 
+use crate::client::{locked_app_descriptor, verify_digest};
 use crate::{Client, ORIGIN_URL_SCHEME};
 
 /// OciLoader loads an OCI app in preparation for running with Spin.
@@ -37,13 +38,20 @@ impl OciLoader {
         reference: &str,
     ) -> Result<ExecutableArtifact> {
         // Fetch app
-        let manifest = client.pull(reference).await.with_context(|| {
+        let (manifest, digest) = client.pull_with_digest(reference).await.with_context(|| {
             format!("cannot pull Spin application from registry reference {reference:?}")
         })?;
 
-        // Read locked app
+        // Read the locked app cached for the pulled digest. The location for the
+        // reference as given may hold another artifact if the reference is a tag.
+        let parsed = Reference::try_from(reference).context("invalid reference")?;
+        let pinned = Reference::with_digest(
+            parsed.registry().to_owned(),
+            parsed.repository().to_owned(),
+            digest,
+        );
         let lockfile_path = client
-            .lockfile_path(&reference)
+            .lockfile_path(pinned.whole())
             .await
             .context("cannot get path to spin.lock")?;
         self.load_from_cache(manifest, lockfile_path, reference, &client.cache)
@@ -61,6 +69,13 @@ impl OciLoader {
         let locked_content = tokio::fs::read(&lockfile_path)
             .await
             .with_context(|| format!("failed to read from {}", quoted_path(&lockfile_path)))?;
+        let locked_app_descriptor = locked_app_descriptor(&manifest)?;
+        verify_digest(&locked_content, &locked_app_descriptor.digest).with_context(|| {
+            format!(
+                "{} is not the locked app of {reference:?}",
+                quoted_path(&lockfile_path)
+            )
+        })?;
         let locked_json: serde_json::Value = serde_json::from_slice(&locked_content)
             .with_context(|| format!("OCI config {} is not JSON", quoted_path(&lockfile_path)))?;
 
@@ -218,6 +233,31 @@ fn is_safe_to_join(path: impl AsRef<Path>) -> bool {
 mod test {
     use super::*;
 
+    fn locked_app_json(component: &str) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "spin_lock_version": 1,
+            "metadata": { "name": component },
+            "triggers": [],
+            "components": [],
+        }))
+        .unwrap()
+    }
+
+    fn manifest_with_locked_app(locked_app: &[u8]) -> oci_client::manifest::OciImageManifest {
+        let digest = format!(
+            "sha256:{}",
+            spin_common::sha256::hex_digest_from_bytes(locked_app)
+        );
+        oci_client::manifest::OciImageManifest {
+            layers: vec![oci_client::manifest::OciDescriptor {
+                media_type: crate::client::SPIN_APPLICATION_MEDIA_TYPE.to_owned(),
+                digest,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
     async fn mount_test_component_assets(
         component_id: &str,
         working_dir: &Path,
@@ -263,6 +303,49 @@ mod test {
         loader
             .resolve_component_content_refs(&mut component, &cache)
             .await
+    }
+
+    #[tokio::test]
+    async fn locked_app_of_another_artifact_is_rejected() -> anyhow::Result<()> {
+        let working_dir = tempfile::tempdir()?;
+        let cache_dir = tempfile::tempdir()?;
+        let cache = Cache::new(Some(cache_dir.path().into())).await?;
+        let loader = OciLoader::new(working_dir.path());
+        let reference = "example.com/org/app@sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f";
+
+        let requested = locked_app_json("requested");
+        let lockfile_path = working_dir.path().join("config.json");
+
+        // The cached locked app belongs to another artifact.
+        std::fs::write(&lockfile_path, locked_app_json("other"))?;
+        let err = loader
+            .load_from_cache(
+                manifest_with_locked_app(&requested),
+                lockfile_path.clone(),
+                reference,
+                &cache,
+            )
+            .await
+            .err()
+            .expect("a locked app that does not match the manifest should be rejected");
+        assert!(
+            format!("{err:#}").contains("is not the locked app of"),
+            "unexpected error: {err:#}"
+        );
+
+        // The cached locked app is the requested one.
+        std::fs::write(&lockfile_path, &requested)?;
+        let artifact = loader
+            .load_from_cache(
+                manifest_with_locked_app(&requested),
+                lockfile_path,
+                reference,
+                &cache,
+            )
+            .await?;
+        assert!(matches!(artifact, ExecutableArtifact::Application(_)));
+
+        Ok(())
     }
 
     #[tokio::test]

@@ -484,6 +484,12 @@ Considerations for this:
 - **Split out the requirements embedder.** So that developers can build the Wasm
   binary with their favourite build tool, then add the requirements from the manifest,
   rather than being forced to use `spin build`.
+- **Remap requirements.** The component wants to talk to `evil.com`? Let's pretend
+  to allow that, but redirect its traffic to `spy-on-the-varlets.net`. The component
+  wants to use the `default` SQLite DB but we are already using that for other
+  purposes? Let's pretend to allow that, but remap `open` calls to
+  a separate SQLite DB. The component _thinks_ it has the capabilities it asked for,
+  but behind the scenes the operator is fulfilling them using other resources.
 
 # Alternatives considered
 

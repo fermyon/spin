@@ -347,6 +347,34 @@ Pulled component mycomponents:github-oauth@0.1.0 to github-oauth.wasm
 - `--output` selects where the component Wasm is written; it defaults to
   `<name>.wasm` in the current directory.
 
+## Previous grants and the update experience
+
+We intend that users should be able to `spin deps add` these binary components,
+and the UI should use the binary `requires` metadata to guide permission
+prompts. But what should happen when the user updates an existing dependency?
+
+@tschneidereit has noted that this is a security decision, and has proposed that
+we should avoid asking users to re-make that security decision every time.
+They should be able to make it once, with very serious people from compliance
+looking over their shoulders: Spin should not ask them to get it right time
+and time again.
+
+Now, the answer today is that the only way to upgrade a dep is by editing `spin.toml`,
+as `spin deps add` only handles initial installation, so you implicitly
+inherit the previous set of grants. Even in a future CLI, we can use the `spin.toml`
+as the source of positive grants. However, this loses information about what
+grants were requested, and what requests were denied, which would lead to
+those denied requests being suggested again. And since one of those requests
+is for outbound access to `evil.com`, that gives the user an opportunity to err.
+
+Till's proposed solution to this is a lockfile which snapshots the requests,
+grants, and denials. This would allow us to ask the user only about requests which
+are truly new.
+
+(I propose that this be out of scope on day one as this project is already
+becoming a bit "boil the ocean." It can be part of future work on the `spin deps`
+command.)
+
 # Open question: integration with `spin.toml`
 
 There are two scenarios for referencing component manifests from `spin.toml`:
@@ -392,6 +420,44 @@ what it says in the component" and our main `spin.toml` barely gets shorter at a
 
 TLDR: I don't think we have a good answer to this yet. The two scenarios seem
 naggingly similar but... maybe they're not?
+
+## `requires` as defaults
+
+@tschneidereit has suggested the following arrangement:
+
+* In the context of a binary reference (i.e. a library component), the
+  `[requires]` table is treated as a set of untrusted requests, and
+  only the application may grant to grant those permissions (and it must do
+  so explicitly).
+* In the context of a local `component.toml` reference (i.e. an app
+  component, modularised out to its own directory), the `[requires]` table
+  is treated as a set of defaults, which are considered trustworthy (that is, the
+  `component.toml` grants itself those capabilities), but which
+  the application may override for reasons of its own.
+
+Considerations for this:
+
+* It makes the `requires` naming a bit weird, since in the local context they are
+  not statements of requirement, but grants.  Perhaps `[capabilities]` would do? I am
+  not sure.
+* What does it mean for testing library components? When testing a library you want to cover
+  component behaviour in the absence of its requirements; you don't want it going "oh
+  I will just give myself what I need then." (Maybe that test case is handled by an
+  app overriding it with empty capabilities.)
+* Users may also find it surprising that binary and local references behave differently.
+  I am slightly concerned that a malicious library developer might persuade an app
+  developer to use a local version (e.g. to test a bug fix) without the app developer
+  realising this brings it inside the trust boundary. (This could be mitigated by saying
+  that _any_ app-level capability grant overrides _all_ component claims, but the
+  ergonomics of that may be sub-optimal in the "modularisation" scenario. Till's
+  proposed lockfile may also help with this.)
+* How to handle the `files` capability. App component `files` mounts files from
+  specific sources on the host filesystem into the guest; library component `files`
+  lists files/directories that should be present in the guest, but cannot say
+  where those should be sourced from. So there is a difference in syntax. It's possible
+  this may sort itself out when we do virtual assets, at which point a library component
+  can bring its own file-like static data (e.g. a login page and associated stylesheet)
+  while still allowing it to be overridden.
 
 # Relationship to other SIPs
 

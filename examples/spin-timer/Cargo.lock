@@ -1246,7 +1246,8 @@ dependencies = [
 [[package]]
 name = "cranelift-assembler-x64"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3307701abcb90554ee72fdb0db36ee0334a4abe380c4d87a5b04a6942613c3a"
 dependencies = [
  "cranelift-assembler-x64-meta",
 ]
@@ -1254,7 +1255,8 @@ dependencies = [
 [[package]]
 name = "cranelift-assembler-x64-meta"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e62d0e19f9f5fa0c4243236df1ffdf139d207600b4402ac41ceba8dbe7ca0f3d"
 dependencies = [
  "cranelift-srcgen",
 ]
@@ -1262,7 +1264,8 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47784bc3c4b57c0182bb8ff04aae5d5f5fc6bae8ba26b1212c9a659b90dab84e"
 dependencies = [
  "cranelift-entity",
  "wasmtime-internal-core",
@@ -1271,7 +1274,8 @@ dependencies = [
 [[package]]
 name = "cranelift-bitset"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e13d120406f713dbce1940751e77bbb14daad1261379b7200c19285953e79a1d"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1281,7 +1285,8 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a53dbec33ff86909e44be6f0ec2d17841aa38b931013707c9fc7279f1f0e5760"
 dependencies = [
  "bumpalo",
  "cranelift-assembler-x64",
@@ -1311,7 +1316,8 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42295b38e9182954cb32a71812e3d64d66a90efc0a2ababb73e465ad4a1efccf"
 dependencies = [
  "cranelift-assembler-x64-meta",
  "cranelift-codegen-shared",
@@ -1323,12 +1329,14 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5200fa877fb64cd30cabe0603f394333f88f69adf63e4db8d48a111d0c9d0dd"
 
 [[package]]
 name = "cranelift-control"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b86250e480795fbb4425ea703bca7b75282998458ce74f5360843a31949f2bbc"
 dependencies = [
  "arbitrary",
 ]
@@ -1336,7 +1344,8 @@ dependencies = [
 [[package]]
 name = "cranelift-entity"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "903c6592c7d600c251d20929f143543b7303ac70b072ad3394d65b29caf56f69"
 dependencies = [
  "cranelift-bitset",
  "serde",
@@ -1347,7 +1356,8 @@ dependencies = [
 [[package]]
 name = "cranelift-frontend"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b929f09b82a270e2aae062945cf86cd9db39c59ad9bead6986ea6b09fcf8a969"
 dependencies = [
  "cranelift-codegen",
  "hashbrown 0.17.1",
@@ -1359,12 +1369,14 @@ dependencies = [
 [[package]]
 name = "cranelift-isle"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c5809e8636a37e5a25ecc35242d33d6e7391c49b67488b83446e2898af2a2f"
 
 [[package]]
 name = "cranelift-native"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "815c559daf605a5b4ea35530604643c1e87504353c0d1a14763f9c2b9d518493"
 dependencies = [
  "cranelift-codegen",
  "libc",
@@ -1375,7 +1387,8 @@ dependencies = [
 [[package]]
 name = "cranelift-srcgen"
 version = "0.137.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d633ff621e7f31a943431da0d7dd37c4376766c60bd7171216de1c7ccabfb370"
 
 [[package]]
 name = "crc32fast"
@@ -3787,7 +3800,8 @@ dependencies = [
 [[package]]
 name = "pulley-interpreter"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6af498fa3ca312fe5a07178757781059b75a331f24d53aeb3706e51ad73317bd"
 dependencies = [
  "cranelift-bitset",
  "log",
@@ -3798,7 +3812,8 @@ dependencies = [
 [[package]]
 name = "pulley-macros"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0ba9959a3a286b7a2fb16466b7d1a804a117f81a98b7ac6d86cabd5ba037f3d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6888,7 +6903,8 @@ dependencies = [
 [[package]]
 name = "wasmtime"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d93539aae382faee7b19650fd966f1f8185599b9cc4adc0a5a8b8f768c11ba9"
 dependencies = [
  "addr2line",
  "async-trait",
@@ -6940,7 +6956,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-environ"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34fd44c205ef29cc3c254253dceb916be586887602e0e380361ed022776cfc10"
 dependencies = [
  "anyhow",
  "cpp_demangle",
@@ -6969,7 +6986,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-cache"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "067440fa60ddd5145840e0335ffe0ab4d908a021932b6844c3ad61570abddfef"
 dependencies = [
  "base64 0.22.1",
  "directories-next",
@@ -6988,7 +7006,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-component-macro"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adf0938f1a0f067a60aa07a7f4369fae05ef227314aca64c1abc7b2dc5e80743"
 dependencies = [
  "anyhow",
  "proc-macro2",
@@ -7002,12 +7021,14 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-component-util"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2626398b21bf4b1547fdbadc68afd5cbe69c89ca2a1d6c45fd56fd3b28177b93"
 
 [[package]]
 name = "wasmtime-internal-core"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83d4ac46034b149aed44335595402503094a04e3b70d0cff8c169d83437318b8"
 dependencies = [
  "anyhow",
  "hashbrown 0.17.1",
@@ -7018,7 +7039,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-cranelift"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f496bf29d3f2a1d060e0a497a20bfba2a36befe80bdf3e640ba8d3dcab7df35"
 dependencies = [
  "cranelift-codegen",
  "cranelift-control",
@@ -7043,7 +7065,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-fiber"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2074dc297d5ec7f0cfff65c248798dfe4bbee4d760fc2956cc0eaf49d2eadef1"
 dependencies = [
  "cc",
  "libc",
@@ -7056,7 +7079,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-jit-debug"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e990e2fb7710dd73af071ecf60908072935be7a5c689b4a07e9a2adc7995151"
 dependencies = [
  "cc",
  "object",
@@ -7067,7 +7091,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-jit-icache-coherence"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf25a1b3b925915f845927967554400554db9cebd3a7038a6fca0cf6e9bbaf6a"
 dependencies = [
  "libc",
  "wasmtime-internal-core",
@@ -7077,7 +7102,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-unwinder"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e69eb39fe5baf9e181269e6ced40f407d31afc8e514864e228ef0e087f4f5348"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -7088,7 +7114,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-versioned-export-macros"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a805a26effdf564820580b7c4ce1c00fdee3f4a9465a5aeef944f9e0c254ec2e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7098,7 +7125,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-internal-wit-bindgen"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8511353a609cd60bb91c85f96beef39a63e96ccdc20eb20af1da9b805c499ece"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -7111,7 +7139,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-wasi"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed63d0061d45fdf32d8f47913845491395a6918e5b4bee51d1910c3777bcbaca"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -7133,7 +7162,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-wasi-http"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc344236952fbd212ce75fea430207783603669661f6634deff84dbc63ec13c0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -7158,7 +7188,8 @@ dependencies = [
 [[package]]
 name = "wasmtime-wasi-io"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "273d9f9178b9415fba5a1b84d6634e82a1d95b5a0b657bd12d90a7d1073d27e0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -7261,7 +7292,8 @@ dependencies = [
 [[package]]
 name = "wiggle"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "028cb8da5fd85d7b77684a990d54e66963939ddb5829334d8f7b11e4640f8109"
 dependencies = [
  "bitflags",
  "thiserror 2.0.20",
@@ -7274,7 +7306,8 @@ dependencies = [
 [[package]]
 name = "wiggle-generate"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f27d5dbfe2ddd0ccb850e6ce8ab0639ed326f44d53acdc1193770c4008a65cd"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -7287,7 +7320,8 @@ dependencies = [
 [[package]]
 name = "wiggle-macro"
 version = "50.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?branch=release-50.0.0#ebe5e8df1f4e12c5fc2f5954926881d8d61367d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0ae0f398e1b68b4d9947ebff55e9bf14a6ecb98e7666f08497058058a793a66"
 dependencies = [
  "proc-macro2",
  "quote",

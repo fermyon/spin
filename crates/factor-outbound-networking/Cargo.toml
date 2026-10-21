@@ -26,7 +26,7 @@ tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 url = { workspace = true }
-webpki-root-certs = "1.0.7"
+webpki-root-certs = "1.0.10"
 
 [dev-dependencies]
 async-trait = { workspace = true }

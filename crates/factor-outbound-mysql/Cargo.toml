@@ -13,7 +13,7 @@ anyhow = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 # Removing default features for mysql_async to remove flate2/zlib feature
-mysql_async = { version = "0.35", default-features = false, features = [
+mysql_async = { version = "0.37", default-features = false, features = [
   "minimal-rust",
   "native-tls-tls",
 ] }

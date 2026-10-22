@@ -54,7 +54,7 @@ uuid = { version = "1.0", features = ["v4"] }
 wasm-pkg-client = { workspace = true }
 watchexec = "8.0"
 watchexec-events = "6.0"
-watchexec-filterer-globset = "8.0"
+watchexec-filterer-globset = "8.0.6"
 
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
@@ -204,8 +204,8 @@ tracing-opentelemetry = { version = "0.30", default-features = false, features =
 walkdir = "2"
 wac-graph = "0.11.0"
 wac-types = "0.11.0"
-wasm-pkg-client = "0.11"
-wasm-pkg-common = "0.11"
+wasm-pkg-client = "0.16"
+wasm-pkg-common = "0.16"
 # Dependencies from bytecodealliance/wasmtime
 wasmtime = "50.0.0"
 wasmtime-wasi = { version = "50.0.0", features = ["p3"] }

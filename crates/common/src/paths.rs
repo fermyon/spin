@@ -8,13 +8,25 @@ use crate::ui::quoted_path;
 /// The name given to the default manifest file.
 pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 
-/// Attempts to find a manifest. If a path is provided, that path is resolved
-/// using `resolve_manifest_file_path`; otherwise, a directory search is carried out
-/// using `search_upwards_for_manifest`. If we had to search, and a manifest is found,
-/// a (non-zero) usize is returned indicating how far above the current directory it
-/// was found. (A usize of 0 indicates that the manifest was provided or found
-/// in the current directory.) This can be used to notify the user that a
-/// non-default manifest is being used.
+/// The name given to the default standalone component manifest file.
+pub const DEFAULT_COMPONENT_MANIFEST_FILE: &str = "component.toml";
+
+/// The manifest filenames considered by commands that can operate on either an
+/// application manifest or a standalone component manifest (such as `spin build`,
+/// and, in future, the registry commands). Listed in order of preference: an
+/// application manifest (`spin.toml`), then a component manifest (`component.toml`).
+const APP_OR_COMPONENT_MANIFEST_CANDIDATES: &[&str] =
+    &[DEFAULT_MANIFEST_FILE, DEFAULT_COMPONENT_MANIFEST_FILE];
+
+/// Attempts to find an app manifest. If a file path is provided, that
+/// path is used; if a directory path is provided, it is checked for `spin.toml`;
+/// otherwise, a directory search is carried out, looking for `spin.toml`.
+/// 
+/// The return value contains the found file path, along with a `usize`.
+/// If a file or irectory was provided, or the manifest was found in the current
+/// directory, the `usize` is 0.  If we had to search upwards, the `usize`
+/// indicates how far above the current directory it was found. This can be used to
+/// notify the user that a non-default manifest is being used.
 pub fn find_manifest_file_path(
     provided_path: Option<impl AsRef<Path>>,
 ) -> Result<(PathBuf, usize)> {
@@ -25,23 +37,65 @@ pub fn find_manifest_file_path(
     }
 }
 
+/// Attempts to find an app or component manifest. If a file path is provided, that
+/// path is used; if a directory path is provided, it is checked for `spin.toml` or
+/// `component.toml`; otherwise, a directory search is carried out, first looking for
+/// `spin.toml` and then, if no `spin.toml` is found, looking for `component.toml`.
+/// 
+/// The return value contains the found file path, along with a `usize`.
+/// If a file or irectory was provided, or the manifest was found in the current
+/// directory, the `usize` is 0.  If we had to search upwards, the `usize`
+/// indicates how far above the current directory it was found. This can be used to
+/// notify the user that a non-default manifest is being used.
+pub fn find_app_or_component_manifest_file_path(
+    provided_path: Option<impl AsRef<Path>>,
+) -> Result<(PathBuf, usize)> {
+    match provided_path {
+        Some(provided_path) => resolve_manifest_file_path_at(provided_path, APP_OR_COMPONENT_MANIFEST_CANDIDATES).map(|p| (p, 0)),
+        None => {
+            search_upwards_for_file(DEFAULT_MANIFEST_FILE).or_else(||
+                search_upwards_for_file(DEFAULT_COMPONENT_MANIFEST_FILE)
+            ).ok_or_else(||
+                    anyhow!("\"{}\" not found", DEFAULT_MANIFEST_FILE))
+        }
+    }
+}
+
 /// Resolves a manifest path provided by a user, which may be a file or
 /// directory, to a path to a manifest file.
 pub fn resolve_manifest_file_path(provided_path: impl AsRef<Path>) -> Result<PathBuf> {
+    resolve_manifest_file_path_at(provided_path, &[DEFAULT_MANIFEST_FILE])
+}
+
+/// Resolves a manifest path provided by a user, which may be a file or
+/// directory. If the path is a file, it is returned. If the path is a
+/// directory, it is checked for the candidate file names: the first one found
+/// is returned. If none of the candidate file names exist in the directory,
+/// an error is returned.
+fn resolve_manifest_file_path_at(
+    provided_path: impl AsRef<Path>,
+    candidates: &[&str],
+) -> Result<PathBuf> {
     let path = provided_path.as_ref();
 
     if path.is_file() {
         Ok(path.to_owned())
     } else if path.is_dir() {
-        let file_path = path.join(DEFAULT_MANIFEST_FILE);
-        if file_path.is_file() {
-            Ok(file_path)
-        } else {
-            Err(anyhow!(
-                "Directory {} does not contain a file named 'spin.toml'",
-                path.display()
-            ))
+        for candidate in candidates {
+            let file_path = path.join(candidate);
+            if file_path.is_file() {
+                return Ok(file_path);
+            }
         }
+        Err(anyhow!(
+            "Directory {} does not contain a file named {}",
+            path.display(),
+            candidates
+                .iter()
+                .map(|c| format!("'{c}'"))
+                .collect::<Vec<_>>()
+                .join(" or ")
+        ))
     } else {
         let pd = path.display();
         let err = match path.try_exists() {
@@ -65,7 +119,21 @@ pub fn resolve_manifest_file_path(provided_path: impl AsRef<Path>) -> Result<Pat
 /// The search is abandoned if it reaches the root directory, or the
 /// root of a Git repository, without finding a 'spin.toml'.
 pub fn search_upwards_for_manifest() -> Option<(PathBuf, usize)> {
-    let candidate = PathBuf::from(DEFAULT_MANIFEST_FILE);
+    search_upwards_for_file(DEFAULT_MANIFEST_FILE)
+}
+
+/// Starting from the current directory, searches upward through
+/// the directory tree for a file with the given name. If found, the path to the file
+/// is returned, with a usize indicating how far above the current directory it
+/// was found. (A usize of 0 indicates that the file was provided or found
+/// in the current directory.) This can be used to notify the user that a
+/// non-default file is being used.
+/// If no matching file is found, the function returns None.
+///
+/// The search is abandoned if it reaches the root directory, or the
+/// root of a Git repository, without finding a file with the given name.
+pub fn search_upwards_for_file(file_name: &str) -> Option<(PathBuf, usize)> {
+    let candidate = PathBuf::from(file_name);
 
     if candidate.is_file() {
         return Some((candidate, 0));
